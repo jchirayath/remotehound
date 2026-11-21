@@ -1,0 +1,243 @@
+/**
+ * Icon registry (CORE-13, THEME-5) — the ONLY place SVG is built in the UI.
+ *
+ * Contract:
+ *  - `icon(name, opts)` returns an <svg> element for a semantic name from design/icons.json
+ *    (e.g. 'action.delete', 'domain.service.rdp'). Unknown names throw in dev so typos surface.
+ *  - Size comes from the icon size tokens (`size: 'sm'|'md'|'lg'|'xl'` → class `icon--<size>`).
+ *  - Decorative by default (aria-hidden). Pass `label` to make it an image with an accessible name.
+ *  - Glyph data is Lucide v0.460.0 (ISC, see ./LICENSE-lucide.txt). Only path data is embedded;
+ *    elements are created with createElementNS, never parsed from strings.
+ *
+ * Regenerate NAMES from design/icons.json when a glyph changes (tests/icons.test.mjs checks they match).
+ */
+const SVG_NS = 'http://www.w3.org/2000/svg'
+
+/** Semantic name → Lucide glyph id. Mirrors design/icons.json ("lucide" column, kebab-cased). */
+export const NAMES = Object.freeze({
+  'action.add': 'plus',
+  'action.edit': 'pencil',
+  'action.delete': 'trash-2',
+  'action.save': 'save',
+  'action.cancel': 'x',
+  'action.close': 'x',
+  'action.back': 'arrow-left',
+  'action.search': 'search',
+  'action.filter': 'filter',
+  'action.sort': 'arrow-up-down',
+  'action.export': 'download',
+  'action.import': 'upload',
+  'action.refresh': 'refresh-cw',
+  'action.share': 'share-2',
+  'action.copy': 'copy',
+  'action.more': 'ellipsis',
+  'action.settings': 'settings',
+  'action.logout': 'log-out',
+  'nav.home': 'house',
+  'nav.profile': 'circle-user',
+  'nav.notifications': 'bell',
+  'nav.help': 'circle-help',
+  'status.success': 'circle-check',
+  'status.warning': 'triangle-alert',
+  'status.danger': 'circle-alert',
+  'status.info': 'info',
+  'object.user': 'user',
+  'object.users': 'users',
+  'object.calendar': 'calendar',
+  'object.document': 'file-text',
+  'object.link': 'link',
+  'object.lock': 'lock',
+  'state.expand': 'chevron-down',
+  'state.collapse': 'chevron-up',
+  'state.check': 'check',
+  'state.visibility': 'eye',
+  'state.visibilityOff': 'eye-off',
+  'domain.brand': 'dog',
+  'domain.nav.overview': 'layout-dashboard',
+  'domain.nav.devices': 'server',
+  'domain.nav.enroll': 'key-round',
+  'domain.nav.groups': 'boxes',
+  'domain.nav.sessions': 'activity',
+  'domain.nav.integration': 'shield-check',
+  'domain.nav.logs': 'scroll-text',
+  'domain.nav.debug': 'bug',
+  'domain.nav.audit': 'clipboard-list',
+  'domain.nav.menu': 'menu',
+  'domain.nav.sidebar': 'panel-left',
+  'domain.nav.next': 'chevron-right',
+  'domain.nav.prev': 'chevron-left',
+  'domain.nav.forward': 'arrow-right',
+  'domain.os.linux': 'terminal',
+  'domain.os.macos': 'laptop',
+  'domain.os.windows': 'app-window',
+  'domain.os.unknown': 'circle-dashed',
+  'domain.service.ssh': 'square-terminal',
+  'domain.service.rdp': 'monitor',
+  'domain.service.vnc': 'screen-share',
+  'domain.theme.light': 'sun',
+  'domain.theme.dark': 'moon',
+  'domain.theme.system': 'sun-moon',
+  'domain.action.connect': 'plug-zap',
+  'domain.action.open': 'external-link',
+  'domain.action.disable': 'power',
+  'domain.action.run': 'play',
+  'domain.action.pause': 'pause',
+  'domain.action.probe': 'stethoscope',
+  'domain.action.reconnect': 'rotate-ccw',
+  'domain.action.palette': 'command',
+  'domain.action.tune': 'sliders-horizontal',
+  'domain.action.bundle': 'hard-drive-download',
+  'domain.action.revoke': 'ban',
+  'domain.action.invite': 'user-plus',
+  'domain.action.clear': 'eraser',
+  'domain.presence.online': 'wifi',
+  'domain.presence.offline': 'wifi-off',
+  'domain.object.tunnel': 'cable',
+  'domain.object.clock': 'clock',
+  'domain.object.zap': 'zap',
+  'domain.object.tag': 'tag',
+  'domain.object.route': 'route',
+  'domain.object.radio': 'radio',
+  'domain.state.loading': 'loader-circle',
+  'domain.status.fail': 'circle-x',
+  'domain.provider.entra': 'building-2',
+  'domain.provider.google': 'globe',
+  'domain.provider.apple': 'smartphone',
+  'domain.provider.facebook': 'users-round',
+  'domain.provider.github': 'git-branch',
+  'domain.provider.oidc': 'fingerprint',
+  'domain.action.unlink': 'unlink',
+  'domain.action.join': 'log-in',
+  'domain.share.control': 'mouse-pointer-2',
+  'domain.object.credential': 'user-round-check',
+  'domain.object.expiry': 'hourglass',
+  'domain.nav.services': 'activity',
+  'domain.action.start': 'play',
+  'domain.action.stop': 'power',
+  'domain.action.restart': 'rotate-ccw',
+})
+
+/** Lucide glyph id → list of [tagName, attributes]. */
+const GLYPHS = {
+  'activity': [['path',{'d':'M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2'}]],
+  'app-window': [['rect',{'x':'2','y':'4','width':'20','height':'16','rx':'2'}],['path',{'d':'M10 4v4'}],['path',{'d':'M2 8h20'}],['path',{'d':'M6 4v4'}]],
+  'arrow-left': [['path',{'d':'m12 19-7-7 7-7'}],['path',{'d':'M19 12H5'}]],
+  'arrow-right': [['path',{'d':'M5 12h14'}],['path',{'d':'m12 5 7 7-7 7'}]],
+  'arrow-up-down': [['path',{'d':'m21 16-4 4-4-4'}],['path',{'d':'M17 20V4'}],['path',{'d':'m3 8 4-4 4 4'}],['path',{'d':'M7 4v16'}]],
+  'ban': [['circle',{'cx':'12','cy':'12','r':'10'}],['path',{'d':'m4.9 4.9 14.2 14.2'}]],
+  'bell': [['path',{'d':'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9'}],['path',{'d':'M10.3 21a1.94 1.94 0 0 0 3.4 0'}]],
+  'boxes': [['path',{'d':'M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z'}],['path',{'d':'m7 16.5-4.74-2.85'}],['path',{'d':'m7 16.5 5-3'}],['path',{'d':'M7 16.5v5.17'}],['path',{'d':'M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z'}],['path',{'d':'m17 16.5-5-3'}],['path',{'d':'m17 16.5 4.74-2.85'}],['path',{'d':'M17 16.5v5.17'}],['path',{'d':'M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z'}],['path',{'d':'M12 8 7.26 5.15'}],['path',{'d':'m12 8 4.74-2.85'}],['path',{'d':'M12 13.5V8'}]],
+  'bug': [['path',{'d':'m8 2 1.88 1.88'}],['path',{'d':'M14.12 3.88 16 2'}],['path',{'d':'M9 7.13v-1a3.003 3.003 0 1 1 6 0v1'}],['path',{'d':'M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6'}],['path',{'d':'M12 20v-9'}],['path',{'d':'M6.53 9C4.6 8.8 3 7.1 3 5'}],['path',{'d':'M6 13H2'}],['path',{'d':'M3 21c0-2.1 1.7-3.9 3.8-4'}],['path',{'d':'M20.97 5c0 2.1-1.6 3.8-3.5 4'}],['path',{'d':'M22 13h-4'}],['path',{'d':'M17.2 17c2.1.1 3.8 1.9 3.8 4'}]],
+  'building-2': [['path',{'d':'M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z'}],['path',{'d':'M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2'}],['path',{'d':'M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2'}],['path',{'d':'M10 6h4'}],['path',{'d':'M10 10h4'}],['path',{'d':'M10 14h4'}],['path',{'d':'M10 18h4'}]],
+  'cable': [['path',{'d':'M17 21v-2a1 1 0 0 1-1-1v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1a1 1 0 0 1-1 1'}],['path',{'d':'M19 15V6.5a1 1 0 0 0-7 0v11a1 1 0 0 1-7 0V9'}],['path',{'d':'M21 21v-2h-4'}],['path',{'d':'M3 5h4V3'}],['path',{'d':'M7 5a1 1 0 0 1 1 1v1a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1V3'}]],
+  'calendar': [['path',{'d':'M8 2v4'}],['path',{'d':'M16 2v4'}],['rect',{'width':'18','height':'18','x':'3','y':'4','rx':'2'}],['path',{'d':'M3 10h18'}]],
+  'check': [['path',{'d':'M20 6 9 17l-5-5'}]],
+  'chevron-down': [['path',{'d':'m6 9 6 6 6-6'}]],
+  'chevron-left': [['path',{'d':'m15 18-6-6 6-6'}]],
+  'chevron-right': [['path',{'d':'m9 18 6-6-6-6'}]],
+  'chevron-up': [['path',{'d':'m18 15-6-6-6 6'}]],
+  'circle-alert': [['circle',{'cx':'12','cy':'12','r':'10'}],['line',{'x1':'12','x2':'12','y1':'8','y2':'12'}],['line',{'x1':'12','x2':'12.01','y1':'16','y2':'16'}]],
+  'circle-check': [['circle',{'cx':'12','cy':'12','r':'10'}],['path',{'d':'m9 12 2 2 4-4'}]],
+  'circle-dashed': [['path',{'d':'M10.1 2.182a10 10 0 0 1 3.8 0'}],['path',{'d':'M13.9 21.818a10 10 0 0 1-3.8 0'}],['path',{'d':'M17.609 3.721a10 10 0 0 1 2.69 2.7'}],['path',{'d':'M2.182 13.9a10 10 0 0 1 0-3.8'}],['path',{'d':'M20.279 17.609a10 10 0 0 1-2.7 2.69'}],['path',{'d':'M21.818 10.1a10 10 0 0 1 0 3.8'}],['path',{'d':'M3.721 6.391a10 10 0 0 1 2.7-2.69'}],['path',{'d':'M6.391 20.279a10 10 0 0 1-2.69-2.7'}]],
+  'circle-help': [['circle',{'cx':'12','cy':'12','r':'10'}],['path',{'d':'M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3'}],['path',{'d':'M12 17h.01'}]],
+  'circle-user': [['circle',{'cx':'12','cy':'12','r':'10'}],['circle',{'cx':'12','cy':'10','r':'3'}],['path',{'d':'M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662'}]],
+  'circle-x': [['circle',{'cx':'12','cy':'12','r':'10'}],['path',{'d':'m15 9-6 6'}],['path',{'d':'m9 9 6 6'}]],
+  'clipboard-list': [['rect',{'width':'8','height':'4','x':'8','y':'2','rx':'1','ry':'1'}],['path',{'d':'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'}],['path',{'d':'M12 11h4'}],['path',{'d':'M12 16h4'}],['path',{'d':'M8 11h.01'}],['path',{'d':'M8 16h.01'}]],
+  'clock': [['circle',{'cx':'12','cy':'12','r':'10'}],['polyline',{'points':'12 6 12 12 16 14'}]],
+  'command': [['path',{'d':'M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3'}]],
+  'copy': [['rect',{'width':'14','height':'14','x':'8','y':'8','rx':'2','ry':'2'}],['path',{'d':'M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'}]],
+  'dog': [['path',{'d':'M11.25 16.25h1.5L12 17z'}],['path',{'d':'M16 14v.5'}],['path',{'d':'M4.42 11.247A13.152 13.152 0 0 0 4 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444a11.702 11.702 0 0 0-.493-3.309'}],['path',{'d':'M8 14v.5'}],['path',{'d':'M8.5 8.5c-.384 1.05-1.083 2.028-2.344 2.5-1.931.722-3.576-.297-3.656-1-.113-.994 1.177-6.53 4-7 1.923-.321 3.651.845 3.651 2.235A7.497 7.497 0 0 1 14 5.277c0-1.39 1.844-2.598 3.767-2.277 2.823.47 4.113 6.006 4 7-.08.703-1.725 1.722-3.656 1-1.261-.472-1.855-1.45-2.239-2.5'}]],
+  'download': [['path',{'d':'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'}],['polyline',{'points':'7 10 12 15 17 10'}],['line',{'x1':'12','x2':'12','y1':'15','y2':'3'}]],
+  'ellipsis': [['circle',{'cx':'12','cy':'12','r':'1'}],['circle',{'cx':'19','cy':'12','r':'1'}],['circle',{'cx':'5','cy':'12','r':'1'}]],
+  'eraser': [['path',{'d':'m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21'}],['path',{'d':'M22 21H7'}],['path',{'d':'m5 11 9 9'}]],
+  'external-link': [['path',{'d':'M15 3h6v6'}],['path',{'d':'M10 14 21 3'}],['path',{'d':'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'}]],
+  'eye-off': [['path',{'d':'M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49'}],['path',{'d':'M14.084 14.158a3 3 0 0 1-4.242-4.242'}],['path',{'d':'M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143'}],['path',{'d':'m2 2 20 20'}]],
+  'eye': [['path',{'d':'M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0'}],['circle',{'cx':'12','cy':'12','r':'3'}]],
+  'file-text': [['path',{'d':'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z'}],['path',{'d':'M14 2v4a2 2 0 0 0 2 2h4'}],['path',{'d':'M10 9H8'}],['path',{'d':'M16 13H8'}],['path',{'d':'M16 17H8'}]],
+  'filter': [['polygon',{'points':'22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3'}]],
+  'fingerprint': [['path',{'d':'M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4'}],['path',{'d':'M14 13.12c0 2.38 0 6.38-1 8.88'}],['path',{'d':'M17.29 21.02c.12-.6.43-2.3.5-3.02'}],['path',{'d':'M2 12a10 10 0 0 1 18-6'}],['path',{'d':'M2 16h.01'}],['path',{'d':'M21.8 16c.2-2 .131-5.354 0-6'}],['path',{'d':'M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2'}],['path',{'d':'M8.65 22c.21-.66.45-1.32.57-2'}],['path',{'d':'M9 6.8a6 6 0 0 1 9 5.2v2'}]],
+  'git-branch': [['line',{'x1':'6','x2':'6','y1':'3','y2':'15'}],['circle',{'cx':'18','cy':'6','r':'3'}],['circle',{'cx':'6','cy':'18','r':'3'}],['path',{'d':'M18 9a9 9 0 0 1-9 9'}]],
+  'globe': [['circle',{'cx':'12','cy':'12','r':'10'}],['path',{'d':'M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20'}],['path',{'d':'M2 12h20'}]],
+  'hard-drive-download': [['path',{'d':'M12 2v8'}],['path',{'d':'m16 6-4 4-4-4'}],['rect',{'width':'20','height':'8','x':'2','y':'14','rx':'2'}],['path',{'d':'M6 18h.01'}],['path',{'d':'M10 18h.01'}]],
+  'hourglass': [['path',{'d':'M5 22h14'}],['path',{'d':'M5 2h14'}],['path',{'d':'M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'}],['path',{'d':'M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'}]],
+  'house': [['path',{'d':'M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8'}],['path',{'d':'M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'}]],
+  'info': [['circle',{'cx':'12','cy':'12','r':'10'}],['path',{'d':'M12 16v-4'}],['path',{'d':'M12 8h.01'}]],
+  'key-round': [['path',{'d':'M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z'}],['circle',{'cx':'16.5','cy':'7.5','r':'.5'}]],
+  'laptop': [['path',{'d':'M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16'}]],
+  'layout-dashboard': [['rect',{'width':'7','height':'9','x':'3','y':'3','rx':'1'}],['rect',{'width':'7','height':'5','x':'14','y':'3','rx':'1'}],['rect',{'width':'7','height':'9','x':'14','y':'12','rx':'1'}],['rect',{'width':'7','height':'5','x':'3','y':'16','rx':'1'}]],
+  'link': [['path',{'d':'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'}],['path',{'d':'M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'}]],
+  'loader-circle': [['path',{'d':'M21 12a9 9 0 1 1-6.219-8.56'}]],
+  'lock': [['rect',{'width':'18','height':'11','x':'3','y':'11','rx':'2','ry':'2'}],['path',{'d':'M7 11V7a5 5 0 0 1 10 0v4'}]],
+  'log-in': [['path',{'d':'M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4'}],['polyline',{'points':'10 17 15 12 10 7'}],['line',{'x1':'15','x2':'3','y1':'12','y2':'12'}]],
+  'log-out': [['path',{'d':'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'}],['polyline',{'points':'16 17 21 12 16 7'}],['line',{'x1':'21','x2':'9','y1':'12','y2':'12'}]],
+  'menu': [['line',{'x1':'4','x2':'20','y1':'12','y2':'12'}],['line',{'x1':'4','x2':'20','y1':'6','y2':'6'}],['line',{'x1':'4','x2':'20','y1':'18','y2':'18'}]],
+  'monitor': [['rect',{'width':'20','height':'14','x':'2','y':'3','rx':'2'}],['line',{'x1':'8','x2':'16','y1':'21','y2':'21'}],['line',{'x1':'12','x2':'12','y1':'17','y2':'21'}]],
+  'moon': [['path',{'d':'M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z'}]],
+  'mouse-pointer-2': [['path',{'d':'M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z'}]],
+  'panel-left': [['rect',{'width':'18','height':'18','x':'3','y':'3','rx':'2'}],['path',{'d':'M9 3v18'}]],
+  'pause': [['rect',{'x':'14','y':'4','width':'4','height':'16','rx':'1'}],['rect',{'x':'6','y':'4','width':'4','height':'16','rx':'1'}]],
+  'pencil': [['path',{'d':'M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z'}],['path',{'d':'m15 5 4 4'}]],
+  'play': [['polygon',{'points':'6 3 20 12 6 21 6 3'}]],
+  'plug-zap': [['path',{'d':'M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z'}],['path',{'d':'m2 22 3-3'}],['path',{'d':'M7.5 13.5 10 11'}],['path',{'d':'M10.5 16.5 13 14'}],['path',{'d':'m18 3-4 4h6l-4 4'}]],
+  'plus': [['path',{'d':'M5 12h14'}],['path',{'d':'M12 5v14'}]],
+  'power': [['path',{'d':'M12 2v10'}],['path',{'d':'M18.4 6.6a9 9 0 1 1-12.77.04'}]],
+  'radio': [['path',{'d':'M4.9 19.1C1 15.2 1 8.8 4.9 4.9'}],['path',{'d':'M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5'}],['circle',{'cx':'12','cy':'12','r':'2'}],['path',{'d':'M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5'}],['path',{'d':'M19.1 4.9C23 8.8 23 15.1 19.1 19'}]],
+  'refresh-cw': [['path',{'d':'M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8'}],['path',{'d':'M21 3v5h-5'}],['path',{'d':'M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16'}],['path',{'d':'M8 16H3v5'}]],
+  'rotate-ccw': [['path',{'d':'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'}],['path',{'d':'M3 3v5h5'}]],
+  'route': [['circle',{'cx':'6','cy':'19','r':'3'}],['path',{'d':'M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15'}],['circle',{'cx':'18','cy':'5','r':'3'}]],
+  'save': [['path',{'d':'M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z'}],['path',{'d':'M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7'}],['path',{'d':'M7 3v4a1 1 0 0 0 1 1h7'}]],
+  'screen-share': [['path',{'d':'M13 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3'}],['path',{'d':'M8 21h8'}],['path',{'d':'M12 17v4'}],['path',{'d':'m17 8 5-5'}],['path',{'d':'M17 3h5v5'}]],
+  'scroll-text': [['path',{'d':'M15 12h-5'}],['path',{'d':'M15 8h-5'}],['path',{'d':'M19 17V5a2 2 0 0 0-2-2H4'}],['path',{'d':'M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3'}]],
+  'search': [['circle',{'cx':'11','cy':'11','r':'8'}],['path',{'d':'m21 21-4.3-4.3'}]],
+  'server': [['rect',{'width':'20','height':'8','x':'2','y':'2','rx':'2','ry':'2'}],['rect',{'width':'20','height':'8','x':'2','y':'14','rx':'2','ry':'2'}],['line',{'x1':'6','x2':'6.01','y1':'6','y2':'6'}],['line',{'x1':'6','x2':'6.01','y1':'18','y2':'18'}]],
+  'settings': [['path',{'d':'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z'}],['circle',{'cx':'12','cy':'12','r':'3'}]],
+  'share-2': [['circle',{'cx':'18','cy':'5','r':'3'}],['circle',{'cx':'6','cy':'12','r':'3'}],['circle',{'cx':'18','cy':'19','r':'3'}],['line',{'x1':'8.59','x2':'15.42','y1':'13.51','y2':'17.49'}],['line',{'x1':'15.41','x2':'8.59','y1':'6.51','y2':'10.49'}]],
+  'shield-check': [['path',{'d':'M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z'}],['path',{'d':'m9 12 2 2 4-4'}]],
+  'sliders-horizontal': [['line',{'x1':'21','x2':'14','y1':'4','y2':'4'}],['line',{'x1':'10','x2':'3','y1':'4','y2':'4'}],['line',{'x1':'21','x2':'12','y1':'12','y2':'12'}],['line',{'x1':'8','x2':'3','y1':'12','y2':'12'}],['line',{'x1':'21','x2':'16','y1':'20','y2':'20'}],['line',{'x1':'12','x2':'3','y1':'20','y2':'20'}],['line',{'x1':'14','x2':'14','y1':'2','y2':'6'}],['line',{'x1':'8','x2':'8','y1':'10','y2':'14'}],['line',{'x1':'16','x2':'16','y1':'18','y2':'22'}]],
+  'smartphone': [['rect',{'width':'14','height':'20','x':'5','y':'2','rx':'2','ry':'2'}],['path',{'d':'M12 18h.01'}]],
+  'square-terminal': [['path',{'d':'m7 11 2-2-2-2'}],['path',{'d':'M11 13h4'}],['rect',{'width':'18','height':'18','x':'3','y':'3','rx':'2','ry':'2'}]],
+  'stethoscope': [['path',{'d':'M11 2v2'}],['path',{'d':'M5 2v2'}],['path',{'d':'M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1'}],['path',{'d':'M8 15a6 6 0 0 0 12 0v-3'}],['circle',{'cx':'20','cy':'10','r':'2'}]],
+  'sun-moon': [['path',{'d':'M12 8a2.83 2.83 0 0 0 4 4 4 4 0 1 1-4-4'}],['path',{'d':'M12 2v2'}],['path',{'d':'M12 20v2'}],['path',{'d':'m4.9 4.9 1.4 1.4'}],['path',{'d':'m17.7 17.7 1.4 1.4'}],['path',{'d':'M2 12h2'}],['path',{'d':'M20 12h2'}],['path',{'d':'m6.3 17.7-1.4 1.4'}],['path',{'d':'m19.1 4.9-1.4 1.4'}]],
+  'sun': [['circle',{'cx':'12','cy':'12','r':'4'}],['path',{'d':'M12 2v2'}],['path',{'d':'M12 20v2'}],['path',{'d':'m4.93 4.93 1.41 1.41'}],['path',{'d':'m17.66 17.66 1.41 1.41'}],['path',{'d':'M2 12h2'}],['path',{'d':'M20 12h2'}],['path',{'d':'m6.34 17.66-1.41 1.41'}],['path',{'d':'m19.07 4.93-1.41 1.41'}]],
+  'tag': [['path',{'d':'M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z'}],['circle',{'cx':'7.5','cy':'7.5','r':'.5'}]],
+  'terminal': [['polyline',{'points':'4 17 10 11 4 5'}],['line',{'x1':'12','x2':'20','y1':'19','y2':'19'}]],
+  'trash-2': [['path',{'d':'M3 6h18'}],['path',{'d':'M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6'}],['path',{'d':'M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'}],['line',{'x1':'10','x2':'10','y1':'11','y2':'17'}],['line',{'x1':'14','x2':'14','y1':'11','y2':'17'}]],
+  'triangle-alert': [['path',{'d':'m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3'}],['path',{'d':'M12 9v4'}],['path',{'d':'M12 17h.01'}]],
+  'unlink': [['path',{'d':'m18.84 12.25 1.72-1.71h-.02a5.004 5.004 0 0 0-.12-7.07 5.006 5.006 0 0 0-6.95 0l-1.72 1.71'}],['path',{'d':'m5.17 11.75-1.71 1.71a5.004 5.004 0 0 0 .12 7.07 5.006 5.006 0 0 0 6.95 0l1.71-1.71'}],['line',{'x1':'8','x2':'8','y1':'2','y2':'5'}],['line',{'x1':'2','x2':'5','y1':'8','y2':'8'}],['line',{'x1':'16','x2':'16','y1':'19','y2':'22'}],['line',{'x1':'19','x2':'22','y1':'16','y2':'16'}]],
+  'upload': [['path',{'d':'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'}],['polyline',{'points':'17 8 12 3 7 8'}],['line',{'x1':'12','x2':'12','y1':'3','y2':'15'}]],
+  'user-plus': [['path',{'d':'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'}],['circle',{'cx':'9','cy':'7','r':'4'}],['line',{'x1':'19','x2':'19','y1':'8','y2':'14'}],['line',{'x1':'22','x2':'16','y1':'11','y2':'11'}]],
+  'user-round-check': [['path',{'d':'M2 21a8 8 0 0 1 13.292-6'}],['circle',{'cx':'10','cy':'8','r':'5'}],['path',{'d':'m16 19 2 2 4-4'}]],
+  'user': [['path',{'d':'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'}],['circle',{'cx':'12','cy':'7','r':'4'}]],
+  'users-round': [['path',{'d':'M18 21a8 8 0 0 0-16 0'}],['circle',{'cx':'10','cy':'8','r':'5'}],['path',{'d':'M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3'}]],
+  'users': [['path',{'d':'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'}],['circle',{'cx':'9','cy':'7','r':'4'}],['path',{'d':'M22 21v-2a4 4 0 0 0-3-3.87'}],['path',{'d':'M16 3.13a4 4 0 0 1 0 7.75'}]],
+  'wifi-off': [['path',{'d':'M12 20h.01'}],['path',{'d':'M8.5 16.429a5 5 0 0 1 7 0'}],['path',{'d':'M5 12.859a10 10 0 0 1 5.17-2.69'}],['path',{'d':'M19 12.859a10 10 0 0 0-2.007-1.523'}],['path',{'d':'M2 8.82a15 15 0 0 1 4.177-2.643'}],['path',{'d':'M22 8.82a15 15 0 0 0-11.288-3.764'}],['path',{'d':'m2 2 20 20'}]],
+  'wifi': [['path',{'d':'M12 20h.01'}],['path',{'d':'M2 8.82a15 15 0 0 1 20 0'}],['path',{'d':'M5 12.859a10 10 0 0 1 14 0'}],['path',{'d':'M8.5 16.429a5 5 0 0 1 7 0'}]],
+  'x': [['path',{'d':'M18 6 6 18'}],['path',{'d':'m6 6 12 12'}]],
+  'zap': [['path',{'d':'M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z'}]],
+}
+
+/**
+ * Build an icon element.
+ * @param {string} name semantic icon name (key of NAMES)
+ * @param {{size?: 'sm'|'md'|'lg'|'xl', label?: string, className?: string}} [opts]
+ * @returns {SVGSVGElement}
+ */
+export function icon(name, opts = {}) {
+  const glyph = GLYPHS[NAMES[name]]
+  if (!glyph) throw new Error(`unknown icon "${name}"`)
+  const svg = document.createElementNS(SVG_NS, 'svg')
+  const attrs = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2',
+    'stroke-linecap': 'round', 'stroke-linejoin': 'round', focusable: 'false' }
+  for (const [k, v] of Object.entries(attrs)) svg.setAttribute(k, v)
+  svg.setAttribute('class', `icon icon--${opts.size || 'md'}${opts.className ? ' ' + opts.className : ''}`)
+  if (opts.label) { svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', opts.label) } else svg.setAttribute('aria-hidden', 'true')
+  for (const [tag, a] of glyph) {
+    const el = document.createElementNS(SVG_NS, tag)
+    for (const [k, v] of Object.entries(a)) el.setAttribute(k, v)
+    svg.append(el)
+  }
+  return svg
+}
+
+/** @param {string} name @returns {boolean} whether the registry has this semantic name */
+export const hasIcon = (name) => Object.prototype.hasOwnProperty.call(NAMES, name)

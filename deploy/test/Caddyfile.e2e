@@ -1,0 +1,28 @@
+# TEST ONLY: stamps a fixed identity on every request (see compose.e2e.yml).
+{
+	local_certs
+}
+localhost {
+	reverse_proxy remotehound:8080 {
+		header_up X-Forwarded-Email admin@example.com
+		header_up X-Forwarded-User "E2E Admin"
+		transport http {
+			read_timeout 0
+			write_timeout 0
+		}
+		flush_interval -1
+	}
+}
+
+# Second identity for denied-path walkthroughs: an operator.
+localhost:8444 {
+	reverse_proxy remotehound:8080 {
+		header_up X-Forwarded-Email op@example.com
+		header_up X-Forwarded-User "E2E Operator"
+		transport http {
+			read_timeout 0
+			write_timeout 0
+		}
+		flush_interval -1
+	}
+}

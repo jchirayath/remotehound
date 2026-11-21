@@ -1,0 +1,16 @@
+RemoteHound
+Copyright 2026 The RemoteHound Authors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+It includes or redistributes the following third-party software:
+
+- golang.org/x/crypto — BSD-3-Clause, Copyright 2009 The Go Authors.
+- Lucide icons (path data in web/ui/lib/icons.js) — ISC License, Copyright Lucide Contributors
+  (see web/ui/lib/LICENSE-lucide.txt).
+
+The deployment bundle (deploy/compose.yml) runs, unmodified, these separately licensed images:
+
+- Apache Guacamole (guacamole/guacamole, guacamole/guacd) — Apache License 2.0, The Apache Software Foundation.
+- Caddy (caddy) — Apache License 2.0.
+- Vector (timberio/vector, optional "logs" profile) — Mozilla Public License 2.0.

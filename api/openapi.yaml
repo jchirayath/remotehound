@@ -1,0 +1,568 @@
+openapi: 3.1.0
+info:
+  title: RemoteHound API
+  version: 1.0.0
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+  description: |
+    The contract between the RemoteHound server, its web UI and the enrolment scripts (API-1).
+    Conventions (engineering standard §6B):
+      * JSON field names are snake_case; timestamps RFC 3339 UTC; IDs opaque prefixed strings.
+      * Success bodies are `{ "data": ..., "meta": {...} }`; errors are RFC 9457 problem+json with
+        `code` and `request_id` extension members (API-5).
+      * Lists are cursor paginated: `page_size` (max 200) + `page_token` in, `meta.next_page_token` out (API-7).
+      * Filtering: `q` (free text over name/hostname), plus per-field filters listed per endpoint;
+        sorting: `order_by=<field> [asc|desc]` against an allow-list (API-8).
+      * Updates are JSON Merge Patch with `If-Match: <etag>`; 412 on conflict (API-9).
+      * Mutations accept `Idempotency-Key` (API-3).
+      * Cookie-authenticated mutations require header `X-CSRF-Token` equal to the `rh_csrf` cookie.
+servers:
+  - url: /
+tags:
+  - name: public
+  - name: auth
+  - name: devices
+  - name: enrollments
+  - name: groups
+  - name: users
+  - name: sessions
+  - name: settings
+  - name: integration
+  - name: observability
+security:
+  - session: []
+
+paths:
+  /healthz:
+    get:
+      tags: [public]
+      security: []
+      summary: Liveness
+      responses:
+        "200": { description: alive, content: { application/json: { schema: { $ref: "#/components/schemas/Health" } } } }
+  /readyz:
+    get:
+      tags: [public]
+      security: []
+      summary: Readiness (store writable, SSH listener up). Guacamole degraded is reported but not fatal.
+      responses:
+        "200": { description: ready, content: { application/json: { schema: { $ref: "#/components/schemas/Health" } } } }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /e/{code}:
+    get:
+      tags: [public]
+      security: []
+      summary: Bootstrap script for an enrolment code (does NOT consume the code)
+      description: |
+        Returns a POSIX sh script, or a PowerShell script when the User-Agent contains "PowerShell"
+        or the path ends in `.ps1`. `/e/{code}.sh` forces sh. Unknown/expired codes return a
+        script that prints a friendly error and exits 1 (so `| sh` shows something useful).
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string, pattern: "^[a-hjkmnp-z2-9]{6}(\\.sh|\\.ps1)?$" } }
+      responses:
+        "200": { description: script, content: { text/plain: { schema: { type: string } } } }
+        "429": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/enroll:
+    post:
+      tags: [public]
+      security: []
+      summary: Redeem an enrolment code with the device's public key (consumes the code)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/EnrollRequest" } } }
+      responses:
+        "201": { description: enrolled, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/EnrollResult" } } } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "410": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/enroll/status:
+    get:
+      tags: [public]
+      security: []
+      summary: Poll whether a just-enrolled device's tunnel is online (used by the script's last stage)
+      parameters:
+        - { name: device_id, in: query, required: true, schema: { type: string } }
+        - { name: fingerprint, in: query, required: true, schema: { type: string }, description: "SHA256 fingerprint of the device key; must match" }
+      responses:
+        "200": { description: status, content: { application/json: { schema: { type: object, properties: { data: { type: object, properties: { online: { type: boolean }, forwards: { type: array, items: { type: string } } } } } } } } }
+        "404": { $ref: "#/components/responses/Problem" }
+
+  /auth/providers:
+    get:
+      tags: [auth]
+      security: []
+      summary: Enabled sign-in methods for the login page
+      responses: { "200": { description: providers, content: { application/json: { schema: { type: object, properties: { data: { type: object, properties: { mode: { type: string, enum: [oauth, proxy, dev] }, providers: { type: array, items: { $ref: "#/components/schemas/ProviderInfo" } } } } } } } } } }
+  /auth/login:
+    get: { tags: [auth], security: [], summary: "Sign in: straight to the only provider, else 302 to the /login picker (dev/proxy: direct)", parameters: [ { name: rd, in: query, schema: { type: string } } ], responses: { "302": { description: redirect } } }
+  /auth/login/{provider}:
+    get: { tags: [auth], security: [], summary: Start sign-in with one provider (302 to the IdP; state + PKCE + nonce), parameters: [ { name: provider, in: path, required: true, schema: { type: string, enum: [entra, google, apple, facebook, github, oidc] } }, { name: rd, in: query, schema: { type: string } } ], responses: { "302": { description: redirect } } }
+  /auth/link/{provider}:
+    get: { tags: [auth], summary: Link another sign-in method to the signed-in user, parameters: [ { name: provider, in: path, required: true, schema: { type: string } } ], responses: { "302": { description: redirect } } }
+  /auth/callback/{provider}:
+    parameters: [ { name: provider, in: path, required: true, schema: { type: string } } ]
+    get: { tags: [auth], security: [], summary: Provider redirect URI (register https://<host>/auth/callback/<provider>), responses: { "302": { description: redirect to UI } } }
+    post: { tags: [auth], security: [], summary: Same, for Apple's response_mode=form_post, responses: { "302": { description: redirect to UI } } }
+  /auth/logout:
+    post: { tags: [auth], summary: End session, responses: { "204": { description: logged out } } }
+
+  /api/v1/me:
+    get:
+      tags: [auth]
+      summary: Current user, role, permissions (for UI gating only — the server re-checks)
+      responses:
+        "200": { description: me, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Me" } } } } } }
+        "401": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/me/preferences:
+    put:
+      tags: [auth]
+      summary: Persist per-user UI preferences (THEME-6 client mode)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { theme: { type: string, enum: [system, light, dark] } } } } } }
+      responses: { "200": { description: me, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Me" } } } } } } }
+
+  /api/v1/me/identities/{provider}:
+    delete: { tags: [auth], summary: Unlink a sign-in method (409 LAST_ADMIN if it is the last one), parameters: [ { name: provider, in: path, required: true, schema: { type: string } } ], responses: { "200": { description: me, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Me" } } } } } } } }
+  /api/v1/me/credentials:
+    get: { tags: [auth], summary: My saved device logins (never returns secrets), responses: { "200": { description: list, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/CredentialView" } } } } } } } } }
+  /api/v1/me/credentials/{device_id}/{service}:
+    parameters: [ { name: device_id, in: path, required: true, schema: { type: string } }, { name: service, in: path, required: true, schema: { type: string, enum: [ssh, rdp, vnc] } } ]
+    put: { tags: [auth], summary: Save my own login for a device I can connect to (sealed to me), requestBody: { required: true, content: { application/json: { schema: { type: object, required: [password], properties: { username: { type: string, maxLength: 128 }, password: { type: string, maxLength: 512, writeOnly: true } } } } } }, responses: { "200": { description: saved, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/CredentialView" } } } } } } } }
+    delete: { tags: [auth], responses: { "204": { description: deleted } } }
+  /api/v1/directory:
+    get: { tags: [users], summary: Minimal active-user list for share pickers (session.share), parameters: [ { name: q, in: query, schema: { type: string, maxLength: 100 } } ], responses: { "200": { description: users, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { type: object, properties: { id: { type: string }, display_name: { type: string }, email: { type: string }, role: { type: string } } } } } } } } } } }
+
+  /api/v1/overview:
+    get:
+      tags: [observability]
+      summary: Dashboard numbers
+      responses:
+        "200": { description: overview, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Overview" } } } } } }
+
+  /api/v1/devices:
+    get:
+      tags: [devices]
+      summary: List devices visible to the caller
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - $ref: "#/components/parameters/Q"
+        - { name: status, in: query, schema: { type: string, enum: [pending, active, disabled] } }
+        - { name: online, in: query, schema: { type: boolean } }
+        - { name: group_id, in: query, schema: { type: string } }
+        - { name: os, in: query, schema: { type: string, enum: [linux, macos, windows, unknown] } }
+        - { name: order_by, in: query, schema: { type: string, enum: ["name", "name desc", "last_seen_at", "last_seen_at desc", "created_at", "created_at desc"] } }
+      responses:
+        "200": { description: devices, content: { application/json: { schema: { $ref: "#/components/schemas/DeviceList" } } } }
+    post:
+      tags: [devices]
+      summary: Pre-register a device manually (advanced; normal path is an enrolment)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/DeviceCreate" } } } }
+      responses:
+        "201": { description: created, content: { application/json: { schema: { $ref: "#/components/schemas/DeviceEnvelope" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+  /api/v1/devices/{id}:
+    parameters: [ { $ref: "#/components/parameters/Id" } ]
+    get:
+      tags: [devices]
+      responses:
+        "200": { description: device, content: { application/json: { schema: { $ref: "#/components/schemas/DeviceEnvelope" } } } }
+        "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      tags: [devices]
+      parameters: [ { $ref: "#/components/parameters/IfMatch" } ]
+      requestBody: { required: true, content: { application/merge-patch+json: { schema: { $ref: "#/components/schemas/DevicePatch" } } } }
+      responses:
+        "200": { description: updated, content: { application/json: { schema: { $ref: "#/components/schemas/DeviceEnvelope" } } } }
+        "412": { $ref: "#/components/responses/Problem" }
+    delete:
+      tags: [devices]
+      summary: Delete a device (revokes its key and closes its tunnel)
+      responses:
+        "204": { description: deleted }
+  /api/v1/devices/{id}/services/{kind}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+      - { name: kind, in: path, required: true, schema: { type: string, enum: [ssh, rdp, vnc] } }
+    put:
+      tags: [devices]
+      summary: Create or update a service (port on the device, username, optional credential, options)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ServiceUpsert" } } } }
+      responses:
+        "200": { description: device, content: { application/json: { schema: { $ref: "#/components/schemas/DeviceEnvelope" } } } }
+    delete:
+      tags: [devices]
+      responses: { "200": { description: device, content: { application/json: { schema: { $ref: "#/components/schemas/DeviceEnvelope" } } } } }
+  /api/v1/devices/{id}/connect:
+    parameters: [ { $ref: "#/components/parameters/Id" } ]
+    post:
+      tags: [devices]
+      summary: Mint a 60-second Guacamole connection for this device and service
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [service], properties: { service: { type: string, enum: [ssh, rdp, vnc] } } } } } }
+      responses:
+        "200": { description: connect url, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/ConnectResult" } } } } } }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/devices/{id}/reconnect:
+    parameters: [ { $ref: "#/components/parameters/Id" } ]
+    post: { tags: [devices], summary: Ask the device to drop and re-establish its tunnel, responses: { "202": { description: accepted } } }
+  /api/v1/devices/{id}/disable:
+    parameters: [ { $ref: "#/components/parameters/Id" } ]
+    post: { tags: [devices], summary: Disable (closes tunnel, refuses logins), responses: { "200": { description: device, content: { application/json: { schema: { $ref: "#/components/schemas/DeviceEnvelope" } } } } } }
+  /api/v1/devices/{id}/enable:
+    parameters: [ { $ref: "#/components/parameters/Id" } ]
+    post: { tags: [devices], responses: { "200": { description: device, content: { application/json: { schema: { $ref: "#/components/schemas/DeviceEnvelope" } } } } } }
+  /api/v1/devices/{id}/probe:
+    parameters: [ { $ref: "#/components/parameters/Id" } ]
+    post:
+      tags: [devices]
+      summary: Probe each service through the tunnel (TCP + protocol banner)
+      responses: { "200": { description: probe results, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/ProbeResult" } } } } } } } }
+  /api/v1/devices/{id}/logs:
+    parameters: [ { $ref: "#/components/parameters/Id" } ]
+    get:
+      tags: [devices]
+      summary: The device's client log tail (sent over the tunnel on each connect)
+      responses: { "200": { description: lines, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/ClientLogLine" } } } } } } } }
+
+  /api/v1/enrollments:
+    get:
+      tags: [enrollments]
+      parameters: [ { $ref: "#/components/parameters/PageSize" }, { $ref: "#/components/parameters/PageToken" }, { name: state, in: query, schema: { type: string, enum: [open, used, expired] } } ]
+      responses: { "200": { description: list, content: { application/json: { schema: { $ref: "#/components/schemas/EnrollmentList" } } } } }
+    post:
+      tags: [enrollments]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EnrollmentCreate" } } } }
+      responses: { "201": { description: created (the only time `code` and the commands are returned), content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/EnrollmentCreated" } } } } } } }
+  /api/v1/enrollments/{id}:
+    parameters: [ { $ref: "#/components/parameters/Id" } ]
+    get: { tags: [enrollments], responses: { "200": { description: one enrolment, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Enrollment" } } } } } } } }
+    delete: { tags: [enrollments], summary: Revoke an unused code, responses: { "204": { description: revoked } } }
+
+  /api/v1/groups:
+    get: { tags: [groups], responses: { "200": { description: list, content: { application/json: { schema: { $ref: "#/components/schemas/GroupList" } } } } } }
+    post: { tags: [groups], requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/GroupWrite" } } } }, responses: { "201": { description: created, content: { application/json: { schema: { $ref: "#/components/schemas/GroupEnvelope" } } } } } }
+  /api/v1/groups/{id}:
+    parameters: [ { $ref: "#/components/parameters/Id" } ]
+    get: { tags: [groups], responses: { "200": { description: group, content: { application/json: { schema: { $ref: "#/components/schemas/GroupEnvelope" } } } } } }
+    patch: { tags: [groups], parameters: [ { $ref: "#/components/parameters/IfMatch" } ], requestBody: { required: true, content: { application/merge-patch+json: { schema: { $ref: "#/components/schemas/GroupWrite" } } } }, responses: { "200": { description: group, content: { application/json: { schema: { $ref: "#/components/schemas/GroupEnvelope" } } } } } }
+    delete: { tags: [groups], summary: Delete (409 GROUP_NOT_EMPTY if devices remain), responses: { "204": { description: deleted } } }
+
+  /api/v1/users:
+    get: { tags: [users], parameters: [ { $ref: "#/components/parameters/PageSize" }, { $ref: "#/components/parameters/PageToken" }, { $ref: "#/components/parameters/Q" } ], responses: { "200": { description: list, content: { application/json: { schema: { $ref: "#/components/schemas/UserList" } } } } } }
+    post: { tags: [users], summary: Pre-authorise a user by email (bound to the IdP subject on first login), requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/UserWrite" } } } }, responses: { "201": { description: created, content: { application/json: { schema: { $ref: "#/components/schemas/UserEnvelope" } } } } } }
+  /api/v1/users/{id}:
+    parameters: [ { $ref: "#/components/parameters/Id" } ]
+    get: { tags: [users], responses: { "200": { description: user, content: { application/json: { schema: { $ref: "#/components/schemas/UserEnvelope" } } } } } }
+    patch: { tags: [users], parameters: [ { $ref: "#/components/parameters/IfMatch" } ], requestBody: { required: true, content: { application/merge-patch+json: { schema: { $ref: "#/components/schemas/UserWrite" } } } }, responses: { "200": { description: user, content: { application/json: { schema: { $ref: "#/components/schemas/UserEnvelope" } } } } } }
+    delete: { tags: [users], summary: Delete (cannot delete yourself or the last admin), responses: { "204": { description: deleted } } }
+
+  /api/v1/sessions:
+    get:
+      tags: [sessions]
+      summary: "Sessions I may see: mine, shared with me, and (session.read_all — admins) everyone's metadata"
+      parameters: [ { $ref: "#/components/parameters/PageSize" }, { $ref: "#/components/parameters/PageToken" }, { name: device_id, in: query, schema: { type: string } }, { name: active, in: query, schema: { type: boolean } }, { name: scope, in: query, schema: { type: string, enum: [mine, shared] } } ]
+      responses: { "200": { description: list, content: { application/json: { schema: { $ref: "#/components/schemas/SessionList" } } } } }
+  /api/v1/sessions/{id}/terminate:
+    parameters: [ { $ref: "#/components/parameters/Id" } ]
+    post: { tags: [sessions], summary: "End a live session at the tunnel (owner or admin; audited)", responses: { "202": { description: accepted } } }
+  /api/v1/sessions/{id}/shares:
+    parameters: [ { $ref: "#/components/parameters/Id" } ]
+    post: { tags: [sessions], summary: "Owner invites a user to join (view or control) for ttl_minutes (5–480, default 60)", requestBody: { required: true, content: { application/json: { schema: { type: object, required: [user_id, mode], properties: { user_id: { type: string }, mode: { type: string, enum: [view, control] }, ttl_minutes: { type: integer, minimum: 5, maximum: 480 } } } } } }, responses: { "200": { description: session, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Session" } } } } } }, "403": { $ref: "#/components/responses/Problem" } } }
+  /api/v1/sessions/{id}/shares/{user_id}:
+    parameters: [ { $ref: "#/components/parameters/Id" }, { name: user_id, in: path, required: true, schema: { type: string } } ]
+    delete: { tags: [sessions], summary: Remove a share (owner or admin), responses: { "200": { description: session, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Session" } } } } } } } }
+  /api/v1/sessions/{id}/join:
+    parameters: [ { $ref: "#/components/parameters/Id" } ]
+    post: { tags: [sessions], summary: "Join a live session: owner (rejoin) or a user with a live share only — no role bypasses this", responses: { "200": { description: join url, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/ConnectResult" } } } } } }, "403": { $ref: "#/components/responses/Problem" } } }
+  /api/v1/recordings:
+    get: { tags: [sessions], summary: List session recordings, responses: { "200": { description: list, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Recording" } } } } } } } } }
+  /api/v1/recordings/{name}:
+    get: { tags: [sessions], parameters: [ { name: name, in: path, required: true, schema: { type: string } } ], summary: Download a recording (admin), responses: { "200": { description: file, content: { application/octet-stream: {} } } } }
+
+  /api/v1/settings:
+    get: { tags: [settings], responses: { "200": { description: settings, content: { application/json: { schema: { $ref: "#/components/schemas/SettingsEnvelope" } } } } } }
+    patch: { tags: [settings], parameters: [ { $ref: "#/components/parameters/IfMatch" } ], requestBody: { required: true, content: { application/merge-patch+json: { schema: { $ref: "#/components/schemas/Settings" } } } }, responses: { "200": { description: settings, content: { application/json: { schema: { $ref: "#/components/schemas/SettingsEnvelope" } } } } } }
+
+  /api/v1/integration:
+    get: { tags: [integration], summary: Last Guacamole integration check results, responses: { "200": { description: report, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/IntegrationReport" } } } } } } } }
+  /api/v1/integration/test:
+    post: { tags: [integration], summary: Run every integration check now, responses: { "200": { description: report, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/IntegrationReport" } } } } } } } }
+
+  /api/v1/services:
+    get: { tags: [integration], summary: "Status of every component (RemoteHound, tunnel server, store, Guacamole, guacd, labelled containers) plus the read-only Guacamole configuration (admin)", responses: { "200": { description: services report, content: { application/json: { schema: { type: object } } } } } }
+  /api/v1/services/{id}/logs:
+    get: { tags: [integration], summary: "Last N lines of a labelled container's output, redacted (admin; needs rh-control)", parameters: [ { name: id, in: path, required: true, schema: { type: string } }, { name: tail, in: query, schema: { type: integer, minimum: 1, maximum: 1000, default: 200 } } ], responses: { "200": { description: log lines, content: { application/json: { schema: { type: object } } } }, "503": { description: CONTROL_UNAVAILABLE } } }
+  /api/v1/services/{id}/actions/{action}:
+    post: { tags: [integration], summary: "Start, stop or restart a labelled container through rh-control (admin, audited). RemoteHound may only restart itself (answers 202).", parameters: [ { name: id, in: path, required: true, schema: { type: string } }, { name: action, in: path, required: true, schema: { type: string, enum: [start, stop, restart] } } ], responses: { "200": { description: new container state }, "202": { description: self-restart accepted }, "403": { description: CONTROL_ACTION_NOT_ALLOWED }, "404": { description: CONTROL_TARGET_NOT_FOUND }, "503": { description: CONTROL_UNAVAILABLE } } }
+
+  /api/v1/audit:
+    get:
+      tags: [observability]
+      parameters: [ { $ref: "#/components/parameters/PageSize" }, { $ref: "#/components/parameters/PageToken" }, { name: event, in: query, schema: { type: string } }, { name: outcome, in: query, schema: { type: string, enum: [success, failure, denied] } }, { name: format, in: query, schema: { type: string, enum: [json, csv] } } ]
+      responses: { "200": { description: audit events, content: { application/json: { schema: { $ref: "#/components/schemas/AuditList" } }, text/csv: {} } } }
+  /api/v1/logs:
+    get:
+      tags: [observability]
+      summary: Query the in-memory log ring (server, client and bundle logs)
+      parameters:
+        - { name: source, in: query, schema: { type: string, enum: [server, client, bundle] } }
+        - { name: level, in: query, schema: { type: string, enum: [DEBUG, INFO, WARN, ERROR] } }
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: request_id, in: query, schema: { type: string } }
+        - { name: device_id, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, maximum: 1000, default: 200 } }
+      responses: { "200": { description: records, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/LogRecord" } } } } } } } }
+  /api/v1/logs/stream:
+    get: { tags: [observability], summary: Live tail as Server-Sent Events (same filters), responses: { "200": { description: event stream, content: { text/event-stream: {} } } } }
+  /api/v1/jobs:
+    get: { tags: [observability], responses: { "200": { description: jobs, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Job" } } } } } } } } }
+  /api/v1/jobs/{name}/run:
+    parameters: [ { name: name, in: path, required: true, schema: { type: string } } ]
+    post: { tags: [observability], responses: { "202": { description: started } } }
+  /api/v1/debug/runtime:
+    get: { tags: [observability], responses: { "200": { description: runtime, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Runtime" } } } } } } } }
+  /api/v1/debug/tunnels:
+    get: { tags: [observability], responses: { "200": { description: live tunnels, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/TunnelInfo" } } } } } } } } }
+  /api/v1/debug/log-level:
+    put: { tags: [observability], requestBody: { required: true, content: { application/json: { schema: { type: object, required: [level], properties: { level: { type: string, enum: [DEBUG, INFO, WARN, ERROR] } } } } } }, responses: { "200": { description: ok } } }
+  /api/v1/debug/bundle:
+    get: { tags: [observability], summary: Redacted diagnostics bundle (JSON), responses: { "200": { description: bundle, content: { application/json: {} } } } }
+
+components:
+  securitySchemes:
+    session: { type: apiKey, in: cookie, name: __Host-rh_session }
+  parameters:
+    Id: { name: id, in: path, required: true, schema: { type: string, maxLength: 64 } }
+    PageSize: { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+    PageToken: { name: page_token, in: query, schema: { type: string } }
+    Q: { name: q, in: query, schema: { type: string, maxLength: 100 } }
+    IfMatch: { name: If-Match, in: header, required: true, schema: { type: string } }
+  responses:
+    Problem:
+      description: RFC 9457 problem
+      content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status, code, request_id]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        code: { type: string, description: "stable CORE-7 code, e.g. DEVICE_NOT_FOUND" }
+        request_id: { type: string }
+        errors: { type: array, items: { type: object, properties: { pointer: { type: string }, code: { type: string }, detail: { type: string } } } }
+    Meta:
+      type: object
+      properties: { next_page_token: { type: string }, total: { type: integer } }
+    Health: { type: object, properties: { status: { type: string, enum: [ok, degraded, down] }, checks: { type: object, additionalProperties: { type: string } }, version: { type: string } } }
+    Me:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        display_name: { type: string }
+        role: { type: string, enum: [admin, operator, viewer] }
+        group_ids: { type: array, items: { type: string } }
+        permissions: { type: array, items: { type: string }, description: "actions this user may perform, e.g. device.connect" }
+        csrf_token: { type: string }
+        theme: { type: string, enum: [system, light, dark] }
+        auth_mode: { type: string, enum: [oauth, proxy, dev] }
+        identities: { type: array, items: { type: object, properties: { provider: { type: string }, email: { type: string }, linked_at: { type: string } } } }
+        providers: { type: array, items: { $ref: "#/components/schemas/ProviderInfo" } }
+        version: { type: string }
+    Overview:
+      type: object
+      properties:
+        devices_total: { type: integer }
+        devices_online: { type: integer }
+        devices_pending: { type: integer }
+        sessions_active: { type: integer }
+        sessions_24h: { type: integer }
+        enrollments_open: { type: integer }
+        groups_total: { type: integer }
+        guacamole: { type: string, enum: [ok, degraded, down, unknown] }
+        jobs_failing: { type: integer }
+        recent_activity: { type: array, items: { $ref: "#/components/schemas/AuditEvent" } }
+    Service:
+      type: object
+      properties:
+        kind: { type: string, enum: [ssh, rdp, vnc] }
+        remote_port: { type: integer, description: "port on the device (e.g. 3389)" }
+        internal_port: { type: integer, description: "server-assigned tunnel listener; 0 until first connect" }
+        forwarded: { type: boolean, description: "the device is currently forwarding this service" }
+        username: { type: string }
+        has_credential: { type: boolean }
+        options: { type: object, additionalProperties: { type: string } }
+    ServiceUpsert:
+      type: object
+      properties:
+        remote_port: { type: integer, minimum: 1, maximum: 65535 }
+        username: { type: string, maxLength: 128 }
+        password: { type: string, maxLength: 512, writeOnly: true, description: "sealed at rest, never returned; empty string clears" }
+        options: { type: object, additionalProperties: { type: string }, description: "allow-listed: security, ignore-cert, color-depth, enable-sftp, read-only" }
+    Device:
+      type: object
+      properties:
+        identity_warnings:
+          type: array
+          description: "advisory signs the device is not the machine its name says"
+          items: { type: object, properties: { code: { type: string, enum: [NAME_OS_MISMATCH, DUPLICATE_HOST] }, message: { type: string }, other_device_id: { type: string }, other_device_name: { type: string } } }
+        id: { type: string }
+        name: { type: string }
+        group_id: { type: string }
+        os: { type: string, enum: [linux, macos, windows, unknown] }
+        os_version: { type: string }
+        hostname: { type: string }
+        status: { type: string, enum: [pending, active, disabled] }
+        online: { type: boolean }
+        transport: { type: string, enum: [ssh-r, agent] }
+        key_fingerprint: { type: string }
+        services: { type: array, items: { $ref: "#/components/schemas/Service" } }
+        client_version: { type: string }
+        install_scope: { type: string, enum: ["system", "user", ""], description: "How the enrolment script installed the tunnel; empty when an older script did not say." }
+        install_user: { type: string, description: "The account a user-scope install runs as." }
+        last_seen_at: { type: string, format: date-time }
+        last_ip: { type: string }
+        connected_since: { type: string, format: date-time }
+        notes: { type: string }
+        tags: { type: array, items: { type: string } }
+        debug: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        etag: { type: string }
+    DeviceEnvelope: { type: object, properties: { data: { $ref: "#/components/schemas/Device" } } }
+    DeviceList: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Device" } }, meta: { $ref: "#/components/schemas/Meta" } } }
+    DeviceCreate:
+      type: object
+      required: [name, public_key]
+      properties: { name: { type: string, maxLength: 64 }, group_id: { type: string }, public_key: { type: string }, os: { type: string }, notes: { type: string, maxLength: 2000 } }
+    DevicePatch:
+      type: object
+      properties: { name: { type: string, maxLength: 64 }, group_id: { type: string }, notes: { type: string, maxLength: 2000 }, tags: { type: array, items: { type: string, maxLength: 32 }, maxItems: 20 }, debug: { type: boolean } }
+    ConnectResult: { type: object, properties: { url: { type: string }, expires_at: { type: string, format: date-time }, connection_name: { type: string } } }
+    ProbeResult: { type: object, properties: { service: { type: string }, ok: { type: boolean }, banner: { type: string }, latency_ms: { type: integer }, error: { type: string }, hint: { type: string } } }
+    ClientLogLine: { type: object, properties: { received_at: { type: string, format: date-time }, line: { type: string } } }
+    EnrollRequest:
+      type: object
+      required: [code, public_key]
+      properties:
+        code: { type: string, pattern: "^[a-hjkmnp-z2-9]{6}$" }
+        public_key: { type: string, description: "OpenSSH authorized_keys format, ssh-ed25519 only", maxLength: 1024 }
+        hostname: { type: string, maxLength: 128 }
+        os: { type: string, enum: [linux, macos, windows, unknown] }
+        os_version: { type: string, maxLength: 128 }
+        services: { type: array, items: { type: object, properties: { kind: { type: string, enum: [ssh, rdp, vnc] }, remote_port: { type: integer } } }, maxItems: 8 }
+        client_version: { type: string, maxLength: 32 }
+        install_scope: { type: string, enum: [system, user], description: "system = run as root/Administrator (starts at boot); user = one account's logins only" }
+        install_user: { type: string, maxLength: 64, description: "Account name; only with install_scope user" }
+    EnrollResult:
+      type: object
+      properties:
+        device_id: { type: string }
+        device_name: { type: string }
+        ssh_host: { type: string }
+        ssh_port: { type: integer }
+        known_hosts_line: { type: string, description: "[host]:port ssh-ed25519 AAAA… — the script pins this" }
+        forwards: { type: array, items: { type: string }, description: "ssh -R arguments, e.g. 3389:localhost:3389" }
+        fingerprint: { type: string }
+    Enrollment:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        group_id: { type: string }
+        code_hint: { type: string }
+        state: { type: string, enum: [open, used, expired] }
+        expires_at: { type: string, format: date-time }
+        used_at: { type: string, format: date-time }
+        device_id: { type: string }
+        expected_os: { type: string, enum: ["", macos, linux, windows], description: "the machine type the code is for; empty = any" }
+        device_deleted: { type: boolean, description: "the device this row refers to has since been deleted; omitted when false" }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+    EnrollmentCreate:
+      type: object
+      properties: { name: { type: string, maxLength: 64, description: "device name; defaults to the hostname the script reports" }, group_id: { type: string }, ttl_minutes: { type: integer, minimum: 5, maximum: 1440 }, expected_os: { type: string, enum: ["", macos, linux, windows], description: "refuse machines reporting another OS (ENROLL_WRONG_OS); the code stays usable" } }
+    EnrollmentCreated:
+      allOf:
+        - $ref: "#/components/schemas/Enrollment"
+        - type: object
+          properties:
+            code: { type: string }
+            command_unix: { type: string, description: "per-user install (starts at login)" }
+            command_unix_system: { type: string, description: "the same through sudo: system-wide, starts at boot, can turn on SSH / Screen Sharing (recommended)" }
+            command_windows: { type: string }
+    EnrollmentList: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Enrollment" } }, meta: { $ref: "#/components/schemas/Meta" } } }
+    Group:
+      type: object
+      properties: { id: { type: string }, name: { type: string }, description: { type: string }, color: { type: string, enum: [teal, violet, amber, rose, sky, lime, slate, orange] }, device_count: { type: integer }, created_at: { type: string }, updated_at: { type: string }, etag: { type: string } }
+    GroupWrite: { type: object, properties: { name: { type: string, maxLength: 64 }, description: { type: string, maxLength: 500 }, color: { type: string, enum: [teal, violet, amber, rose, sky, lime, slate, orange] } } }
+    GroupEnvelope: { type: object, properties: { data: { $ref: "#/components/schemas/Group" } } }
+    GroupList: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Group" } }, meta: { $ref: "#/components/schemas/Meta" } } }
+    User:
+      type: object
+      properties: { id: { type: string }, email: { type: string }, display_name: { type: string }, role: { type: string, enum: [admin, operator, viewer] }, group_ids: { type: array, items: { type: string } }, disabled: { type: boolean }, last_login_at: { type: string }, created_at: { type: string }, updated_at: { type: string }, etag: { type: string } }
+    UserWrite: { type: object, properties: { email: { type: string, maxLength: 254 }, display_name: { type: string, maxLength: 128 }, role: { type: string, enum: [admin, operator, viewer] }, group_ids: { type: array, items: { type: string } }, disabled: { type: boolean } } }
+    UserEnvelope: { type: object, properties: { data: { $ref: "#/components/schemas/User" } } }
+    UserList: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/User" } }, meta: { $ref: "#/components/schemas/Meta" } } }
+    Share: { type: object, properties: { user_id: { type: string }, user_email: { type: string }, mode: { type: string, enum: [view, control] }, expires_at: { type: string, format: date-time } } }
+    Session:
+      type: object
+      properties: { id: { type: string }, device_id: { type: string }, device_name: { type: string }, device_deleted: { type: boolean, description: "the device this row refers to has since been deleted; omitted when false" }, service: { type: string }, user_id: { type: string, description: owner }, user_email: { type: string }, started_at: { type: string }, ended_at: { type: string }, active: { type: boolean }, bytes_in: { type: integer }, bytes_out: { type: integer }, recording: { type: string }, mine: { type: boolean }, shares: { type: array, items: { $ref: "#/components/schemas/Share" } }, my_share: { oneOf: [ { $ref: "#/components/schemas/Share" }, { type: "null" } ] }, can_join: { type: boolean }, can_share: { type: boolean }, can_terminate: { type: boolean } }
+    CredentialView: { type: object, properties: { device_id: { type: string }, device_name: { type: string }, device_deleted: { type: boolean, description: "the device this row refers to has since been deleted; omitted when false" }, service: { type: string }, username: { type: string }, updated_at: { type: string } } }
+    ProviderInfo: { type: object, properties: { id: { type: string }, name: { type: string }, kind: { type: string, enum: [entra, google, apple, facebook, github, oidc] } } }
+    SessionList: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Session" } }, meta: { $ref: "#/components/schemas/Meta" } } }
+    Recording: { type: object, properties: { name: { type: string }, size_bytes: { type: integer }, modified_at: { type: string } } }
+    Settings:
+      type: object
+      properties:
+        public_url: { type: string }
+        ssh_public_host: { type: string }
+        ssh_public_port: { type: integer }
+        enrollment_ttl_minutes: { type: integer, minimum: 5, maximum: 1440 }
+        connect_token_ttl_seconds: { type: integer, minimum: 15, maximum: 600 }
+        recording_enabled: { type: boolean }
+        recording_retention_days: { type: integer, minimum: 1, maximum: 3650 }
+        log_level: { type: string, enum: [DEBUG, INFO, WARN, ERROR] }
+        session_idle_minutes: { type: integer, minimum: 5, maximum: 1440 }
+        session_absolute_hours: { type: integer, minimum: 1, maximum: 168 }
+        roles_claim: { type: string }
+        roles_map: { type: object, description: "merge patch: a null value removes that mapping", additionalProperties: { type: [string, "null"], enum: [admin, operator, viewer, null] } }
+        default_group_id: { type: string }
+        vnc_enabled: { type: boolean }
+        client_logs_enabled: { type: boolean }
+        audit_retention_days: { type: integer, minimum: 30, maximum: 3650 }
+        session_retention_days: { type: integer, minimum: 7, maximum: 3650 }
+        etag: { type: string, readOnly: true }
+        updated_at: { type: string, readOnly: true }
+    SettingsEnvelope: { type: object, properties: { data: { $ref: "#/components/schemas/Settings" } } }
+    IntegrationCheck:
+      type: object
+      properties:
+        id: { type: string, description: "guacamole.reachable | guacamole.version | guacd.reachable | json_auth.roundtrip | json_auth.clock | tunnel.listener | recording.path | proxy.websocket" }
+        title: { type: string }
+        status: { type: string, enum: [pass, warn, fail, skip] }
+        detail: { type: string }
+        hint: { type: string, description: "how to fix it" }
+        latency_ms: { type: integer }
+    IntegrationReport: { type: object, properties: { checked_at: { type: string }, overall: { type: string, enum: [pass, warn, fail, unknown] }, guacamole_version: { type: string }, checks: { type: array, items: { $ref: "#/components/schemas/IntegrationCheck" } } } }
+    AuditEvent:
+      type: object
+      properties: { id: { type: string }, timestamp: { type: string }, event: { type: string }, outcome: { type: string }, user_id: { type: string }, user_email: { type: string }, user_roles: { type: array, items: { type: string } }, client_address: { type: string }, resource: { type: string }, attrs: { type: object }, request_id: { type: string }, hash: { type: string } }
+    AuditList: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/AuditEvent" } }, meta: { $ref: "#/components/schemas/Meta" } } }
+    LogRecord:
+      type: object
+      description: OTel log data model (LOG-1), dotted keys
+      properties: { timestamp: { type: string }, severity_text: { type: string }, body: { type: string }, event.name: { type: string }, source: { type: string }, attributes: { type: object } }
+    Job: { type: object, properties: { name: { type: string }, description: { type: string }, schedule: { type: string }, running: { type: boolean }, last_run_at: { type: string }, last_success_at: { type: string }, last_error: { type: string }, last_duration_ms: { type: integer }, consecutive_failures: { type: integer }, next_run_at: { type: string } } }
+    Runtime: { type: object, properties: { version: { type: string }, commit: { type: string }, go_version: { type: string }, started_at: { type: string }, uptime_seconds: { type: integer }, goroutines: { type: integer }, heap_bytes: { type: integer }, log_level: { type: string }, auth_mode: { type: string }, store_path: { type: string }, store_recovered_from_backup: { type: boolean }, tunnels_online: { type: integer }, ssh_listen: { type: string } } }
+    TunnelInfo: { type: object, properties: { device_id: { type: string }, device_name: { type: string }, remote_address: { type: string }, connected_since: { type: string }, client_version: { type: string }, forwards: { type: array, items: { type: object, properties: { kind: { type: string }, remote_port: { type: integer }, internal_port: { type: integer }, active_conns: { type: integer }, bytes_in: { type: integer }, bytes_out: { type: integer } } } }, last_keepalive_at: { type: string } } }

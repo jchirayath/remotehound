@@ -1,0 +1,11 @@
+# Optional (profile "logs"): collect every bundle container's stdout into one
+# JSONL file that RemoteHound tails and shows on the Logs screen (source=bundle).
+[sources.docker]
+type = "docker_logs"
+include_labels = ["com.docker.compose.project=remotehound"]
+
+[sinks.file]
+type = "file"
+inputs = ["docker"]
+path = "/bundle-logs/bundle.jsonl"
+encoding.codec = "json"

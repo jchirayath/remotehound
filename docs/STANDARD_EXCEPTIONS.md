@@ -1,0 +1,11 @@
+# Standard exceptions
+
+| Rule | Where | Reason | Owner | Expires |
+|---|---|---|---|---|
+| std.web.console, std.web.test-fixed-sleep | `e2e/live/session-share.mjs` (excluded in `.semgrepignore`) | A manual command-line proof, not part of the test suite: its console output is its interface, and Guacamole draws the terminal on a `<canvas>` with no DOM text to wait on, so it waits fixed times after typing. The suite's specs keep both rules. | jchirayath | 2027-06-30 |
+| OPS-8 (stateless, multi-replica) | `internal/core/store` (JSON FileStore) | Single-writer JSON store chosen for a zero-database bundle (ADR-0003); one replica only. A Postgres `Store` implementation removes it. | jchirayath | 2027-06-30 |
+| TEST-0 integration kind for `help` | `standard.config.json` allowMissing | Help is client-side (registry + static docs); `/docs/{page}` is exercised by every walkthrough's help check. | jchirayath | 2027-06-30 |
+| REL-1/LOG-9 alert wiring | `docs/SLO.md`, `docs/OBSERVABILITY.md` | SLOs and alert rules are defined, but no alertmanager/Grafana is shipped in the bundle; operators wire `/metrics` into their own stack. | jchirayath | 2027-03-31 |
+| std.web.console | `ci/check-public.mjs` (excluded in `.semgrepignore`) | A command-line guard run by the pre-commit hook and CI; printing its findings is its interface. | jchirayath | 2027-06-30 |
+| CORE-6 (outbound HTTP only via core/httpx) | `internal/control/docker.go` (Docker Engine client), `internal/control/run.go` (helper HEALTHCHECK); marked `nosemgrep`, allowed by `ci/guards.sh` | Not outbound calls: one dials the Docker **unix socket** (httpx's SSRF guard and retries are for network destinations and would refuse a socket path), the other is a loopback self-probe like `app.Healthcheck`. RemoteHound's call to rh-control itself does go through httpx. | jchirayath | 2027-06-30 |
+| SEC (Docker socket in a container) | `rh-control` service, `control` profile in `deploy/compose.yml` (off by default) | Container start/stop/restart needs the socket, which is root-equivalent. Contained by ADR-0004: a separate non-published helper, token-authenticated, acting only on labelled containers with listed actions, never returning container environments. Without the profile the bundle has no socket access beyond the optional read-only `vector`. | jchirayath | 2027-06-30 |

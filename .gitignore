@@ -1,0 +1,30 @@
+# secrets and local state
+deploy/.env
+deploy/test/e2e.env
+.env
+.data/
+*.pem
+# build/test output
+/remotehound
+coverage.out
+e2e/test-results/
+e2e/playwright-report/
+node_modules
+.webui_secret_key
+.DS_Store
+.remember/
+# owner data (see local/README.md) — only the README is tracked
+local/*
+!local/README.md
+# runtime state, keys and recordings that must never be committed
+state.json
+state.json.bak
+audit.jsonl
+snapshots/
+recordings/
+dev-secret-key
+dev-guac-json-secret
+ssh_host_*_key
+*.p8
+*.key
+e2e/node_modules

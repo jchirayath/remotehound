@@ -1,0 +1,4 @@
+{
+  "platforms": ["css"],
+  "out": { "css": "web/ui" }
+}

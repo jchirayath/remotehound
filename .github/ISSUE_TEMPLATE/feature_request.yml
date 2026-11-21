@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest something RemoteHound should do.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you'd like
+      description: How you picture it working. Screens, commands, API — whatever helps.
+    validations: { required: true }
+  - type: textarea
+    id: security
+    attributes:
+      label: Security impact
+      description: |
+        Does this widen what a device key, an operator or a viewer can do (new tunnel channels,
+        forwards, permissions)? Those changes need a threat-model update, so say so up front.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered

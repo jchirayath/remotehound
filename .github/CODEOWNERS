@@ -1,0 +1,11 @@
+# Platform core, auth, tunnel policy, tokens, CI and agent configuration need an owner's review (REPO-2, AGT-9).
+/internal/core/        @jchirayath
+/internal/auth/        @jchirayath
+/internal/tunnel/      @jchirayath
+/internal/guac/        @jchirayath
+/client/               @jchirayath
+/design/               @jchirayath
+/.github/              @jchirayath
+/CLAUDE.md             @jchirayath
+/.claude/              @jchirayath
+/standard.config.json  @jchirayath

@@ -1,0 +1,472 @@
+// Package enroll owns enrolment codes and the bootstrap scripts
+// (docs/specs/CLIENT_PROTOCOL.md §1–2).
+//
+// Codes are 6 characters from an unambiguous alphabet, made with crypto/rand,
+// shown once, stored only as HMAC-SHA256(enroll key, code) — so a stolen state
+// file does not reveal open codes and cannot be brute-forced offline — single
+// use, and short-lived. GET /e/{code} renders a script without consuming the
+// code; POST /api/v1/enroll consumes it.
+package enroll
+
+import (
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"net/url"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/jchirayath/remotehound/client"
+	"github.com/jchirayath/remotehound/internal/core/apierr"
+	"github.com/jchirayath/remotehound/internal/core/audit"
+	"github.com/jchirayath/remotehound/internal/core/authz"
+	"github.com/jchirayath/remotehound/internal/core/ids"
+	"github.com/jchirayath/remotehound/internal/core/secrets"
+	"github.com/jchirayath/remotehound/internal/core/store"
+	"github.com/jchirayath/remotehound/internal/device"
+	"github.com/jchirayath/remotehound/internal/model"
+	"github.com/jchirayath/remotehound/internal/tunnel"
+)
+
+// Service implements enrolment.
+type Service struct {
+	Store   store.Store
+	Audit   *audit.Log
+	Secrets *secrets.Set
+	Devices *device.Service
+	Tunnel  *tunnel.Server
+}
+
+func (s *Service) hash(code string) string {
+	m := hmac.New(sha256.New, s.Secrets.EnrollKey.Bytes())
+	m.Write([]byte(code))
+	return hex.EncodeToString(m.Sum(nil))
+}
+
+// View is the API shape of an enrolment (the code is never included after creation).
+type View struct {
+	ID        string     `json:"id"`
+	Name      string     `json:"name"`
+	GroupID   string     `json:"group_id"`
+	CodeHint  string     `json:"code_hint"`
+	State     string     `json:"state"`
+	ExpiresAt time.Time  `json:"expires_at"`
+	UsedAt    *time.Time `json:"used_at"`
+	DeviceID  string     `json:"device_id"`
+	// ExpectedOS: the machine type the code is for (macos | linux | windows), "" = any.
+	ExpectedOS string `json:"expected_os"`
+	// DeviceDeleted: the code was used, but that device has since been deleted.
+	DeviceDeleted bool      `json:"device_deleted,omitempty"`
+	CreatedBy     string    `json:"created_by"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+// Created adds the one-time code and commands.
+type Created struct {
+	View
+	Code        string `json:"code"`
+	CommandUnix string `json:"command_unix"`
+	// CommandUnixSystem is the same command through sudo: a system-wide install
+	// that starts at boot and may turn on SSH / Screen Sharing (recommended).
+	CommandUnixSystem string `json:"command_unix_system"`
+	CommandWindows    string `json:"command_windows"`
+}
+
+func toView(e *model.Enrollment, now time.Time, viewer string, devices map[string]*model.Device) View {
+	hint := ""
+	if viewer == e.CreatedBy { // the hint narrows a brute force: only the creator sees it
+		hint = e.CodeHint
+	}
+	v := View{ID: e.ID, Name: e.Name, GroupID: e.GroupID, CodeHint: hint, State: e.State(now), ExpiresAt: e.ExpiresAt,
+		DeviceID: e.DeviceID, CreatedBy: e.CreatedBy, CreatedAt: e.CreatedAt, ExpectedOS: e.ExpectedOS}
+	if e.DeviceID != "" && devices != nil && devices[e.DeviceID] == nil {
+		v.DeviceDeleted = true
+	}
+	if !e.UsedAt.IsZero() {
+		t := e.UsedAt
+		v.UsedAt = &t
+	}
+	return v
+}
+
+// Commands returns the two one-liners for a code.
+func Commands(publicURL, code string) (unix, windows string) {
+	u, _ := url.Parse(publicURL)
+	host := publicURL
+	if u != nil && u.Host != "" {
+		host = u.Host + strings.TrimRight(u.Path, "/")
+		if u.Scheme != "https" {
+			host = u.Scheme + "://" + host
+		}
+	}
+	// curl's default scheme is http; always spell https so the TLS check applies.
+	if !strings.Contains(host, "://") {
+		host = "https://" + host
+	}
+	return "curl -fsSL " + host + "/e/" + code + " | sh", "irm " + host + "/e/" + code + " | iex"
+}
+
+// Create issues a new code.
+func (s *Service) Create(ctx context.Context, a *authz.Actor, name, groupID, expectedOS string, ttlMinutes int) (Created, error) {
+	now := time.Now().UTC()
+	code := ids.Code()
+	var st model.Settings
+	var out *model.Enrollment
+	err := s.Store.Update(func(x *model.State) error {
+		st = x.Settings
+		if groupID == "" {
+			groupID = st.DefaultGroupID
+		}
+		if groupID != "" {
+			if _, ok := x.Groups[groupID]; !ok {
+				return apierr.BadRequest(apierr.CodeGroupNotFound, "That group does not exist.")
+			}
+		}
+		if !authz.Can(a, authz.EnrollmentCreate, authz.Resource{GroupID: groupID, Global: a.IsAdmin()}) {
+			return apierr.Forbidden("You can only enrol devices into your own groups. Pick one of your groups.")
+		}
+		if ttlMinutes == 0 {
+			ttlMinutes = st.EnrollmentTTLMinutes
+		}
+		e := &model.Enrollment{Meta: model.Meta{ID: ids.New("enr"), CreatedAt: now, UpdatedAt: now, Version: 1},
+			CodeHash: s.hash(code), CodeHint: code[len(code)-2:], Name: name, GroupID: groupID,
+			ExpiresAt: now.Add(time.Duration(ttlMinutes) * time.Minute), CreatedBy: a.UserID, ExpectedOS: expectedOS}
+		x.Enrollments[e.ID] = e
+		out = e
+		return nil
+	})
+	if err != nil {
+		s.Audit.Record(ctx, "enrollment.create", audit.Denied, "", nil)
+		return Created{}, err
+	}
+	s.Audit.Record(ctx, "enrollment.create", audit.Success, "enrollment:"+out.ID, map[string]any{"group_id": groupID, "ttl_minutes": ttlMinutes})
+	unix, win := Commands(st.PublicURL, code)
+	return Created{View: toView(out, now, a.UserID, nil), Code: code, CommandUnix: unix,
+		CommandUnixSystem: strings.TrimSuffix(unix, "| sh") + "| sudo sh", CommandWindows: win}, nil
+}
+
+// List returns enrolments visible to the actor, newest first.
+func (s *Service) List(a *authz.Actor, state string, pageSize int, token string) ([]View, string) {
+	now := time.Now().UTC()
+	var all []*model.Enrollment
+	present := map[string]*model.Device{} // devices that still exist, for DeviceDeleted
+	s.Store.View(func(x *model.State) {
+		for id, d := range x.Devices {
+			present[id] = d
+		}
+		for _, e := range x.Enrollments {
+			if !authz.SeesGroup(a, e.GroupID) && e.CreatedBy != a.UserID {
+				continue
+			}
+			if state != "" && e.State(now) != state {
+				continue
+			}
+			cp := *e
+			all = append(all, &cp)
+		}
+	})
+	sort.Slice(all, func(i, j int) bool { return all[i].CreatedAt.After(all[j].CreatedAt) })
+	byID := map[string]*model.Enrollment{}
+	order := make([]string, len(all))
+	for i, e := range all {
+		order[i], byID[e.ID] = e.ID, e
+	}
+	page, next := store.Page(order, pageSize, token)
+	out := make([]View, len(page))
+	for i, id := range page {
+		out[i] = toView(byID[id], now, a.UserID, present)
+	}
+	return out, next
+}
+
+// Get returns one enrolment the actor may see.
+func (s *Service) Get(a *authz.Actor, id string) (View, error) {
+	var out *View
+	s.Store.View(func(x *model.State) {
+		if e, ok := x.Enrollments[id]; ok && (authz.SeesGroup(a, e.GroupID) || e.CreatedBy == a.UserID) {
+			v := toView(e, time.Now().UTC(), a.UserID, x.Devices)
+			out = &v
+		}
+	})
+	if out == nil {
+		return View{}, apierr.NotFound(apierr.CodeNotFound, "No enrolment code with that ID.")
+	}
+	return *out, nil
+}
+
+// Revoke deletes an unused code.
+func (s *Service) Revoke(ctx context.Context, a *authz.Actor, id string) error {
+	err := s.Store.Update(func(x *model.State) error {
+		e, ok := x.Enrollments[id]
+		if !ok || !(authz.Can(a, authz.EnrollmentDelete, authz.Resource{GroupID: e.GroupID}) || e.CreatedBy == a.UserID) {
+			return apierr.NotFound(apierr.CodeNotFound, "No enrolment code with that ID.")
+		}
+		delete(x.Enrollments, id)
+		return nil
+	})
+	if err == nil {
+		s.Audit.Record(ctx, "enrollment.revoke", audit.Success, "enrollment:"+id, nil)
+	}
+	return err
+}
+
+// failures is a GLOBAL brake on wrong codes (complements per-IP limits that a
+// botnet or IPv6 rotation can sidestep): more than 120 misses in a minute
+// suspends every lookup/redeem for the rest of that minute.
+var failures struct {
+	sync.Mutex
+	window time.Time
+	n      int
+}
+
+// Throttled reports whether wrong-code lookups are currently suspended.
+func Throttled() bool {
+	failures.Lock()
+	defer failures.Unlock()
+	return time.Since(failures.window) < time.Minute && failures.n > 120
+}
+
+func noteFailure() {
+	failures.Lock()
+	defer failures.Unlock()
+	if time.Since(failures.window) >= time.Minute {
+		failures.window, failures.n = time.Now(), 0
+	}
+	failures.n++
+}
+
+// Lookup finds an open enrolment for code (for script rendering). It does not consume it.
+func (s *Service) Lookup(code string) (*model.Enrollment, string) {
+	if Throttled() {
+		return nil, "throttled"
+	}
+	if !ids.ValidCode(code) {
+		noteFailure()
+		return nil, "invalid"
+	}
+	h := s.hash(code)
+	now := time.Now().UTC()
+	var found *model.Enrollment
+	s.Store.View(func(x *model.State) {
+		for _, e := range x.Enrollments {
+			if hmac.Equal([]byte(e.CodeHash), []byte(h)) {
+				cp := *e
+				found = &cp
+				return
+			}
+		}
+	})
+	if found == nil {
+		noteFailure()
+		return nil, "invalid"
+	}
+	return found, found.State(now)
+}
+
+// Script renders the bootstrap for code; ps selects PowerShell. Invalid codes
+// get a script that explains and exits non-zero.
+func (s *Service) Script(code string, ps bool) string {
+	_, state := s.Lookup(code)
+	if state != "open" {
+		if ps {
+			return "Write-Host 'RemoteHound: this code is not valid or has expired. Ask for a new one.' -ForegroundColor Red\n"
+		}
+		return "#!/bin/sh\necho 'RemoteHound: this code is not valid or has expired. Ask for a new one.' >&2\nexit 1\n"
+	}
+	var base string
+	s.Store.View(func(x *model.State) { base = strings.TrimRight(x.Settings.PublicURL, "/") })
+	tpl := client.BootstrapSH
+	if ps {
+		tpl = client.BootstrapPS1
+	}
+	// Both values are validated: code by ValidCode, base by the settings validator (https URL).
+	return strings.NewReplacer("__RH_BASE_URL__", base, "__RH_CODE__", code).Replace(tpl)
+}
+
+// RedeemRequest is the POST /api/v1/enroll body.
+type RedeemRequest struct {
+	Code          string `json:"code"`
+	PublicKey     string `json:"public_key"`
+	Hostname      string `json:"hostname"`
+	OS            string `json:"os"`
+	OSVersion     string `json:"os_version"`
+	ClientVersion string `json:"client_version"`
+	InstallScope  string `json:"install_scope"` // "system" | "user"; other values are dropped
+	InstallUser   string `json:"install_user"`
+	Services      []struct {
+		Kind       string `json:"kind"`
+		RemotePort int    `json:"remote_port"`
+	} `json:"services"`
+}
+
+// RedeemResult is returned to the script.
+type RedeemResult struct {
+	DeviceID       string   `json:"device_id"`
+	DeviceName     string   `json:"device_name"`
+	SSHHost        string   `json:"ssh_host"`
+	SSHPort        int      `json:"ssh_port"`
+	KnownHostsLine string   `json:"known_hosts_line"`
+	Forwards       []string `json:"forwards"`
+	Fingerprint    string   `json:"fingerprint"`
+}
+
+var hostRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
+
+// userRe: an account name as the script reports it (Windows names may hold
+// spaces, DOMAIN\ is stripped by the script).
+var userRe = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._ -]{0,63}$`)
+
+// Redeem consumes code and creates the device.
+func (s *Service) Redeem(ctx context.Context, req RedeemRequest) (RedeemResult, error) {
+	if Throttled() {
+		return RedeemResult{}, apierr.New(429, apierr.CodeRateLimited, "Too many wrong codes were tried recently. Wait a minute and try again.")
+	}
+	code := strings.ToLower(strings.TrimSpace(req.Code))
+	if !ids.ValidCode(code) {
+		noteFailure()
+		return RedeemResult{}, apierr.NotFound(apierr.CodeEnrollInvalid, "This enrolment code is not valid. Ask for a new one.")
+	}
+	if !hostRe.MatchString(req.Hostname) {
+		req.Hostname = "device"
+	}
+	switch req.OS {
+	case "linux", "macos", "windows":
+	default:
+		req.OS = "unknown"
+	}
+	if len(req.OSVersion) > 128 {
+		req.OSVersion = req.OSVersion[:128]
+	}
+	if len(req.ClientVersion) > 32 {
+		req.ClientVersion = req.ClientVersion[:32]
+	}
+	switch req.InstallScope {
+	case "system":
+		req.InstallUser = ""
+	case "user":
+		if !userRe.MatchString(req.InstallUser) {
+			req.InstallUser = ""
+		}
+	default:
+		req.InstallScope, req.InstallUser = "", ""
+	}
+	var services []model.Service
+	seen := map[string]bool{}
+	for _, rs := range req.Services {
+		if _, ok := model.DefaultRemotePort[rs.Kind]; !ok || seen[rs.Kind] || rs.RemotePort < 1 || rs.RemotePort > 65535 || len(services) >= 8 {
+			continue
+		}
+		seen[rs.Kind] = true
+		services = append(services, model.Service{Kind: rs.Kind, RemotePort: rs.RemotePort})
+	}
+	if len(services) == 0 {
+		services = []model.Service{{Kind: model.ServiceSSH, RemotePort: 22}}
+	}
+
+	h := s.hash(code)
+	now := time.Now().UTC()
+	var res RedeemResult
+	var dev *model.Device
+	var wrongOS bool
+	var warnings []string
+	err := s.Store.Update(func(x *model.State) error {
+		var e *model.Enrollment
+		for _, cand := range x.Enrollments {
+			if hmac.Equal([]byte(cand.CodeHash), []byte(h)) {
+				e = cand
+				break
+			}
+		}
+		if e == nil {
+			noteFailure()
+			return apierr.NotFound(apierr.CodeEnrollInvalid, "This enrolment code is not valid. Ask for a new one.")
+		}
+		switch e.State(now) {
+		case "used":
+			return apierr.New(410, apierr.CodeEnrollUsed, "This code was already used. Ask for a new one.")
+		case "expired":
+			return apierr.New(410, apierr.CodeEnrollExpired, "This code has expired. Ask for a new one.")
+		}
+		if e.ExpectedOS != "" && req.OS != e.ExpectedOS {
+			// Not consumed: the right machine can still use this code.
+			wrongOS = true
+			return apierr.BadRequest(apierr.CodeEnrollWrongOS, "This code is for a "+osLabel(e.ExpectedOS)+" machine, but this one reports "+
+				osLabel(req.OS)+" (hostname "+req.Hostname+"). Run the command on the machine it was made for, or create a code for "+osLabel(req.OS)+".")
+		}
+		name := e.Name
+		if name == "" {
+			name = req.Hostname
+		}
+		d, err := s.Devices.Create(ctx, name, e.GroupID, req.PublicKey, req.OS, "", e.ID)
+		if err != nil {
+			return err
+		}
+		for _, o := range x.Devices {
+			if o.KeyFingerprint == d.KeyFingerprint {
+				return apierr.BadRequest(apierr.CodeEnrollKeyInvalid, "This key already belongs to another device. Re-run the command: it generates a fresh key.")
+			}
+		}
+		d.Hostname, d.OSVersion, d.ClientVersion, d.Services = req.Hostname, req.OSVersion, req.ClientVersion, services
+		d.InstallScope, d.InstallUser = req.InstallScope, req.InstallUser
+		x.Devices[d.ID] = d
+		warnings = device.RedeemWarnings(d, x.Devices)
+		e.UsedAt, e.DeviceID = now, d.ID
+		e.Touch(now)
+		dev = d
+
+		st := x.Settings
+		res = RedeemResult{DeviceID: d.ID, DeviceName: d.Name, SSHHost: st.SSHPublicHost, SSHPort: st.SSHPublicPort,
+			KnownHostsLine: s.Tunnel.KnownHostsLine(st.SSHPublicHost, st.SSHPublicPort), Fingerprint: d.KeyFingerprint}
+		for _, sv := range services {
+			res.Forwards = append(res.Forwards, itoa(sv.RemotePort)+":localhost:"+itoa(sv.RemotePort))
+		}
+		return nil
+	})
+	if err != nil {
+		detail := map[string]any{"reason": apierr.As(err).Code}
+		if wrongOS {
+			detail["reported_os"], detail["hostname"] = req.OS, req.Hostname
+		}
+		s.Audit.Record(ctx, "enrollment.redeem", audit.Failure, "", detail)
+		return RedeemResult{}, err
+	}
+	detail := map[string]any{"os": dev.OS, "hostname": dev.Hostname, "services": len(services), "install_scope": dev.InstallScope}
+	if len(warnings) > 0 {
+		detail["identity_warnings"] = warnings // e.g. NAME_OS_MISMATCH: run on the wrong machine?
+	}
+	s.Audit.Record(ctx, "enrollment.redeem", audit.Success, "device:"+dev.ID, detail)
+	return res, nil
+}
+
+// Status reports whether the device's tunnel is up (stage 6 poll). The
+// fingerprint must match so this cannot be used to enumerate device IDs.
+func (s *Service) Status(deviceID, fingerprint string) (online bool, forwards []string, err error) {
+	d := s.Devices.Device(deviceID)
+	if d == nil || !hmac.Equal([]byte(d.KeyFingerprint), []byte(fingerprint)) {
+		return false, nil, apierr.NotFound(apierr.CodeDeviceNotFound, "Unknown device.")
+	}
+	for rp := range s.Tunnel.Forwarded(deviceID) {
+		forwards = append(forwards, itoa(rp)+":localhost:"+itoa(rp))
+	}
+	sort.Strings(forwards)
+	return s.Tunnel.Online(deviceID), forwards, nil
+}
+
+func itoa(n int) string { return strconv.Itoa(n) }
+
+func osLabel(os string) string {
+	switch os {
+	case "macos":
+		return "macOS"
+	case "linux":
+		return "Linux"
+	case "windows":
+		return "Windows"
+	}
+	return "an unknown OS"
+}

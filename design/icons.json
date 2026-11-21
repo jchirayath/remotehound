@@ -1,0 +1,505 @@
+{
+  "$comment": "Semantic icon name -> glyph per platform set. Screens use the generated registry, never the icon package (THEME-5). Change a glyph here, not in screens.",
+  "icons": {
+    "action.add": {
+      "lucide": "Plus",
+      "material": "add",
+      "sf": "plus"
+    },
+    "action.edit": {
+      "lucide": "Pencil",
+      "material": "edit",
+      "sf": "pencil"
+    },
+    "action.delete": {
+      "lucide": "Trash2",
+      "material": "delete",
+      "sf": "trash"
+    },
+    "action.save": {
+      "lucide": "Save",
+      "material": "save",
+      "sf": "square.and.arrow.down"
+    },
+    "action.cancel": {
+      "lucide": "X",
+      "material": "cancel",
+      "sf": "xmark.circle"
+    },
+    "action.close": {
+      "lucide": "X",
+      "material": "close",
+      "sf": "xmark"
+    },
+    "action.back": {
+      "lucide": "ArrowLeft",
+      "material": "arrow_back",
+      "sf": "chevron.left"
+    },
+    "action.search": {
+      "lucide": "Search",
+      "material": "search",
+      "sf": "magnifyingglass"
+    },
+    "action.filter": {
+      "lucide": "Filter",
+      "material": "filter_list",
+      "sf": "line.3.horizontal.decrease"
+    },
+    "action.sort": {
+      "lucide": "ArrowUpDown",
+      "material": "sort",
+      "sf": "arrow.up.arrow.down"
+    },
+    "action.export": {
+      "lucide": "Download",
+      "material": "download",
+      "sf": "square.and.arrow.up"
+    },
+    "action.import": {
+      "lucide": "Upload",
+      "material": "upload",
+      "sf": "square.and.arrow.down.on.square"
+    },
+    "action.refresh": {
+      "lucide": "RefreshCw",
+      "material": "refresh",
+      "sf": "arrow.clockwise"
+    },
+    "action.share": {
+      "lucide": "Share2",
+      "material": "share",
+      "sf": "square.and.arrow.up"
+    },
+    "action.copy": {
+      "lucide": "Copy",
+      "material": "content_copy",
+      "sf": "doc.on.doc"
+    },
+    "action.more": {
+      "lucide": "Ellipsis",
+      "material": "more_horiz",
+      "sf": "ellipsis"
+    },
+    "action.settings": {
+      "lucide": "Settings",
+      "material": "settings",
+      "sf": "gearshape"
+    },
+    "action.logout": {
+      "lucide": "LogOut",
+      "material": "logout",
+      "sf": "rectangle.portrait.and.arrow.right"
+    },
+    "nav.home": {
+      "lucide": "House",
+      "material": "home",
+      "sf": "house"
+    },
+    "nav.profile": {
+      "lucide": "CircleUser",
+      "material": "account_circle",
+      "sf": "person.crop.circle"
+    },
+    "nav.notifications": {
+      "lucide": "Bell",
+      "material": "notifications",
+      "sf": "bell"
+    },
+    "nav.help": {
+      "lucide": "CircleHelp",
+      "material": "help",
+      "sf": "questionmark.circle"
+    },
+    "status.success": {
+      "lucide": "CircleCheck",
+      "material": "check_circle",
+      "sf": "checkmark.circle"
+    },
+    "status.warning": {
+      "lucide": "TriangleAlert",
+      "material": "warning",
+      "sf": "exclamationmark.triangle"
+    },
+    "status.danger": {
+      "lucide": "CircleAlert",
+      "material": "error",
+      "sf": "exclamationmark.octagon"
+    },
+    "status.info": {
+      "lucide": "Info",
+      "material": "info",
+      "sf": "info.circle"
+    },
+    "object.user": {
+      "lucide": "User",
+      "material": "person",
+      "sf": "person"
+    },
+    "object.users": {
+      "lucide": "Users",
+      "material": "group",
+      "sf": "person.2"
+    },
+    "object.calendar": {
+      "lucide": "Calendar",
+      "material": "calendar_today",
+      "sf": "calendar"
+    },
+    "object.document": {
+      "lucide": "FileText",
+      "material": "description",
+      "sf": "doc.text"
+    },
+    "object.link": {
+      "lucide": "Link",
+      "material": "link",
+      "sf": "link"
+    },
+    "object.lock": {
+      "lucide": "Lock",
+      "material": "lock",
+      "sf": "lock"
+    },
+    "state.expand": {
+      "lucide": "ChevronDown",
+      "material": "expand_more",
+      "sf": "chevron.down"
+    },
+    "state.collapse": {
+      "lucide": "ChevronUp",
+      "material": "expand_less",
+      "sf": "chevron.up"
+    },
+    "state.check": {
+      "lucide": "Check",
+      "material": "check",
+      "sf": "checkmark"
+    },
+    "state.visibility": {
+      "lucide": "Eye",
+      "material": "visibility",
+      "sf": "eye"
+    },
+    "state.visibilityOff": {
+      "lucide": "EyeOff",
+      "material": "visibility_off",
+      "sf": "eye.slash"
+    },
+    "domain.brand": {
+      "lucide": "Dog",
+      "material": "pets",
+      "sf": "pawprint"
+    },
+    "domain.nav.overview": {
+      "lucide": "LayoutDashboard",
+      "material": "dashboard",
+      "sf": "square.grid.2x2"
+    },
+    "domain.nav.devices": {
+      "lucide": "Server",
+      "material": "dns",
+      "sf": "server.rack"
+    },
+    "domain.nav.enroll": {
+      "lucide": "KeyRound",
+      "material": "key",
+      "sf": "key"
+    },
+    "domain.nav.groups": {
+      "lucide": "Boxes",
+      "material": "workspaces",
+      "sf": "square.stack.3d.up"
+    },
+    "domain.nav.sessions": {
+      "lucide": "Activity",
+      "material": "monitoring",
+      "sf": "waveform.path.ecg"
+    },
+    "domain.nav.integration": {
+      "lucide": "ShieldCheck",
+      "material": "verified_user",
+      "sf": "checkmark.shield"
+    },
+    "domain.nav.logs": {
+      "lucide": "ScrollText",
+      "material": "receipt_long",
+      "sf": "doc.plaintext"
+    },
+    "domain.nav.debug": {
+      "lucide": "Bug",
+      "material": "bug_report",
+      "sf": "ladybug"
+    },
+    "domain.nav.audit": {
+      "lucide": "ClipboardList",
+      "material": "fact_check",
+      "sf": "list.clipboard"
+    },
+    "domain.nav.menu": {
+      "lucide": "Menu",
+      "material": "menu",
+      "sf": "line.3.horizontal"
+    },
+    "domain.nav.sidebar": {
+      "lucide": "PanelLeft",
+      "material": "left_panel_close",
+      "sf": "sidebar.left"
+    },
+    "domain.nav.next": {
+      "lucide": "ChevronRight",
+      "material": "chevron_right",
+      "sf": "chevron.right"
+    },
+    "domain.nav.prev": {
+      "lucide": "ChevronLeft",
+      "material": "chevron_left",
+      "sf": "chevron.left"
+    },
+    "domain.nav.forward": {
+      "lucide": "ArrowRight",
+      "material": "arrow_forward",
+      "sf": "arrow.right"
+    },
+    "domain.os.linux": {
+      "lucide": "Terminal",
+      "material": "terminal",
+      "sf": "terminal"
+    },
+    "domain.os.macos": {
+      "lucide": "Laptop",
+      "material": "laptop_mac",
+      "sf": "laptopcomputer"
+    },
+    "domain.os.windows": {
+      "lucide": "AppWindow",
+      "material": "desktop_windows",
+      "sf": "macwindow"
+    },
+    "domain.os.unknown": {
+      "lucide": "CircleDashed",
+      "material": "device_unknown",
+      "sf": "questionmark.square.dashed"
+    },
+    "domain.service.ssh": {
+      "lucide": "SquareTerminal",
+      "material": "terminal",
+      "sf": "apple.terminal"
+    },
+    "domain.service.rdp": {
+      "lucide": "Monitor",
+      "material": "desktop_windows",
+      "sf": "display"
+    },
+    "domain.service.vnc": {
+      "lucide": "ScreenShare",
+      "material": "screen_share",
+      "sf": "rectangle.on.rectangle"
+    },
+    "domain.theme.light": {
+      "lucide": "Sun",
+      "material": "light_mode",
+      "sf": "sun.max"
+    },
+    "domain.theme.dark": {
+      "lucide": "Moon",
+      "material": "dark_mode",
+      "sf": "moon"
+    },
+    "domain.theme.system": {
+      "lucide": "SunMoon",
+      "material": "contrast",
+      "sf": "circle.lefthalf.filled"
+    },
+    "domain.action.connect": {
+      "lucide": "PlugZap",
+      "material": "power",
+      "sf": "bolt.horizontal"
+    },
+    "domain.action.open": {
+      "lucide": "ExternalLink",
+      "material": "open_in_new",
+      "sf": "arrow.up.right.square"
+    },
+    "domain.action.disable": {
+      "lucide": "Power",
+      "material": "power_settings_new",
+      "sf": "power"
+    },
+    "domain.action.run": {
+      "lucide": "Play",
+      "material": "play_arrow",
+      "sf": "play"
+    },
+    "domain.action.pause": {
+      "lucide": "Pause",
+      "material": "pause",
+      "sf": "pause"
+    },
+    "domain.action.probe": {
+      "lucide": "Stethoscope",
+      "material": "stethoscope",
+      "sf": "stethoscope"
+    },
+    "domain.action.reconnect": {
+      "lucide": "RotateCcw",
+      "material": "replay",
+      "sf": "arrow.counterclockwise"
+    },
+    "domain.action.palette": {
+      "lucide": "Command",
+      "material": "keyboard_command_key",
+      "sf": "command"
+    },
+    "domain.action.tune": {
+      "lucide": "SlidersHorizontal",
+      "material": "tune",
+      "sf": "slider.horizontal.3"
+    },
+    "domain.action.bundle": {
+      "lucide": "HardDriveDownload",
+      "material": "download_for_offline",
+      "sf": "externaldrive.badge.icloud"
+    },
+    "domain.action.revoke": {
+      "lucide": "Ban",
+      "material": "block",
+      "sf": "nosign"
+    },
+    "domain.action.invite": {
+      "lucide": "UserPlus",
+      "material": "person_add",
+      "sf": "person.badge.plus"
+    },
+    "domain.action.clear": {
+      "lucide": "Eraser",
+      "material": "ink_eraser",
+      "sf": "eraser"
+    },
+    "domain.presence.online": {
+      "lucide": "Wifi",
+      "material": "wifi",
+      "sf": "wifi"
+    },
+    "domain.presence.offline": {
+      "lucide": "WifiOff",
+      "material": "wifi_off",
+      "sf": "wifi.slash"
+    },
+    "domain.object.tunnel": {
+      "lucide": "Cable",
+      "material": "cable",
+      "sf": "cable.connector"
+    },
+    "domain.object.clock": {
+      "lucide": "Clock",
+      "material": "schedule",
+      "sf": "clock"
+    },
+    "domain.object.zap": {
+      "lucide": "Zap",
+      "material": "bolt",
+      "sf": "bolt"
+    },
+    "domain.object.tag": {
+      "lucide": "Tag",
+      "material": "sell",
+      "sf": "tag"
+    },
+    "domain.object.route": {
+      "lucide": "Route",
+      "material": "route",
+      "sf": "point.topleft.down.to.point.bottomright.curvepath"
+    },
+    "domain.object.radio": {
+      "lucide": "Radio",
+      "material": "sensors",
+      "sf": "dot.radiowaves.left.and.right"
+    },
+    "domain.state.loading": {
+      "lucide": "LoaderCircle",
+      "material": "progress_activity",
+      "sf": "rays"
+    },
+    "domain.status.fail": {
+      "lucide": "CircleX",
+      "material": "cancel",
+      "sf": "xmark.circle"
+    },
+    "domain.provider.entra": {
+      "lucide": "Building2",
+      "material": "corporate_fare",
+      "sf": "building.2"
+    },
+    "domain.provider.google": {
+      "lucide": "Globe",
+      "material": "public",
+      "sf": "globe"
+    },
+    "domain.provider.apple": {
+      "lucide": "Smartphone",
+      "material": "smartphone",
+      "sf": "iphone"
+    },
+    "domain.provider.facebook": {
+      "lucide": "UsersRound",
+      "material": "groups",
+      "sf": "person.3"
+    },
+    "domain.provider.github": {
+      "lucide": "GitBranch",
+      "material": "fork_right",
+      "sf": "arrow.triangle.branch"
+    },
+    "domain.provider.oidc": {
+      "lucide": "Fingerprint",
+      "material": "fingerprint",
+      "sf": "touchid"
+    },
+    "domain.action.unlink": {
+      "lucide": "Unlink",
+      "material": "link_off",
+      "sf": "personalhotspot.slash"
+    },
+    "domain.action.join": {
+      "lucide": "LogIn",
+      "material": "login",
+      "sf": "rectangle.portrait.and.arrow.forward"
+    },
+    "domain.share.control": {
+      "lucide": "MousePointer2",
+      "material": "mouse",
+      "sf": "cursorarrow"
+    },
+    "domain.object.credential": {
+      "lucide": "UserRoundCheck",
+      "material": "how_to_reg",
+      "sf": "person.badge.key"
+    },
+    "domain.object.expiry": {
+      "lucide": "Hourglass",
+      "material": "hourglass_empty",
+      "sf": "hourglass"
+    },
+    "domain.nav.services": {
+      "lucide": "Activity",
+      "material": "monitor_heart",
+      "sf": "waveform.path.ecg"
+    },
+    "domain.action.start": {
+      "lucide": "Play",
+      "material": "play_arrow",
+      "sf": "play.fill"
+    },
+    "domain.action.stop": {
+      "lucide": "Power",
+      "material": "power_settings_new",
+      "sf": "power"
+    },
+    "domain.action.restart": {
+      "lucide": "RotateCcw",
+      "material": "restart_alt",
+      "sf": "arrow.counterclockwise"
+    }
+  }
+}

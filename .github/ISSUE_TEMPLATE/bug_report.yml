@@ -1,0 +1,62 @@
+name: Bug report
+description: Something doesn't work as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Security issue?** Stop here and use *Report a security vulnerability* instead.
+        Before pasting logs, remove domains, hostnames, IPs, e-mail addresses and anything secret.
+        RemoteHound's own logs are redacted, but Guacamole's and your proxy's may not be.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Enroll a device with the Temporary install
+        2. Open Devices → the device → Connect
+        3. …
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes:
+      label: RemoteHound version
+      description: Shown on the Services screen, or `docker compose exec remotehound remotehound version`.
+      placeholder: 0.1.0
+    validations: { required: true }
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Enrolment / bootstrap script
+        - Tunnel / device connectivity
+        - Session (Guacamole) / Connect
+        - Sign-in / users / groups
+        - Web console
+        - Deployment (compose, Caddy, .env)
+        - Other
+    validations: { required: true }
+  - type: dropdown
+    id: device-os
+    attributes:
+      label: Device OS (if relevant)
+      multiple: true
+      options: [Linux, macOS, Windows, Not device-related]
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: Docker host OS, sign-in method (OIDC provider / proxy / dev), browser, anything unusual.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and request ID
+      description: Error screens show a request ID — include it, and the matching lines from the Logs screen.
+      render: text

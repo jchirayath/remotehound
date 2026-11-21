@@ -1,0 +1,16 @@
+{
+  "mode": "client",
+  "tests": {
+    "features": ["overview", "devices", "enroll", "groups", "users", "sessions", "integration", "logs", "debug", "settings", "audit", "help", "services"],
+    "kinds": {
+      "unit": ["internal/**/*_test.go", "web/ui/tests/**", "client/test/**"],
+      "integration": ["internal/integration/**"],
+      "e2e": ["e2e/journeys/**"],
+      "walkthrough": ["e2e/walk/**"]
+    },
+    "required": ["unit", "integration", "e2e", "walkthrough"],
+    "allowMissing": {
+      "help": { "kinds": ["integration"], "until": "2027-06-30", "reason": "help is client-side (registry + static docs); /docs/{page} is covered by the walkthrough" }
+    }
+  }
+}

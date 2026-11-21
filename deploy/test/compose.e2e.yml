@@ -1,0 +1,32 @@
+# TEST ONLY — never deploy this. It replaces sign-in with a Caddy that stamps
+# every request as admin@example.com, so anyone who can reach it is an admin.
+# Used by e2e tests and the local smoke test:
+#   docker compose -f deploy/compose.yml -f deploy/test/compose.e2e.yml --env-file deploy/test/e2e.env up -d --build
+services:
+  remotehound:
+    env_file: !override
+      - test/e2e.env
+    environment:
+      RH_AUTH_MODE: proxy
+      RH_TRUSTED_PROXIES: 172.29.0.2/32
+      RH_BOOTSTRAP_ADMIN: admin@example.com
+      RH_PUBLIC_URL: https://localhost:8443
+      # Container control is ON in the test bundle so the Services journey can
+      # restart guacd for real. Token is a fixed TEST value.
+      RH_CONTROL_URL: http://rh-control:9091
+      RH_CONTROL_TOKEN: e2e-test-control-token-not-a-secret-0000000000000000
+      RH_PROXY_LOGOUT_URL: /signed-out
+  rh-control:
+    profiles: !reset []
+    environment:
+      RH_CONTROL_TOKEN: e2e-test-control-token-not-a-secret-0000000000000000
+    # Docker Desktop's socket is root:root inside the VM.
+    user: "65532:0"
+  caddy:
+    environment:
+      RH_DOMAIN: localhost
+    ports: !override
+      - "127.0.0.1:8443:443"
+      - "127.0.0.1:8444:8444"
+    volumes: !override
+      - ./test/Caddyfile.e2e:/etc/caddy/Caddyfile:ro

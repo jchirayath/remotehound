@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/jchirayath/remotehound/security/advisories/new
+    about: RemoteHound is remote-access software. Please report vulnerabilities privately, never as a public issue.
+  - name: Questions and ideas
+    url: https://github.com/jchirayath/remotehound/discussions
+    about: Ask how to set something up, or float an idea before opening a feature request.

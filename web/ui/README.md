@@ -1,0 +1,99 @@
+# RemoteHound web UI
+
+The browser front end for RemoteHound. Vanilla ES modules, **no build step and no npm dependencies**:
+the files in this directory are embedded into the Go binary (`web/embed.go`, `//go:embed ui`) and served
+as written. `index.html` is returned for every non-API path (history routing); assets live under `/ui/…`.
+
+## Layout
+
+```
+index.html            shell document: theme boot, tokens.css, app.css, app.js (module)
+theme-boot.js         classic script, runs before first paint: applies the cached theme (no flash)
+tokens.css            GENERATED from design/tokens by tools/standard/design-tokens/scripts/build.mjs — never edit
+app.css               all styling; uses only var(--…) tokens (see its header for the few allowed literals)
+app.js                boot (help registry + /api/v1/me), app shell (sidebar / top bar / tab bar), routing
+favicon.svg
+help/registry.json    CORE-16 help registry: screen help, field help, empty states, error-code fixes
+lib/
+  api.js              CORE-12 — the ONLY module that touches the network (fetch, EventSource)
+  ui.js               CORE-11 — page chrome, data grid, four states, forms, badges, tabs, overlays (re-export)
+  overlay.js          drawer / bottom sheet, confirm dialog, toasts (native <dialog>)
+  dom.js              h(tag, attrs, ...children) — safe DOM construction; no innerHTML anywhere
+  icons.js            CORE-13 icon registry (semantic name → Lucide glyph), generated from design/icons.json
+  theme.js            THEME-6 controller: system | light | dark, persisted per user
+  help.js             registry lookups + the slide-over help panel (renders docs/user/*.md in place)
+  markdown.js         safe Markdown subset renderer (AST → DOM, links allow-listed)
+  palette.js          Ctrl/Cmd+K command palette: screens, devices, help search
+  connect.js          opens Guacamole session tabs for Connect and Join (same-origin URL check)
+  router.js           history router + pure path matching
+  routes.js           the route table (pure data; tests read it)
+  session.js          signed-in user, can(permission), cached groups
+  format.js           UX-6 formatting: relative/absolute time, bytes, durations, CSV cells
+  log.js              the only module allowed to call console.* (structured, redacted ring buffer)
+screens/<name>.js     one module per screen, loaded on demand (login.js renders without a session)
+screens/credential-form.js  shared "my saved login" drawer (Profile + device page); not a route
+tests/*.test.mjs      node:test unit tests, no dependencies
+```
+
+## Conventions
+
+- **Data**: screens call `api.get/post/put/patch/del` from `lib/api.js`. Every failure is an `ApiError`
+  `{status, code, title, detail, requestId, fieldErrors}`; show it with `errorState`, `toastError`,
+  `formError` or `applyFieldErrors` — they pull the fix text for `code` from the help registry (HELP-3).
+  PATCH takes the record's `etag`; handle `412` with a "someone else changed this" banner and a Reload.
+- **DOM**: build with `h()`. Never assign `innerHTML`/`outerHTML` and never set `style=` — the CSP
+  (`style-src 'self'`, `script-src 'self'`) forbids inline styles and scripts. Use classes and tokens.
+- **Colours, spacing, type, radius, motion**: tokens only (`var(--color-…)`, `var(--space-…)`, …). Domain
+  colours (group colours, presence, code blocks) are `color.domain.*` tokens. Change the palette in
+  `design/tokens/*.json`, then run `node tools/standard/design-tokens/scripts/validate.mjs && node
+  tools/standard/design-tokens/scripts/build.mjs` from the repo root (validates WCAG AA in both modes).
+- **Icons**: `icon('action.delete')` from `lib/icons.js` — never inline SVG in a screen. To add one, add a
+  `domain.*` entry to `design/icons.json` and its Lucide path data to `lib/icons.js` (the test checks
+  they match).
+- **Help text**: never in screen code. Field helper text comes from `registry.fields["<screen>.<field>"]`
+  via `field({ id: 'screen.field', … })`; column ⓘ text from `registry.screens[<screen>].columns`;
+  empty states from `registry.empty`; error fixes from `registry.errors`.
+- **Permissions**: `can('device.connect')` hides or disables controls (`button({ permission })` does it for
+  you). This is UX only; the server enforces every rule.
+- **Four states (UX-1)**: every region renders loading (skeleton), empty (registry guidance), error
+  (request ID + retry) and data. The grid and `load()` helper do this for you.
+- **Accessibility**: icon-only buttons need `label`; targets are at least 44 px (`--touch`); keyboard
+  works everywhere (tabs use arrow keys, dialogs trap focus, `?` opens help, Ctrl/Cmd+K the palette);
+  `prefers-reduced-motion` and forced colours are respected.
+- **Documentation**: every module starts with a comment stating its contract.
+
+## Adding a screen
+
+1. Create `screens/<name>.js` exporting `default function render(ctx)` that returns an element.
+   `ctx = {params, query, navigate, setQuery, onCleanup(fn), signal, setTitle}`. Register timers and
+   streams with `ctx.onCleanup` (they stop when the user leaves) and pass `ctx.signal` to `api.get`.
+2. Use `page({ title, subtitle, helpKey: '<name>', actions })` for chrome and `grid(...)`/`load(...)` for data.
+3. Add the route to `lib/routes.js` (`path`, `help`, `label`, `icon`, `section`, `perm`, `screen`; `public: true`
+   only for pages that must work signed out, `palette: true` for pages reached from menus rather than the sidebar).
+4. Add `registry.screens.<name>` (title, purpose, how_to, fields, columns, roles, tips, troubleshooting,
+   doc), field help for every input, and empty-state copy to `help/registry.json`.
+5. Write `docs/user/<name>.md` (served at `/docs/<name>.md` and shown in the help panel).
+6. Run the checks below. `tests/help.test.mjs` fails if a route, field, column, empty state or icon lacks
+   its registry entry.
+
+## Checks
+
+```sh
+node --test web/ui/tests/                                 # unit tests (format, markdown, router, api, help)
+for f in $(find web/ui -name '*.js'); do node --check "$f"; done
+node tools/standard/design-tokens/scripts/validate.mjs     # tokens + WCAG AA contrast, both modes
+node tools/standard/design-tokens/scripts/build.mjs        # regenerates web/ui/tokens.css
+semgrep --config .semgrep/standard/web.yml web/ui          # standard lint rules
+```
+
+Test names carry `@feature:<key>` tags (overview, devices, enroll, groups, users, sessions, integration,
+logs, debug, settings, audit, help) for the TEST-7 feature → test map.
+
+## Third-party notices
+
+RemoteHound's UI embeds no third-party code except icon path data:
+
+- **Lucide** icons, version 0.460.0 (`lucide-static`), ISC License. Copyright (c) for portions of Lucide
+  are held by Cole Bemis 2013-2022 as part of Feather (MIT); all other copyright (c) for Lucide are held
+  by Lucide Contributors 2022. Only the SVG path data of the glyphs listed in `lib/icons.js` is included.
+  Full licence text: [`lib/LICENSE-lucide.txt`](lib/LICENSE-lucide.txt). https://lucide.dev

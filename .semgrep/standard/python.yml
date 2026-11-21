@@ -1,0 +1,138 @@
+# ENGINEERING_STANDARD banned-API rules — Python.  Test: semgrep --test semgrep/
+# Suppress one justified line:  # nosemgrep: <rule-id> -- <reason>
+rules:
+  - id: std.py.print
+    languages: [python]
+    severity: ERROR
+    message: "print() — log through the structlog-based logger module (LOG-2, CORE-3)."
+    metadata: { standard: [LOG-2] }
+    paths: { exclude: ["**/logging/**", "**/logger/**", "**/scripts/**", "**/cli/**", "test_*.py", "*_test.py", "**/tests/**"] }
+    pattern: print(...)
+
+  - id: std.py.environ
+    languages: [python]
+    severity: ERROR
+    message: "os.environ/getenv outside the config module — use typed settings (pydantic-settings) (CORE-1)."
+    metadata: { standard: [CORE-1] }
+    paths: { exclude: ["**/config/**", "**/config.py", "**/settings*", "**/tests/**", "conftest.py", "**/scripts/**"] }
+    pattern-either:
+      - pattern: os.environ
+      - pattern: os.getenv(...)
+
+  - id: std.py.requests-no-timeout
+    languages: [python]
+    severity: ERROR
+    message: "HTTP call without a timeout hangs forever — use the shared client (CORE-6, PERF-2)."
+    metadata: { standard: [CORE-6, PERF-2] }
+    patterns:
+      - pattern-either:
+          - pattern: requests.$M(...)
+          - pattern: httpx.$M(...)
+      - metavariable-regex: { metavariable: $M, regex: '^(get|post|put|patch|delete|head|request)$' }
+      - pattern-not: requests.$M(..., timeout=$T, ...)
+      - pattern-not: httpx.$M(..., timeout=$T, ...)
+
+  - id: std.py.sql-string
+    languages: [python]
+    severity: ERROR
+    message: "SQL built from an f-string/format/concatenation — use parameters (SEC-2)."
+    metadata: { standard: [SEC-2] }
+    patterns:
+      - pattern-either:
+          - pattern: $C.execute(f"...", ...)
+          - pattern: $C.execute("..." % $X, ...)
+          - pattern: $C.execute("...".format(...), ...)
+          - pattern: $C.execute("..." + $X, ...)
+          - pattern: text(f"...")
+
+  - id: std.py.tls-bypass
+    languages: [python]
+    severity: ERROR
+    message: "verify=False disables certificate checks (SEC-12)."
+    metadata: { standard: [SEC-12] }
+    pattern: $F(..., verify=False, ...)
+
+  - id: std.py.swallowed-exception
+    languages: [python]
+    severity: ERROR
+    message: "Exception swallowed with pass — log it or re-raise with context (COR-3)."
+    metadata: { standard: [COR-3] }
+    pattern-either:
+      - pattern: |
+          try:
+              ...
+          except $E:
+              pass
+      - pattern: |
+          try:
+              ...
+          except:
+              pass
+
+  - id: std.py.insecure-random
+    languages: [python]
+    severity: ERROR
+    message: "random module for a secret/token — use secrets.token_urlsafe() / secrets.choice() (SEC-21)."
+    metadata: { standard: [SEC-21] }
+    patterns:
+      - pattern: $X = <... random.$F(...) ...>
+      - metavariable-regex: { metavariable: $X, regex: '(?i).*(token|secret|password|nonce|salt|otp|code|key|session)$' }
+
+  - id: std.py.weak-password-hash
+    languages: [python]
+    severity: ERROR
+    message: "Password hashed with a fast hash — use argon2-cffi / bcrypt / hashlib.scrypt (SEC-22)."
+    metadata: { standard: [SEC-22] }
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.$ALG(<... $PW ...>)
+          - pattern: hashlib.new($N, <... $PW ...>)
+      - metavariable-regex: { metavariable: $PW, regex: '(?i).*(password|passwd|pwd)\b.*' }
+
+  - id: std.py.unsafe-deserialization
+    languages: [python]
+    severity: ERROR
+    message: "Unsafe deserialization — never unpickle/yaml.load untrusted data; use json or yaml.safe_load (SEC-27)."
+    metadata: { standard: [SEC-27] }
+    pattern-either:
+      - pattern: pickle.loads(...)
+      - pattern: pickle.load(...)
+      - pattern: yaml.load($X)
+      - pattern: yaml.load($X, Loader=yaml.Loader)
+      - pattern: yaml.load($X, Loader=yaml.UnsafeLoader)
+      - pattern: marshal.loads(...)
+
+  - id: std.py.shell-true
+    languages: [python]
+    severity: ERROR
+    message: "shell=True runs a string through the shell — pass an argument list (SEC-28)."
+    metadata: { standard: [SEC-28] }
+    pattern-either:
+      - pattern: subprocess.$F(..., shell=True, ...)
+      - pattern: os.system(...)
+      - pattern: os.popen(...)
+
+  - id: std.py.jwt-unverified
+    languages: [python]
+    severity: ERROR
+    message: "JWT decoded without signature verification (SEC-23)."
+    metadata: { standard: [SEC-23] }
+    pattern-either:
+      - pattern: 'jwt.decode(..., options={..., "verify_signature": False, ...}, ...)'
+      - pattern: jwt.decode(..., verify=False, ...)
+
+  - id: std.py.weak-crypto
+    languages: [python]
+    severity: ERROR
+    message: "Weak cryptography — SHA-2/3 for security hashing (pass usedforsecurity=False for non-security use); AEAD ciphers, never ECB/DES/RC4 (CRY-2, CRY-3)."
+    metadata: { standard: [CRY-2, CRY-3] }
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: hashlib.md5(...)
+              - pattern: hashlib.sha1(...)
+          - pattern-not: hashlib.$F(..., usedforsecurity=False, ...)
+      - pattern: AES.new($K, AES.MODE_ECB, ...)
+      - pattern: modes.ECB(...)
+      - pattern: DES.new(...)
+      - pattern: ARC4.new(...)

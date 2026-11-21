@@ -1,0 +1,37 @@
+# gitleaks: the default rules plus RemoteHound's own secret formats.
+# Run by .githooks/pre-commit (staged) and CI (whole history).
+[extend]
+useDefault = true
+
+[[rules]]
+id = "remotehound-secret-key"
+description = "RemoteHound master key (RH_SECRET_KEY: 64 hex)"
+regex = '''RH_SECRET_KEY\s*[=:]\s*['"]?[0-9a-fA-F]{64}'''
+keywords = ["rh_secret_key"]
+
+[[rules]]
+id = "remotehound-guac-json-secret"
+description = "Guacamole JSON auth key (RH_GUAC_JSON_SECRET / JSON_SECRET_KEY: 32 hex)"
+regex = '''(RH_GUAC_JSON_SECRET|JSON_SECRET_KEY)\s*[=:]\s*['"]?[0-9a-fA-F]{32}'''
+keywords = ["guac_json_secret", "json_secret_key"]
+
+[[rules]]
+id = "remotehound-provider-secret"
+description = "Sign-in provider client secret in RH_AUTH_<ID>_CLIENT_SECRET"
+regex = '''RH_AUTH_[A-Z]+_CLIENT_SECRET\s*=\s*['"]?[^\s'"#]{8,}'''
+keywords = ["_client_secret"]
+
+[[rules]]
+id = "remotehound-proxy-secret"
+description = "Proxy shared secret"
+regex = '''RH_PROXY_SECRET\s*=\s*['"]?[^\s'"#]{8,}'''
+keywords = ["rh_proxy_secret"]
+
+[allowlist]
+description = "Documented, non-secret fixtures"
+regexes = [
+  '''4c0b569e4c96df157eee1b65dd0e4d41''',     # the example key from the Guacamole manual, used in tests
+  '''strings\.Repeat\("ab", 32\)''',
+  '''rh-demo-pass''',                          # throwaway password of the e2e container user
+]
+paths = ['''e2e/node_modules/''', '''go\.sum''']

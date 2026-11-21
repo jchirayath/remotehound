@@ -1,0 +1,23 @@
+# TLS front for RemoteHound. Caddy obtains and renews the certificate for
+# {$RH_DOMAIN} automatically. Security headers for the app are set by
+# RemoteHound itself (scoped per path — Guacamole needs a different CSP), so
+# only transport-level headers are added here.
+{$RH_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	reverse_proxy remotehound:8080 {
+		# Desktop sessions are long-lived WebSockets; default timeouts would cut them.
+		transport http {
+			read_timeout 0
+			write_timeout 0
+		}
+		flush_interval -1
+	}
+	log {
+		output stdout
+		format json
+	}
+}

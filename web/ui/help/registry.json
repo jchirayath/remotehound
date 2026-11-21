@@ -1,0 +1,979 @@
+{
+  "$comment": "RemoteHound help registry (CORE-16, ENGINEERING_STANDARD §6G). One entry per route in screens; field help keyed 'screen.field'; empty-state copy; error code -> fix (HELP-3). Screens never hard-code help text. tests/help.test.mjs checks routes, doc links and field keys.",
+  "version": 1,
+  "screens": {
+    "overview": {
+      "title": "Overview",
+      "purpose": "See at a glance whether your devices are reachable and whether anything needs attention: offline machines, pending enrolments, a degraded Guacamole or failing background jobs.",
+      "how_to": [
+        "Check the **Fleet** card: the number of devices online out of all devices. Select a count to open the device list filtered to it.",
+        "If **Guacamole** is not healthy, select it to open the Integration screen and run the checks.",
+        "Use **Enroll a device** to add a machine, or **Run integration checks** after changing your deployment."
+      ],
+      "columns": {
+        "devices_online": "Devices with a live tunnel right now. Updated every 30 seconds on this screen.",
+        "sessions_active": "Remote sessions open at this moment, counted from tunnel connections (accurate even if a browser tab is closed abruptly).",
+        "enrollments_open": "Enrolment codes created but not yet used and not expired. Each can enrol exactly one device.",
+        "guacamole": "Result of the last Guacamole health probe (every 30 seconds). Degraded means sessions may fail to open.",
+        "jobs_failing": "Background jobs whose last run failed, such as backups, audit-chain verification or the Guacamole probe. See the Debug screen."
+      },
+      "roles": "Everyone can see the overview. Quick actions appear only if your role allows them: enrolling needs Operator or Admin, running integration checks needs Admin.",
+      "tips": [
+        "Press **Ctrl+K** (or **⌘K** on a Mac) anywhere to jump to a device or screen.",
+        "Press **?** on any screen to open its help."
+      ],
+      "troubleshooting": [
+        {
+          "problem": "All devices show offline after a server restart",
+          "fix": "Devices reconnect on their own with a short backoff; give them up to a minute. If they stay offline, check that the SSH tunnel port (2222 by default) is reachable from the internet."
+        },
+        {
+          "problem": "Guacamole shows Down",
+          "fix": "Open **Integration** and run the checks; each failing check says how to fix it."
+        }
+      ],
+      "doc": "/docs/overview"
+    },
+    "devices": {
+      "title": "Devices",
+      "purpose": "Find a machine and open it to connect, edit, or diagnose it. Filter by presence, status, group and operating system.",
+      "how_to": [
+        "Type in **Search** to find a device by name or hostname.",
+        "Narrow the list with **Presence**, **Status**, **Group** and **OS**. The filters are kept in the address so you can share the view.",
+        "Select a device to open its page, then use **Connect** for SSH, RDP or VNC.",
+        "Use **CSV** or **JSON** to export the rows that are loaded."
+      ],
+      "columns": {
+        "name": "The device name (editable on the device page) and, below it, the hostname the device reported.",
+        "online": "Online means the device's tunnel is connected now. Pending: enrolled but never connected. Disabled: blocked by an operator.",
+        "os": "Operating system reported by the device each time it connects.",
+        "group": "The group decides which operators and viewers can see this device.",
+        "services": "Remote-access services configured for the device. Highlighted chips are being forwarded through the tunnel right now.",
+        "last_seen_at": "When the tunnel was last connected. 'Now' while it is online.",
+        "install_scope": "How the tunnel was installed: Permanent (sudo or Administrator; starts at boot), Temporary (runs only while the named user is logged in) or Not reported (enrolled by an older script).",
+        "client_version": "Version of the RemoteHound tunnel script on the device."
+      },
+      "roles": "Viewers see devices in their groups. Operators can also connect and edit them. Admins see every group and can delete devices.",
+      "tips": [
+        "The list refreshes presence every 20 seconds while it is open.",
+        "Bookmark a filtered view, for example only offline devices in one group."
+      ],
+      "troubleshooting": [
+        {
+          "problem": "A device I enrolled is missing",
+          "fix": "It may be in a group you cannot see. Ask an admin, or check **Enroll** to see whether the code was used."
+        }
+      ],
+      "doc": "/docs/devices"
+    },
+    "device": {
+      "title": "Device",
+      "purpose": "Connect to one machine, manage its services and details, and diagnose problems with its tunnel.",
+      "how_to": [
+        "Select **Connect SSH**, **Connect RDP** or **Connect VNC**. The session opens in a new tab (in the same tab on a phone).",
+        "In **Overview**, change the name, group, tags or notes and select **Save changes**.",
+        "In **Services**, add or edit the port on the device, a username and an optional stored password.",
+        "If connecting fails, open **Diagnostics** and select **Run probe** to test each service through the tunnel.",
+        "To connect as yourself, select **Use my own login** below the Connect button and save your credentials (see **Profile → My saved logins**)."
+      ],
+      "fields": {
+        "transport": "How the device connects. ssh-r: a reverse SSH tunnel opened by the built-in ssh client.",
+        "key_fingerprint": "Fingerprint of the device's own ed25519 key. The private key never leaves the device."
+      },
+      "columns": {
+        "service": "The protocol that was probed.",
+        "ok": "Whether a TCP connection through the tunnel succeeded and the service answered.",
+        "banner": "The first bytes the service sent, for example SSH-2.0 or RFB 003.008. Confirms the right program is listening.",
+        "latency_ms": "Round-trip time through the tunnel to the service.",
+        "hint": "What the probe found and what to try next."
+      },
+      "roles": "Viewers can see this page but not connect. Operators can connect, edit, probe and reconnect. Deleting a device needs the Admin role.",
+      "tips": [
+        "A Connect button is disabled with the reason shown underneath when the device is offline or the service is not forwarded.",
+        "Connect links are valid for about a minute; if a tab shows an expired link, select Connect again.",
+        "Select **Use my own login** under a Connect button to connect with your personal username and password instead of the device's shared login."
+      ],
+      "troubleshooting": [
+        {
+          "problem": "Connect is disabled: service not forwarded",
+          "fix": "The device is online but did not forward that port. Add the service, then use **Diagnostics → Ask device to reconnect** so it picks up the change."
+        },
+        {
+          "problem": "RDP opens and immediately disconnects",
+          "fix": "Try **RDP security mode** = nla or any, and enable **Ignore the RDP server certificate** for self-signed certificates. On Windows Home RDP is not available."
+        },
+        {
+          "problem": "Saving says someone else changed the device",
+          "fix": "Select **Reload** and make your change again. This protects you from overwriting another person's edit."
+        }
+      ],
+      "doc": "/docs/devices"
+    },
+    "enroll": {
+      "title": "Enroll a device",
+      "purpose": "Add a machine to RemoteHound with one short command typed on that machine. Nothing is installed: the command uses the ssh client the operating system already has.",
+      "how_to": [
+        "Optionally type a **Device name** and pick a **Group**, then select **Create code**.",
+        "On the device, open Terminal (macOS / Linux) or PowerShell (Windows) and type the command shown. Use an administrator shell to let the script turn on SSH or Remote Desktop.",
+        "Keep this page open: it shows **Waiting for the device…** and switches to a success message with a link to the device when it joins.",
+        "Revoke a code you no longer need from the list below."
+      ],
+      "columns": {
+        "code_hint": "Only the last two characters are stored; the full code is shown once, when it is created.",
+        "name": "The device name to use. Empty means the hostname the device reports.",
+        "group": "The group the device will join.",
+        "state": "Open: can still be used. Used: a device enrolled with it. Expired: its lifetime ran out.",
+        "expires_at": "When an open code stops working, or when a used code was redeemed.",
+        "created_by": "Who created the code.",
+        "created_at": "When the code was created.",
+        "expected_os": "The kind of machine the code was made for. Any means it was not restricted."
+      },
+      "roles": "Operators and Admins can create and revoke codes. Viewers can see the list.",
+      "tips": [
+        "Codes are single use and expire after 15 minutes by default; change the default in **Settings**.",
+        "Re-running the command with a new code on an already enrolled machine is safe; it replaces the old registration."
+      ],
+      "troubleshooting": [
+        {
+          "problem": "The command prints 'this code is not valid or has expired'",
+          "fix": "Create a new code. Codes work once and expire; typing mistakes also cause this (the alphabet has no 0/o or 1/l)."
+        },
+        {
+          "problem": "Waiting never finishes",
+          "fix": "Check that the device can reach the SSH tunnel port (2222 by default) and look at the last lines the script printed. Then see the device's **Client logs**."
+        }
+      ],
+      "doc": "/docs/enroll"
+    },
+    "groups": {
+      "title": "Groups",
+      "purpose": "Organise devices and decide which devices operators and viewers can see. A device belongs to one group; a user can have several.",
+      "how_to": [
+        "Select **New group**, type a name, pick a colour and select **Create group**.",
+        "Move devices into the group from each device's page, or set it when you create an enrolment code.",
+        "Give users access to the group on the **Users** screen."
+      ],
+      "columns": {
+        "name": "The group name and its colour, used wherever the group appears.",
+        "description": "Optional note about what belongs in this group.",
+        "device_count": "Devices currently in the group. Select the number to see them.",
+        "updated_at": "When the group was last changed."
+      },
+      "roles": "Everyone with access can see groups. Only Admins can create, edit or delete them.",
+      "tips": [
+        "Admins always see every group, regardless of their group list."
+      ],
+      "troubleshooting": [
+        {
+          "problem": "Delete says the group is not empty",
+          "fix": "Move its devices to another group first; deleting never removes devices."
+        }
+      ],
+      "doc": "/docs/groups"
+    },
+    "users": {
+      "title": "Users",
+      "purpose": "Control who can sign in, what they can do (role) and which devices they can see (groups). Sign-in itself happens at your identity provider; RemoteHound has no passwords.",
+      "how_to": [
+        "Select **Add user** and type the email the person signs in with. They are linked to their identity provider account on first sign-in.",
+        "Choose a **Role** and the **Groups** they may reach, then save.",
+        "Turn on **Block sign-in** to suspend someone without deleting their history.",
+        "Each person can link several sign-in methods (for example Entra and GitHub) to one account from their **Profile**."
+      ],
+      "columns": {
+        "name": "Display name and email.",
+        "role": "Admin: everything. Operator: connect to and manage devices in their groups. Viewer: read-only.",
+        "groups": "Groups whose devices the user can see. Admins see all groups.",
+        "disabled": "Blocked users cannot sign in; their sessions end.",
+        "last_login_at": "Last successful sign-in."
+      },
+      "roles": "Only Admins can add, edit or delete users. You cannot change your own role, block yourself or delete yourself.",
+      "tips": [
+        "Roles can also come from your identity provider: see **Settings → Sign-in roles** (role mapping).",
+        "The first (bootstrap) admin must sign in with a verified email address at the provider.",
+        "Linked sign-in methods are listed on each person's Profile; they can unlink all but one."
+      ],
+      "troubleshooting": [
+        {
+          "problem": "Saving says the last admin cannot be changed",
+          "fix": "Make another user an admin first, then change or delete this one."
+        }
+      ],
+      "doc": "/docs/users"
+    },
+    "sessions": {
+      "title": "Sessions",
+      "purpose": "See your live sessions and the ones shared with you, join a session someone invited you to, share your own, and end sessions. Admins can see every session and end it, but cannot watch it.",
+      "how_to": [
+        "**Mine** lists your live sessions. Select **Share** to invite someone to watch (view only) or to take control, for a time you choose.",
+        "**Shared with me** lists sessions others invited you to. Select **Join** to open the session in a new tab.",
+        "**End** closes a session for everyone in it. Admins ending someone else's session are recorded in the audit log.",
+        "**History** lists finished sessions; **Recordings** lists screen recordings when recording is on."
+      ],
+      "columns": {
+        "device_name": "The device the session was opened to.",
+        "service": "SSH, RDP or VNC.",
+        "user_email": "Who opened the session.",
+        "started_at": "When the session started.",
+        "duration": "How long the session lasted (or has lasted so far).",
+        "bytes": "Data sent to and received from the device through the tunnel.",
+        "recording": "Recording file for this session, if recording was on.",
+        "name": "Recording file name.",
+        "size_bytes": "File size on the server.",
+        "modified_at": "When the recording was last written.",
+        "owner": "Who opened the session. 'Shared with you' shows the access you were given (view only or control)."
+      },
+      "roles": "Everyone sees their own sessions and sessions shared with them. Admins also see all sessions (view only) and can end any session. Joining always needs the owner's invitation — admins included.",
+      "tips": [
+        "Joining needs the owner's invitation; admins can see and end sessions but not watch them.",
+        "Viewers can only be given view-only access.",
+        "A share ends by itself when its time runs out, or when you remove it."
+      ],
+      "troubleshooting": [
+        {
+          "problem": "There is no Join button on a session",
+          "fix": "You can only join sessions the owner shared with you. Ask them to share it from their **Mine** tab."
+        },
+        {
+          "problem": "Control is greyed out when sharing",
+          "fix": "The person is a Viewer; viewers can only watch."
+        },
+        {
+          "problem": "A session I closed is still listed as active",
+          "fix": "The tunnel closes the connection when Guacamole lets go, usually within a few seconds. If it persists, end it."
+        }
+      ],
+      "doc": "/docs/sessions"
+    },
+    "integration": {
+      "title": "Guacamole integration",
+      "purpose": "Prove that RemoteHound can open sessions through Apache Guacamole: each check tests one hop between your browser and the device.",
+      "how_to": [
+        "Select **Run checks**. It takes a few seconds.",
+        "Fix any red check using its **How to fix** text, then run the checks again.",
+        "Use the diagram at the bottom to see which hop a failing check belongs to."
+      ],
+      "columns": {
+        "guacamole.reachable": "RemoteHound can reach the Guacamole web app on the internal network.",
+        "guacamole.version": "Guacamole reports a supported version (1.5 or later).",
+        "guacd.reachable": "The guacd protocol engine answers on port 4822.",
+        "json_auth.roundtrip": "A signed, encrypted test login is accepted by Guacamole. Fails when the shared JSON secret differs between the two.",
+        "json_auth.clock": "Server clocks agree closely enough for 60-second connect tokens.",
+        "tunnel.listener": "The tunnel port range is bound and reachable from guacd.",
+        "recording.path": "The recording directory exists and is writable by guacd (only when recording is on).",
+        "proxy.websocket": "WebSocket upgrades pass through RemoteHound to Guacamole (needed for the session canvas).",
+        "path": "Each box turns green or red from the checks that cover it. Browser and device are outside what the server can test."
+      },
+      "roles": "Admins can see and run the checks.",
+      "tips": [
+        "Checks also run automatically every 30 seconds for the overview's Guacamole status."
+      ],
+      "troubleshooting": [
+        {
+          "problem": "json_auth.roundtrip fails",
+          "fix": "Set the same value for RH_GUAC_JSON_SECRET in RemoteHound and JSON_SECRET_KEY in Guacamole, then restart both containers."
+        },
+        {
+          "problem": "proxy.websocket fails",
+          "fix": "If you run your own reverse proxy in front of RemoteHound, allow WebSocket upgrades for /guacamole/."
+        }
+      ],
+      "doc": "/docs/integration"
+    },
+    "logs": {
+      "title": "Logs",
+      "purpose": "Search what the server, your devices and the Guacamole bundle logged, and watch new records live.",
+      "how_to": [
+        "Filter by **Source**, **Level**, **Device**, free text or a **Request ID** copied from an error message.",
+        "Turn on **Live tail** to stream new records as they happen; **Pause** to read without the list moving.",
+        "Expand a row to see every attribute as JSON; **Show this request only** follows one action end to end."
+      ],
+      "columns": {
+        "timestamp": "When the record was written (your local time).",
+        "severity_text": "DEBUG, INFO, WARN or ERROR.",
+        "source": "server: RemoteHound itself. client: lines sent by devices over their tunnel. bundle: Guacamole, guacd and caddy.",
+        "event": "Stable event name, for example session.open or tunnel.connect.",
+        "body": "The human-readable message. Secrets are redacted before they are logged."
+      },
+      "roles": "Admins can read logs.",
+      "tips": [
+        "The server keeps recent records in memory; older history is in your container logs or the optional log collector."
+      ],
+      "troubleshooting": [
+        {
+          "problem": "Bundle logs are empty",
+          "fix": "Bundle logs need the optional log collector: start the deployment with the logs profile."
+        }
+      ],
+      "doc": "/docs/logs"
+    },
+    "debug": {
+      "title": "Debug",
+      "purpose": "Look inside the running server: build and runtime facts, live tunnels, background jobs and the log level. Download a redacted diagnostics bundle for a bug report.",
+      "how_to": [
+        "Check **Live tunnels** to see which devices are connected and what they forward. Expand a row for per-service traffic.",
+        "Use **Run now** to start a background job immediately, for example after fixing what made it fail.",
+        "Set the **Log level** to DEBUG while reproducing a problem, then back to INFO.",
+        "Select **Download diagnostics** and attach the file to your bug report."
+      ],
+      "columns": {
+        "device_name": "Device that owns the tunnel.",
+        "remote_address": "Address the device connected from.",
+        "connected_since": "When the current tunnel connection started.",
+        "last_keepalive_at": "Last keepalive answered by the device. Three missed keepalives close the tunnel.",
+        "forwards": "Services forwarded, with active connection counts.",
+        "client_version": "Tunnel script version on the device.",
+        "kind": "Service protocol.",
+        "remote_port": "Port on the device.",
+        "internal_port": "Port the server listens on for this device and service (internal network only).",
+        "active_conns": "Connections currently open through this forward.",
+        "bytes_in": "Bytes received from the device.",
+        "bytes_out": "Bytes sent to the device.",
+        "name": "Job name and what it does.",
+        "schedule": "How often the job runs.",
+        "status": "OK, running, or failing with the number of consecutive failures and the last error.",
+        "last_run_at": "When it last ran, and how long it took.",
+        "last_success_at": "When it last finished without error.",
+        "next_run_at": "When it will run next."
+      },
+      "roles": "Admins can see this screen. Changing the log level and running jobs needs the Admin role.",
+      "tips": [
+        "The diagnostics bundle redacts secrets, keys and credentials, but review it before sharing."
+      ],
+      "troubleshooting": [
+        {
+          "problem": "A job keeps failing",
+          "fix": "Read its last error, search **Logs** for the job name, fix the cause, then select **Run now**."
+        }
+      ],
+      "doc": "/docs/debug"
+    },
+    "settings": {
+      "title": "Settings",
+      "purpose": "Change how RemoteHound behaves without restarting it: its public address, enrolment defaults, sign-in length, recording, logging, retention and role mapping.",
+      "how_to": [
+        "Change values in any section. A bar at the bottom shows how many changes are unsaved.",
+        "Select **Save changes**, or **Discard** to go back to the saved values.",
+        "Under **Sign-in roles**, map values of an identity-provider claim (such as a group name) to RemoteHound roles."
+      ],
+      "roles": "Admins can see and change settings. Every change is recorded in the audit log.",
+      "tips": [
+        "Listeners, secrets and the identity provider are set with environment variables and need a restart; they are not shown here."
+      ],
+      "troubleshooting": [
+        {
+          "problem": "Saving says settings were changed by someone else",
+          "fix": "Select **Reload** to load the latest values, then make your change again."
+        }
+      ],
+      "doc": "/docs/settings"
+    },
+    "audit": {
+      "title": "Audit log",
+      "purpose": "Answer who did what, when, from where, and whether it was allowed. Every state change and privileged read is recorded in a hash chain that cannot be edited.",
+      "how_to": [
+        "Filter by **Event** name (for example session.open) or **Outcome**.",
+        "Expand a row to see its details; select the request ID to see the matching log records.",
+        "Select **Download CSV** for the full filtered log, or use the grid's CSV/JSON buttons for the rows loaded."
+      ],
+      "columns": {
+        "timestamp": "When it happened.",
+        "event": "What happened, for example device.delete or session.open.",
+        "outcome": "success, failure (it was allowed but did not work) or denied (not permitted).",
+        "user_email": "Who did it and their role at the time. 'system' for background jobs.",
+        "resource": "The object affected, by ID.",
+        "client_address": "IP address the request came from."
+      },
+      "roles": "Admins can read the audit log.",
+      "tips": [
+        "The audit-verify job checks the hash chain daily; a failure appears on the Debug screen."
+      ],
+      "troubleshooting": [
+        {
+          "problem": "Events are missing from long ago",
+          "fix": "Audit retention is set in **Settings → Logging and retention** (365 days by default)."
+        }
+      ],
+      "doc": "/docs/audit"
+    },
+    "notfound": {
+      "title": "Page not found",
+      "purpose": "The address does not match any RemoteHound screen.",
+      "how_to": [
+        "Go back to the overview, or press **Ctrl+K** to search for the device or screen you wanted."
+      ],
+      "roles": "Everyone.",
+      "doc": "/docs/getting-started"
+    },
+    "noaccess": {
+      "title": "No access",
+      "purpose": "You are signed out, or your account or role does not allow this screen.",
+      "how_to": [
+        "If you think you should have access, ask a RemoteHound admin to add you on the **Users** screen or change your role."
+      ],
+      "roles": "Everyone.",
+      "doc": "/docs/getting-started"
+    },
+    "login": {
+      "title": "Sign in",
+      "purpose": "Choose how to sign in to RemoteHound. Your organisation decides which sign-in methods are offered; RemoteHound never sees or stores your password.",
+      "how_to": [
+        "Select the button for the account you use at work, for example **Continue with Microsoft Entra** or **Continue with Google**.",
+        "Complete the sign-in at that provider. You come back to the page you were trying to open.",
+        "If you see **Your account is not set up in RemoteHound**, ask an admin to add your email on the Users screen."
+      ],
+      "roles": "Anyone can open this page. What you can do after signing in depends on the role an admin gave you.",
+      "tips": [
+        "You can link more sign-in methods to the same account later, on your **Profile**."
+      ],
+      "troubleshooting": [
+        {
+          "problem": "The provider says the app is not allowed",
+          "fix": "Your administrator must allow RemoteHound in that provider. Try another sign-in method, or contact them."
+        },
+        {
+          "problem": "I signed in but see 'no access'",
+          "fix": "No RemoteHound user matches your account yet. An admin adds you by email on the **Users** screen; the first admin needs a verified email at the provider."
+        }
+      ],
+      "doc": "/docs/login"
+    },
+    "profile": {
+      "title": "Profile",
+      "purpose": "Manage your own account: theme, the sign-in methods linked to it, and your saved logins for devices.",
+      "how_to": [
+        "Pick **System**, **Light** or **Dark** under Appearance. The choice follows you to other browsers.",
+        "Under **Sign-in methods**, select **Link** to add another provider, or **Unlink** to remove one. You always keep at least one.",
+        "Under **My saved logins**, select **Save a login**, choose the device and service, then enter your own username and password. Connect then uses your login."
+      ],
+      "columns": {
+        "device_name": "The device this login is for.",
+        "service": "SSH, RDP or VNC.",
+        "username": "The username sent when you connect. The password is never shown.",
+        "updated_at": "When you last saved this login."
+      },
+      "roles": "Everyone can manage their own profile. Saved logins need permission to connect to devices (Operator or Admin).",
+      "tips": [
+        "Connect uses your own login, so you get your own session; nobody — admins included — can read it.",
+        "A saved login takes priority over the device's shared login for you only."
+      ],
+      "troubleshooting": [
+        {
+          "problem": "Unlink says it cannot be removed",
+          "fix": "It is your last sign-in method. Link another provider first, then unlink this one."
+        },
+        {
+          "problem": "My saved login stopped working",
+          "fix": "The password changed on the device. Select the login, type the new password and save."
+        }
+      ],
+      "doc": "/docs/profile"
+    },
+    "services": {
+      "title": "Services",
+      "purpose": "See whether every part of RemoteHound is running — the console, the tunnel server, the data store, Guacamole and guacd — with their ports and recent problems, and restart them when something is stuck.",
+      "how_to": [
+        "Read the summary at the top: green means everything answers.",
+        "Open a red or yellow card to see what is wrong and its most recent warnings and errors.",
+        "Select **View logs** on a card to read the last 500 lines of that container, with secrets masked.",
+        "Select **Restart** to restart a stuck service. **Stop** asks you to type the service name first."
+      ],
+      "columns": {
+        "remotehound": "This server: the web console, the API, sign-in and the proxy to Guacamole. It can only restart itself from here.",
+        "tunnel": "The SSH server devices hold their tunnel to. If it is down, no device can connect.",
+        "store": "The file that holds users, devices, groups and encrypted logins. If it is not writable, changes cannot be saved.",
+        "guacamole": "The remote-desktop web client. It accepts RemoteHound's short-lived connect tokens.",
+        "guacd": "The engine that speaks RDP, VNC and SSH to devices through their tunnels.",
+        "guac.version": "The Guacamole version reported by the last integration check.",
+        "guac.auth": "Guacamole runs only the encrypted-JSON sign-in extension: RemoteHound vouches for each session.",
+        "guac.database": "Guacamole has no user database. Users, devices and logins live in RemoteHound.",
+        "guac.secret": "A short fingerprint of the key RemoteHound and Guacamole share. The key itself is never shown. The badge says whether Guacamole accepted a test token signed with it.",
+        "guac.url": "Where RemoteHound reaches Guacamole on the internal network.",
+        "guac.tunnel": "The address guacd dials to reach a device's tunnel listener."
+      },
+      "roles": "Only admins see this screen and can start, stop or restart services. Every action is recorded in the audit log.",
+      "tips": [
+        "Restarting Guacamole or guacd ends open sessions; people can reconnect a few seconds later.",
+        "Docker already restarts a crashed container by itself. Use Restart when a service is stuck but still running."
+      ],
+      "troubleshooting": [
+        "**Status only** banner: container control is not set up. Status still works; see the guide to enable rh-control.",
+        "**Container control is not answering**: the rh-control container is stopped, or its token differs from RemoteHound's.",
+        "**Shared JSON secret DOES NOT match**: set the same value in RH_GUAC_JSON_SECRET and Guacamole's JSON_SECRET_KEY, then restart both."
+      ],
+      "doc": "/docs/services"
+    }
+  },
+  "fields": {
+    "device.name": "Shown everywhere in RemoteHound and in Guacamole's tab title. Up to 64 characters.",
+    "device.group_id": "Decides who can see and connect to this device.",
+    "device.tags": "Comma-separated labels to help you search, for example kiosk, floor-2. Up to 20 tags of 32 characters.",
+    "device.notes": "Free text for your team: location, owner, quirks. Up to 2000 characters. Never put passwords here.",
+    "device.transport": "How the device connects. ssh-r: a reverse SSH tunnel opened by the built-in ssh client.",
+    "device.key_fingerprint": "Fingerprint of the device's own ed25519 key. The private key never leaves the device.",
+    "device.enable": "Lets the device reconnect its tunnel and accept sessions again.",
+    "device.disable": "Closes the tunnel now and refuses new logins until you enable it again. Nothing on the device is removed.",
+    "device.delete": "Revokes the device's key and closes its tunnel. The device stops and removes its service entry the next time it connects.",
+    "device.service_kind": "The remote-access protocol. Each device can have one of each.",
+    "device.remote_port": "Port the service listens on, on the device itself. Defaults: SSH 22, RDP 3389, VNC 5900.",
+    "device.internal_port": "Port the server assigned for this service. Only guacd can reach it; you never need to open it in a firewall.",
+    "device.username": "Login name to send when connecting. Leave empty to be asked each time.",
+    "device.password": "Stored encrypted on the server and never shown again. Leave empty to be asked each time (recommended for shared devices).",
+    "device.clear_password": "Deletes the stored password; you will be asked for it at the next connection.",
+    "device.option_security": "How RDP negotiates security. 'any' works in most cases; use 'nla' for modern Windows and 'tls' or 'rdp' for older servers.",
+    "device.option_ignore_cert": "Accept the device's self-signed RDP certificate. The connection is still encrypted inside the tunnel.",
+    "device.option_color_depth": "Fewer colours use less bandwidth on slow connections. Default lets the server choose.",
+    "device.option_enable_sftp": "Lets you drag files to and from the device inside the session. Uses the SSH service's credentials.",
+    "device.option_read_only": "Watch the screen without sending keyboard or mouse input.",
+    "device.client_logs": "The last lines of the tunnel script's log, sent by the device each time it connects. Useful when a device keeps reconnecting.",
+    "device.probe": "Connects to each service through the tunnel and reads its greeting, so you can tell 'nothing is listening' from 'wrong program'.",
+    "device.reconnect": "Asks the device to drop and re-open its tunnel, for example after adding a service. Active sessions on it end.",
+    "device.debug": "Logs every tunnel event for this device at DEBUG level, even when the server log level is higher. Turn off when done.",
+    "enroll.name": "Leave empty to use the hostname the device reports. You can rename it later.",
+    "enroll.group_id": "The group the device joins. Default uses the default group from Settings.",
+    "enroll.ttl_minutes": "How long the code can be used. It stops working after one successful enrolment either way.",
+    "enroll.command_unix": "Paste into Terminal; no password needed. The tunnel runs only while you are logged in, and the script cannot turn on SSH or Screen Sharing; it tells you what to switch on. Run the permanent command later to upgrade: it replaces this install.",
+    "enroll.command_windows": "Paste into an ordinary PowerShell window. The tunnel runs only while you are logged in, and Remote Desktop cannot be turned on.",
+    "enroll.command_windows_system": "Right-click PowerShell, choose 'Run as administrator', then paste. The tunnel starts at boot and keeps running when nobody is logged in, and the script can turn on Remote Desktop for you.",
+    "device.install_scope": "How the enrolment script installed the tunnel. Permanent: it starts at boot and runs when nobody is logged in. Temporary: it runs only while that user is logged in. To make a temporary install permanent, enrol again with the permanent command and delete the old entry.",
+    "enroll.expired": "The code expired, was revoked, or was used by a device you cannot see. Create a new one to try again.",
+    "groups.name": "Shown on device pills and in pickers. Up to 64 characters.",
+    "groups.description": "Optional: what belongs in this group. Up to 500 characters.",
+    "groups.color": "Helps you recognise the group at a glance. Colours are never the only signal: the name is always shown.",
+    "users.email": "The email address the person signs in with at your identity provider. It cannot be changed after the user is created.",
+    "users.display_name": "How the name appears in RemoteHound and in the audit log.",
+    "users.role": "Admin: full control. Operator: connect to and manage devices in their groups. Viewer: read-only.",
+    "users.group_ids": "Which groups' devices the user can see and (as an operator) connect to.",
+    "users.disabled": "Blocks sign-in and ends the user's sessions, while keeping their audit history.",
+    "settings.public_url": "The https address people and devices use to reach RemoteHound, without a trailing slash. Used in enrolment commands.",
+    "settings.ssh_public_host": "Host name devices use for their tunnel. Usually the same host as the public URL.",
+    "settings.ssh_public_port": "Port devices connect their tunnel to. 2222 by default; must be reachable from the internet.",
+    "settings.enrollment_ttl_minutes": "Default lifetime of new enrolment codes, 5 to 1440 minutes.",
+    "settings.connect_token_ttl_seconds": "How long a Connect link stays valid before it must be used, 15 to 600 seconds. Shorter is safer.",
+    "settings.default_group_id": "Group for new devices when the enrolment code does not name one.",
+    "settings.vnc_enabled": "Allow VNC sessions. VNC is weaker than SSH and RDP; turn it off if you do not need it.",
+    "settings.session_idle_minutes": "Sign people out of RemoteHound after this long without activity. Open remote sessions are not affected.",
+    "settings.session_absolute_hours": "Sign people out after this long regardless of activity, 1 to 168 hours.",
+    "settings.recording_enabled": "Record the screen of every new session. Tell your users if you turn this on.",
+    "settings.recording_retention_days": "Recordings older than this are deleted automatically.",
+    "settings.log_level": "Default server log level after a restart. Change it temporarily on the Debug screen.",
+    "settings.client_logs_enabled": "Store the log tail each device sends when it connects.",
+    "settings.audit_retention_days": "How long audit events are kept. Your policy may require a year or more.",
+    "settings.session_retention_days": "How long finished session history is kept.",
+    "settings.roles_claim": "Name of the claim in the identity provider's token that carries group or role names, for example groups or roles.",
+    "settings.roles_map": "When a signing-in user's claim contains a value on the left, they get the role on the right. The highest matching role wins.",
+    "debug.log_level": "Applies immediately to the running server until the next restart. DEBUG is verbose.",
+    "debug.goroutines": "Concurrent tasks in the server. A number that only ever grows suggests a leak worth reporting.",
+    "debug.store_recovered_from_backup": "The state file was damaged at start-up and the newest valid backup was used. Recent changes may be missing; check the audit log.",
+    "login.small_print": "Signing in means your sign-ins and actions are recorded in RemoteHound's audit log. RemoteHound never sees your provider password.",
+    "profile.theme": "Applies everywhere you sign in. System follows your device's light or dark setting.",
+    "profile.identities": "Accounts you can sign in with. Link another provider so you are not locked out if one is unavailable.",
+    "profile.identities_managed": "Your organisation's sign-in proxy handles sign-in, so there is nothing to link here.",
+    "profile.last_method": "You must keep at least one sign-in method. Link another before removing this one.",
+    "profile.credentials": "Your own usernames and passwords for devices. Connect uses your own login, so you get your own session; nobody — admins included — can read it.",
+    "profile.credential_device": "Devices you can connect to that have at least one service.",
+    "profile.credential_service": "Only the services this device offers are listed.",
+    "profile.credential_username": "The account on the device, for example your Windows or macOS user name.",
+    "profile.credential_password": "Your password (or, with an SSH key, the key's passphrase if it has one). Stored encrypted for you alone and never shown again; type it again whenever you save.",
+    "sessions.share": "Invite one person at a time. They see the session under Shared with me and can join until the time runs out or you remove them.",
+    "sessions.share_user": "People who can sign in to RemoteHound, excluding you.",
+    "sessions.share_mode": "View only lets them watch. Control also lets them type and use the mouse.",
+    "sessions.share_viewer": "Viewers can only watch.",
+    "sessions.share_ttl": "The invitation ends by itself after this time.",
+    "sessions.all_view_only": "You can see every live session and end one if needed, but you cannot join or watch it unless its owner shares it with you. Ending someone's session is audited.",
+    "profile.credential_private_key": "SSH only, instead of a password: paste the whole private key (from -----BEGIN to the END line). If the key has a passphrase, put it in the password box. Stored encrypted for you alone and never shown again; the device must list the matching public key in authorized_keys.",
+    "enroll.expected_os": "Which kind of machine this code is for. A machine reporting a different OS is refused (the code stays usable), so a command pasted on the wrong machine cannot enrol it. Any = no check.",
+    "enroll.command_unix_system": "Paste into Terminal and enter your password when sudo asks. The tunnel starts at boot and keeps running when nobody is logged in, and the script can turn on Remote Login (SSH) or Screen Sharing for you."
+  },
+  "empty": {
+    "filtered": {
+      "title": "No matches",
+      "body": "Nothing matches these filters. Clear them or try a broader search.",
+      "icon": "action.filter"
+    },
+    "devices": {
+      "title": "No devices yet",
+      "body": "Enrol your first machine: create a code, then type one short command on it.",
+      "action": {
+        "label": "Enroll a device",
+        "href": "/enroll",
+        "icon": "domain.nav.enroll",
+        "permission": "enrollment.create"
+      },
+      "icon": "domain.nav.devices",
+      "mascot": "waiting"
+    },
+    "overview.activity": {
+      "title": "No activity yet",
+      "body": "Sign-ins, enrolments and sessions will appear here as they happen.",
+      "icon": "domain.nav.audit"
+    },
+    "overview.getting_started": {
+      "title": "Get your first device online",
+      "body": "Four steps, a few minutes. Nothing is installed on the device.",
+      "steps": [
+        {
+          "id": "integration",
+          "label": "Check the Guacamole integration",
+          "href": "/integration",
+          "hint": "Run the checks once to confirm sessions can open."
+        },
+        {
+          "id": "group",
+          "label": "Create a group (optional)",
+          "href": "/groups",
+          "hint": "Groups decide who can see which devices."
+        },
+        {
+          "id": "enroll",
+          "label": "Enroll a device",
+          "href": "/enroll",
+          "hint": "Type one short command on the machine."
+        },
+        {
+          "id": "connect",
+          "label": "Open a session",
+          "href": "/devices",
+          "hint": "Open the device and select Connect."
+        }
+      ]
+    },
+    "device.services": {
+      "title": "No services",
+      "body": "Add SSH, RDP or VNC so you can connect. The device usually reports these itself when it enrols.",
+      "icon": "domain.object.tunnel"
+    },
+    "device.sessions": {
+      "title": "No sessions on this device yet",
+      "body": "Sessions appear here after someone connects.",
+      "icon": "domain.nav.sessions"
+    },
+    "device.logs": {
+      "title": "No client log lines",
+      "body": "The device sends its recent log lines each time its tunnel connects. A device that never connected has none.",
+      "icon": "domain.nav.logs"
+    },
+    "device.probe": {
+      "title": "Not probed yet",
+      "body": "Run a probe to test every service through the tunnel.",
+      "icon": "domain.action.probe"
+    },
+    "enroll.codes": {
+      "title": "No enrolment codes",
+      "body": "Codes you create appear here so you can see whether they were used, and revoke them.",
+      "icon": "domain.nav.enroll"
+    },
+    "groups": {
+      "title": "No groups yet",
+      "body": "Groups organise devices and limit what operators and viewers can see. Without groups, everyone with access sees every device.",
+      "action": {
+        "label": "Create a group",
+        "href": "/groups",
+        "permission": "group.write"
+      },
+      "icon": "domain.nav.groups"
+    },
+    "users": {
+      "title": "No users yet",
+      "body": "Add the people who should sign in. They sign in with your identity provider.",
+      "icon": "object.users"
+    },
+    "sessions.active": {
+      "title": "Nobody is connected",
+      "body": "Live sessions appear here within a few seconds of someone selecting Connect.",
+      "icon": "domain.object.radio"
+    },
+    "sessions.history": {
+      "title": "No past sessions",
+      "body": "Finished sessions are listed here with their duration and traffic.",
+      "icon": "object.calendar"
+    },
+    "sessions.recordings": {
+      "title": "No recordings",
+      "body": "Turn on recording in Settings to record new sessions.",
+      "action": {
+        "label": "Open settings",
+        "href": "/settings",
+        "icon": "action.settings",
+        "permission": "settings.write"
+      },
+      "icon": "object.document"
+    },
+    "integration": {
+      "title": "Not checked yet",
+      "body": "Run the checks to validate Guacamole end to end.",
+      "icon": "domain.nav.integration"
+    },
+    "logs": {
+      "title": "No log records",
+      "body": "Nothing matches yet. Widen the filters, or turn on Live tail and reproduce the problem.",
+      "icon": "domain.nav.logs"
+    },
+    "debug.tunnels": {
+      "title": "No tunnels connected",
+      "body": "Devices appear here while their tunnel is up. If you expected some, check the SSH tunnel port is reachable.",
+      "icon": "domain.object.tunnel"
+    },
+    "debug.jobs": {
+      "title": "No jobs registered",
+      "body": "Background jobs appear once the server has started them.",
+      "icon": "domain.object.clock"
+    },
+    "audit": {
+      "title": "No audit events",
+      "body": "Every change and privileged read is recorded here.",
+      "icon": "domain.nav.audit"
+    },
+    "notfound": {
+      "title": "Nothing at this address",
+      "body": "The link may be old, or the item was deleted."
+    },
+    "noaccess.forbidden": {
+      "title": "Your account is not set up in RemoteHound",
+      "body": "You signed in, but no RemoteHound user matches your account, or it is blocked. Ask an admin to add you on the Users screen."
+    },
+    "noaccess.route": {
+      "title": "Your role cannot open this screen",
+      "body": "Ask an admin if you need it. Everything you can use is in the menu."
+    },
+    "noaccess.signedout": {
+      "title": "You are signed out",
+      "body": "Your session has ended. Sign in again to continue."
+    },
+    "login.intro": {
+      "title": "Welcome to RemoteHound",
+      "body": "Sign in with the account your organisation gave you, and your machines are a browser tab away."
+    },
+    "login.none": {
+      "title": "No sign-in methods are set up",
+      "body": "An administrator must configure at least one identity provider before anyone can sign in."
+    },
+    "profile.identities": {
+      "title": "No sign-in methods",
+      "body": "Your organisation has not enabled any providers to link."
+    },
+    "profile.credentials": {
+      "title": "No saved logins",
+      "body": "Save your own username and password for a device so Connect signs you in as yourself.",
+      "icon": "domain.object.credential"
+    },
+    "sessions.mine": {
+      "title": "You have no live sessions",
+      "body": "Open a device and select Connect; the session appears here, where you can share it.",
+      "action": {
+        "label": "Go to devices",
+        "href": "/devices",
+        "icon": "domain.nav.devices"
+      },
+      "icon": "domain.object.radio"
+    },
+    "sessions.shared": {
+      "title": "Nothing is shared with you",
+      "body": "When someone shares a live session with you, it appears here with a Join button.",
+      "icon": "action.share"
+    },
+    "sessions.all": {
+      "title": "Nobody is connected",
+      "body": "Every live session appears here within a few seconds of someone selecting Connect.",
+      "icon": "object.users"
+    },
+    "noaccess.proxy": {
+      "title": "Your sign-in did not reach RemoteHound",
+      "body": "You are signed in to your organisation, but RemoteHound did not receive who you are, so it cannot let you in. Try signing in again. If this keeps happening, tell your admin: the sign-in proxy in front of RemoteHound is not passing your identity."
+    },
+    "device.not_registered": {
+      "title": "This device isn't registered",
+      "body": "It was removed, or it never finished enrolling, so there is nothing to connect to. To reach the machine, register it: create a code on Enroll, then run the one-line command it shows on that machine.",
+      "action": {
+        "label": "Register a machine",
+        "href": "/enroll",
+        "icon": "domain.nav.enroll",
+        "permission": "enrollment.create"
+      },
+      "icon": "domain.nav.devices",
+      "mascot": "waiting"
+    }
+  },
+  "errors": {
+    "DEVICE_NOT_FOUND": {
+      "title": "Device not found",
+      "fix": "It may have been deleted, or it is in a group you cannot see. Go back to Devices and search for it.",
+      "doc": "/docs/devices"
+    },
+    "DEVICE_OFFLINE": {
+      "title": "The device is offline",
+      "fix": "Its tunnel is not connected. Check the machine is on and online; it reconnects on its own. If it stays offline, look at its Client logs or re-run the enrolment command with a new code.",
+      "doc": "/docs/devices"
+    },
+    "SERVICE_NOT_FORWARDED": {
+      "title": "That service is not being forwarded",
+      "fix": "The device is online but did not forward this port. Add the service on the Services tab, then use Diagnostics → Ask device to reconnect.",
+      "doc": "/docs/devices"
+    },
+    "GUAC_UNAVAILABLE": {
+      "title": "Guacamole is not available",
+      "fix": "Sessions cannot open until Guacamole answers. Open Integration and run the checks to see which part is failing.",
+      "doc": "/docs/integration"
+    },
+    "AUTH_FORBIDDEN": {
+      "title": "Your role does not allow this",
+      "fix": "Ask an admin to change your role or add you to the device's group.",
+      "doc": "/docs/users"
+    },
+    "VALIDATION_FAILED": {
+      "title": "Some values need fixing",
+      "fix": "Correct the highlighted fields and try again.",
+      "doc": "/docs/errors"
+    },
+    "PRECONDITION_FAILED": {
+      "title": "Someone else changed this first",
+      "fix": "Reload to see the latest version, then make your change again.",
+      "doc": "/docs/errors"
+    },
+    "RATE_LIMITED": {
+      "title": "Too many requests",
+      "fix": "Wait a minute and try again.",
+      "doc": "/docs/errors"
+    },
+    "ENROLL_CODE_INVALID": {
+      "title": "That enrolment code is not valid",
+      "fix": "Check for typing mistakes, or create a new code.",
+      "doc": "/docs/enroll"
+    },
+    "ENROLL_CODE_EXPIRED": {
+      "title": "That enrolment code has expired",
+      "fix": "Create a new code; codes last 15 minutes by default.",
+      "doc": "/docs/enroll"
+    },
+    "ENROLL_CODE_USED": {
+      "title": "That enrolment code was already used",
+      "fix": "Each code enrols one device. Create a new code.",
+      "doc": "/docs/enroll"
+    },
+    "GROUP_NOT_EMPTY": {
+      "title": "The group still has devices",
+      "fix": "Move its devices to another group first; deleting a group never deletes devices.",
+      "doc": "/docs/groups"
+    },
+    "LAST_ADMIN": {
+      "title": "This is the last admin",
+      "fix": "Make another user an admin first, then change or remove this one.",
+      "doc": "/docs/users"
+    },
+    "NOT_FOUND": {
+      "title": "Not found",
+      "fix": "It may have been deleted. Go back and refresh the list.",
+      "doc": "/docs/errors"
+    },
+    "NETWORK_OFFLINE": {
+      "title": "Cannot reach the server",
+      "fix": "Check your connection, then select Try again. Nothing was changed.",
+      "doc": "/docs/errors"
+    },
+    "INTERNAL": {
+      "title": "The server hit an unexpected error",
+      "fix": "Try again. If it keeps happening, give the request ID to your admin; it finds the exact log records on the Logs screen.",
+      "doc": "/docs/debug"
+    },
+    "AUTH_REQUIRED": {
+      "title": "You are signed out",
+      "fix": "Your session ended. Sign in again; sessions end after the idle and maximum limits in Settings.",
+      "doc": "/docs/errors"
+    },
+    "AUTH_CSRF_FAILED": {
+      "title": "The page's security token is out of date",
+      "fix": "Reload the page and try again.",
+      "doc": "/docs/errors"
+    },
+    "REQUEST_MALFORMED": {
+      "title": "The browser sent a request the server could not read",
+      "fix": "Reload the page. If it keeps happening, report it with the request ID.",
+      "doc": "/docs/errors"
+    },
+    "PRECONDITION_REQUIRED": {
+      "title": "The change was sent without a version check",
+      "fix": "Reload the page and make the change again.",
+      "doc": "/docs/errors"
+    },
+    "SERVICE_UNAVAILABLE": {
+      "title": "A service RemoteHound depends on did not answer",
+      "fix": "Try again shortly, and check the Integration screen.",
+      "doc": "/docs/errors"
+    },
+    "DEVICE_DISABLED": {
+      "title": "The device is disabled",
+      "fix": "Enable it from the device page (Danger zone), then try again.",
+      "doc": "/docs/errors"
+    },
+    "SERVICE_NOT_CONFIGURED": {
+      "title": "The device has no such service",
+      "fix": "Add SSH, RDP or VNC on the device's Services tab.",
+      "doc": "/docs/errors"
+    },
+    "ENROLL_KEY_INVALID": {
+      "title": "The device sent an unusable key",
+      "fix": "Re-run the enrolment command with a new code; it generates a fresh key.",
+      "doc": "/docs/errors"
+    },
+    "GROUP_NOT_FOUND": {
+      "title": "That group no longer exists",
+      "fix": "Pick another group; the list may be out of date, so reload the page.",
+      "doc": "/docs/errors"
+    },
+    "USER_NOT_FOUND": {
+      "title": "That user no longer exists",
+      "fix": "Refresh the Users list.",
+      "doc": "/docs/errors"
+    },
+    "USER_EXISTS": {
+      "title": "That email is already a user",
+      "fix": "Find the existing user in the list and edit them instead.",
+      "doc": "/docs/errors"
+    },
+    "SESSION_NOT_FOUND": {
+      "title": "The session already ended",
+      "fix": "Refresh the Sessions list.",
+      "doc": "/docs/errors"
+    },
+    "JOB_NOT_FOUND": {
+      "title": "No such background job",
+      "fix": "Refresh the Debug screen.",
+      "doc": "/docs/errors"
+    },
+    "RECORDING_NOT_FOUND": {
+      "title": "The recording is gone",
+      "fix": "It was removed by retention, or recording storage is not mounted. Run the Integration checks.",
+      "doc": "/docs/errors"
+    },
+    "PROXY_IDENTITY_MISSING": {
+      "title": "Your sign-in did not reach RemoteHound",
+      "fix": "Sign in again. If it keeps happening, an admin should check that the sign-in proxy passes your email and the proxy secret.",
+      "doc": "/docs/errors"
+    },
+    "CONTROL_UNAVAILABLE": {
+      "title": "Container control is not available",
+      "fix": "Status still works. An admin enables the rh-control helper, or checks that its container is running.",
+      "doc": "/docs/errors"
+    },
+    "CONTROL_ACTION_NOT_ALLOWED": {
+      "title": "That action is not allowed for this service",
+      "fix": "RemoteHound can only restart itself; other limits come from the container's control label.",
+      "doc": "/docs/errors"
+    },
+    "CONTROL_TARGET_NOT_FOUND": {
+      "title": "No container is set up for that service",
+      "fix": "An admin labels the container for control in the compose file.",
+      "doc": "/docs/errors"
+    },
+    "ENROLL_WRONG_OS": {
+      "title": "This code is for a different kind of machine",
+      "fix": "Run the command on the machine the code was made for, or create a code for this machine's OS. The code was not used up.",
+      "doc": "/docs/enroll"
+    },
+    "CREDENTIALS_REQUIRED": {
+      "title": "This connection needs a login first",
+      "fix": "Save the username and password with \"Use my own login\" on the device page, then connect. For a Mac, use your macOS account, which must be allowed under Sharing → Screen Sharing.",
+      "doc": "/docs/devices"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+#!/bin/sh
+# Blocks a commit that would add a secret, a secret-shaped file, or owner data.
+# Enable once per clone:  git config core.hooksPath .githooks
+# CI repeats these checks on every push (.github/workflows/ci.yml → secrets), so skipping
+# this hook only delays the failure.
+set -eu
+cd "$(git rev-parse --show-toplevel)"
+node ci/check-public.mjs --staged
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --staged --no-banner --redact --config .gitleaks.toml
+else
+  echo "✗ gitleaks is not installed (brew install gitleaks / see github.com/gitleaks/gitleaks) — refusing to commit unscanned." >&2
+  exit 1
+fi
+# Large files are almost always a mistake here (state dumps, recordings, binaries).
+big=$(git diff --cached --name-only --diff-filter=AM | while read -r f; do [ -f "$f" ] && [ "$(wc -c < "$f")" -gt 1048576 ] && echo "$f"; done || true)
+if [ -n "$big" ]; then echo "✗ files over 1 MB staged (recordings, state dumps, binaries?):"; echo "$big"; exit 1; fi

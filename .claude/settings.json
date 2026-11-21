@@ -1,0 +1,47 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./.env.*.local)",
+      "Read(./.env.production)",
+      "Read(./.env.development)",
+      "Read(./.env.staging)",
+      "Read(./.env.test)",
+      "Read(./secrets/**)",
+      "Read(./**/env.prod*.json)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(./deploy/.env)",
+      "Read(./deploy/test/e2e.env)",
+      "Read(./.data/**)"
+    ],
+    "disableBypassPermissionsMode": "disable",
+    "allow": [
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(go vet:*)",
+      "Bash(go run ./cmd/remotehound config-doc)",
+      "Bash(node --test:*)",
+      "Bash(node --check:*)",
+      "Bash(sh client/test/run.sh)",
+      "Bash(./ci/guards.sh)",
+      "Bash(tools/standard/check.sh:*)",
+      "Bash(semgrep --config .semgrep/standard:*)",
+      "Bash(docker compose -f deploy/compose.yml -f deploy/test/compose.e2e.yml:*)"
+    ],
+    "disableAutoMode": "disable"
+  },
+  "extraKnownMarketplaces": {
+    "engineering-standard": {
+      "source": {
+        "source": "github",
+        "repo": "jchirayath/engineering-standard",
+        "ref": "v1.4.1"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "engineering-standard@engineering-standard": true
+  }
+}
