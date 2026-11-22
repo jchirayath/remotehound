@@ -9,7 +9,7 @@ import "testing"
 // and the session fell back to the Windows sign-in screen. RDP carries the domain apart.
 func TestSplitRDPDomain(t *testing.T) {
 	cases := []struct{ user, domain, wantUser, wantDomain string }{
-		{`AzureAD\jacobc@example.com`, "", "jacobc@example.com", "AzureAD"},
+		{`AzureAD\grace@example.com`, "", "grace@example.com", "AzureAD"},
 		{`.\avdadmin`, "", "avdadmin", "."},
 		{`CORP\ada`, "", "ada", "CORP"},
 		{"ada@example.com", "", "ada@example.com", ""}, // UPN: Windows resolves it itself
