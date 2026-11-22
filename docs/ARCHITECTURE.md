@@ -79,6 +79,10 @@ RemoteHound's session check first (defence in depth on top of Guacamole's own to
 7. **Short bootstrap, idempotent stage-2.** The typed command only fetches a script. The script is
    re-runnable, does its work in numbered stages, and installs a *supervisor* (systemd / launchd /
    Scheduled Task) that keeps the tunnel up. Nothing is installed — only files, a key and a service entry.
+8. **Script-free enrolment for locked-down machines** ([ADR-0005](adr/0005-scriptless-enrolment.md)).
+   Endpoint security often blocks the script. A code can instead be typed as the SSH username of a
+   plain `ssh -R` command: *attended* codes (no key, one session, nothing installed) or *persistent*
+   codes with a key the person generated (reconnects only when they rerun the printed command).
 
 ## 4. Components inside the binary
 
@@ -162,6 +166,16 @@ person types command
   script stage 4  enable built-in services (needs admin; skipped with a message if not)
   script stage 5  write tunnel watchdog + supervisor unit; start it
   script stage 6  wait until the server reports the tunnel online → "Connected as laptop1 ✓"
+```
+
+Script-free alternative (§3.8, [CLIENT_PROTOCOL.md §9](specs/CLIENT_PROTOCOL.md)):
+
+```
+person types   mkdir … && echo '<known_hosts line>' > ~/.remotehound/<host>-<port>/known_hosts && \
+               ssh -o StrictHostKeyChecking=yes … -R 3389:localhost:3389 k7q2mx@rh.example.com hello v1 os=… host=…
+tunnel server  username is a code → wrong-code limiter → none (attended) / ed25519 publickey (persistent)
+               -R requests held · hello → code consumed + device created (transport ssh-attended | ssh-manual)
+               → held forwards bound → "connected as …, connection code 4F7K" in the person's terminal
 ```
 
 ### 6.2 The tunnel (what runs forever on the device)

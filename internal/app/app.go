@@ -106,6 +106,7 @@ func New(cfg *config.Config) (*App, error) {
 	}
 	devs.Tunnel = tun
 	enr := &enroll.Service{Store: st, Audit: aud, Secrets: sec, Devices: devs, Tunnel: tun, AllowHTTP: cfg.Development()}
+	tun.SetEnroller(enr) // script-free enrolment over SSH (ADR-0005)
 
 	internalHTTP := httpx.New(httpx.Options{Timeout: 8 * time.Second, AllowPrivate: []string{cfg.GuacURL.Hostname()}})
 	checker := &guac.Checker{GuacURL: cfg.GuacURL, GuacdAddr: cfg.GuacdAddr, Key: sec.GuacJSONKey.Bytes(), HTTP: internalHTTP,

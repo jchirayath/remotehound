@@ -53,6 +53,14 @@ func (f *fakeHooks) SessionOpened(string, string, string) string {
 	return "ses_" + strconv.Itoa(f.sessions)
 }
 func (f *fakeHooks) SessionClosed(string, int64, int64) { f.mu.Lock(); f.closed++; f.mu.Unlock() }
+func (f *fakeHooks) AddService(id, kind string, port int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.dev != nil && f.dev.ID == id {
+		f.dev.Services = append(f.dev.Services, model.Service{Kind: kind, RemotePort: port})
+	}
+	return nil
+}
 func (f *fakeHooks) ClientLog(_ string, l []string) {
 	f.mu.Lock()
 	f.logs = append(f.logs, l...)

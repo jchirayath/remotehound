@@ -69,7 +69,7 @@ paths:
     post:
       tags: [public]
       security: []
-      summary: Redeem an enrolment code with the device's public key (consumes the code)
+      summary: Redeem an enrolment code with the device's public key (consumes the code). 400 ENROLL_WRONG_METHOD for an attended code (not consumed; it works only over SSH, CLIENT_PROTOCOL.md §9)
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/EnrollRequest" } } }
@@ -428,7 +428,7 @@ components:
         hostname: { type: string }
         status: { type: string, enum: [pending, active, disabled] }
         online: { type: boolean }
-        transport: { type: string, enum: [ssh-r, agent] }
+        transport: { type: string, enum: [ssh-r, ssh-manual, ssh-attended, agent], description: "ssh-r: the script's watchdog; ssh-manual: typed ssh with a key; ssh-attended: typed ssh without a key, one session (ADR-0005)" }
         key_fingerprint: { type: string }
         services: { type: array, items: { $ref: "#/components/schemas/Service" } }
         client_version: { type: string }
@@ -437,6 +437,7 @@ components:
         last_seen_at: { type: string, format: date-time }
         last_ip: { type: string }
         connected_since: { type: string, format: date-time }
+        connection_code: { type: string, description: "4 characters the person at a typed (ssh-manual / ssh-attended) device sees in their terminal, while its tunnel is live; empty otherwise" }
         notes: { type: string }
         tags: { type: array, items: { type: string } }
         debug: { type: boolean }
@@ -490,13 +491,14 @@ components:
         used_at: { type: string, format: date-time }
         device_id: { type: string }
         expected_os: { type: string, enum: ["", macos, linux, windows], description: "the machine type the code is for; empty = any" }
+        mode: { type: string, enum: [persistent, attended], description: "persistent: the scripts, or ssh with a key; attended: ssh without a key only, one session (ADR-0005)" }
         device_deleted: { type: boolean, description: "the device this row refers to has since been deleted; omitted when false" }
         created_by: { type: string }
         created_by_name: { type: string, description: "The creator's display name or email, only when the caller may see that user (as in GET /api/v1/directory, or yourself); empty otherwise" }
         created_at: { type: string, format: date-time }
     EnrollmentCreate:
       type: object
-      properties: { name: { type: string, maxLength: 64, description: "device name; defaults to the hostname the script reports" }, group_id: { type: string }, ttl_minutes: { type: integer, minimum: 5, maximum: 1440 }, expected_os: { type: string, enum: ["", macos, linux, windows], description: "refuse machines reporting another OS (ENROLL_WRONG_OS); the code stays usable" } }
+      properties: { name: { type: string, maxLength: 64, description: "device name; defaults to the hostname the script reports" }, group_id: { type: string }, ttl_minutes: { type: integer, minimum: 5, maximum: 1440 }, expected_os: { type: string, enum: ["", macos, linux, windows], description: "refuse machines reporting another OS (ENROLL_WRONG_OS); the code stays usable" }, mode: { type: string, enum: ["", persistent, attended], description: "default persistent. attended: no script commands are returned and the scripts refuse the code (ENROLL_WRONG_METHOD); needs a valid ssh_public_host/port (409 SETTINGS_PUBLIC_URL_INVALID otherwise)" } }
     EnrollmentCreated:
       allOf:
         - $ref: "#/components/schemas/Enrollment"
@@ -505,7 +507,14 @@ components:
             code: { type: string }
             command_unix: { type: string, description: "per-user install (starts at login)" }
             command_unix_system: { type: string, description: "the same through sudo: system-wide, starts at boot, can turn on SSH / Screen Sharing (recommended)" }
-            command_windows: { type: string }
+            command_windows: { type: string, description: "empty for an attended code" }
+            ssh:
+              type: object
+              description: "script-free commands (docs/specs/CLIENT_PROTOCOL.md §9); empty strings when the SSH host/port in Settings cannot be put in a command"
+              properties:
+                unix: { type: string, description: "sh syntax: pins the host key in ~/.remotehound/known_hosts, then ssh with the code as username" }
+                windows: { type: string, description: "cmd.exe syntax" }
+                host_key_fingerprint: { type: string, description: "SHA256 fingerprint of the pinned host key" }
     EnrollmentList: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Enrollment" } }, meta: { $ref: "#/components/schemas/Meta" } } }
     Group:
       type: object

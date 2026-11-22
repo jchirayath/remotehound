@@ -197,6 +197,37 @@ func (s *Service) SessionClosed(sessionID string, in, out int64) {
 		slog.Int64("app.bytes_in", in), slog.Int64("app.bytes_out", out))
 }
 
+// AddService implements tunnel.Hooks: a typed (ssh-manual / ssh-attended)
+// device forwards a conventional port it had not declared (ADR-0005).
+func (s *Service) AddService(deviceID, kind string, remotePort int) error {
+	if model.DefaultRemotePort[kind] != remotePort {
+		return errors.New("not a conventional service port")
+	}
+	added := false
+	err := s.Store.Update(func(st *model.State) error {
+		d, ok := st.Devices[deviceID]
+		if !ok {
+			return errors.New("device gone")
+		}
+		if d.Transport != model.TransportManual && d.Transport != model.TransportAttended {
+			return errors.New("only typed devices declare services by forwarding")
+		}
+		if d.Service(kind) != nil || d.ServiceByRemotePort(remotePort) != nil {
+			return nil
+		}
+		d.Services = append(d.Services, model.Service{Kind: kind, RemotePort: remotePort})
+		d.Touch(time.Now().UTC())
+		added = true
+		return nil
+	})
+	if err == nil && added {
+		ctx := logx.WithScope(context.Background(), logx.Scope{DeviceID: deviceID})
+		s.Audit.Record(ctx, "device.service.upsert", audit.Success, "device:"+deviceID,
+			map[string]any{"service": kind, "remote_port": remotePort, "source": "tunnel"})
+	}
+	return err
+}
+
 // ClientLog implements tunnel.Hooks.
 func (s *Service) ClientLog(deviceID string, lines []string) {
 	enabled := true
@@ -307,12 +338,15 @@ type View struct {
 	LastSeenAt     *time.Time `json:"last_seen_at"`
 	LastIP         string     `json:"last_ip"`
 	ConnectedSince *time.Time `json:"connected_since"`
-	Notes          string     `json:"notes"`
-	Tags           []string   `json:"tags"`
-	Debug          bool       `json:"debug"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	ETag           string     `json:"etag"`
+	// ConnectionCode: the 4 characters a typed (script-free) tunnel showed the
+	// person at the device, while it is live (ADR-0005); "" otherwise.
+	ConnectionCode string    `json:"connection_code"`
+	Notes          string    `json:"notes"`
+	Tags           []string  `json:"tags"`
+	Debug          bool      `json:"debug"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	ETag           string    `json:"etag"`
 	// IdentityWarnings: signs this device is not the machine its name says
 	// (wrong machine enrolled, or one machine enrolled twice). Advisory.
 	IdentityWarnings []IdentityWarning `json:"identity_warnings"`
@@ -362,14 +396,16 @@ func (s *Service) toView(d *model.Device, peers []*model.Device) View {
 	fwd := map[int]int{}
 	online := false
 	var since time.Time
+	code := ""
 	if s.Tunnel != nil {
 		online = s.Tunnel.Online(d.ID)
 		fwd = s.Tunnel.Forwarded(d.ID)
 		since = s.Tunnel.ConnectedSince(d.ID)
+		code = s.Tunnel.ConnectionCode(d.ID)
 	}
 	v := View{ID: d.ID, Name: d.Name, GroupID: d.GroupID, OS: d.OS, OSVersion: d.OSVersion, Hostname: d.Hostname,
 		Status: d.Status, Online: online, Transport: d.Transport, KeyFingerprint: d.KeyFingerprint,
-		ClientVersion: d.ClientVersion, InstallScope: d.InstallScope, InstallUser: d.InstallUser, LastSeenAt: timePtr(d.LastSeenAt), LastIP: d.LastIP, ConnectedSince: timePtr(since),
+		ClientVersion: d.ClientVersion, InstallScope: d.InstallScope, InstallUser: d.InstallUser, LastSeenAt: timePtr(d.LastSeenAt), LastIP: d.LastIP, ConnectedSince: timePtr(since), ConnectionCode: code,
 		Notes: d.Notes, Tags: append([]string{}, d.Tags...), Debug: d.Debug, CreatedAt: d.CreatedAt, UpdatedAt: d.UpdatedAt, ETag: d.ETag()}
 	if v.Tags == nil {
 		v.Tags = []string{}
@@ -726,9 +762,31 @@ func (s *Service) Create(ctx context.Context, name, groupID, pubKey, osName, not
 	now := time.Now().UTC()
 	d := &model.Device{
 		Meta: model.Meta{ID: ids.New("dev"), CreatedAt: now, UpdatedAt: now, Version: 1},
-		Name: name, GroupID: groupID, OS: osName, Status: model.DeviceActive, Transport: "ssh-r",
+		Name: name, GroupID: groupID, OS: osName, Status: model.DeviceActive, Transport: model.TransportScript,
 		PublicKey: strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key))), KeyFingerprint: ssh.FingerprintSHA256(key),
 		Notes: notes, Tags: []string{}, EnrollmentID: enrollmentID,
+	}
+	if d.OS == "" {
+		d.OS = "unknown"
+	}
+	return d, nil
+}
+
+// CreateTyped makes a script-free device (ADR-0005): ssh-manual with an
+// ed25519 key, ssh-attended without one (no key: it never logs in again).
+func (s *Service) CreateTyped(ctx context.Context, name, groupID, pubKey, osName, enrollmentID string) (*model.Device, error) {
+	if pubKey != "" {
+		d, err := s.Create(ctx, name, groupID, pubKey, osName, "", enrollmentID)
+		if err == nil {
+			d.Transport = model.TransportManual
+		}
+		return d, err
+	}
+	now := time.Now().UTC()
+	d := &model.Device{
+		Meta: model.Meta{ID: ids.New("dev"), CreatedAt: now, UpdatedAt: now, Version: 1},
+		Name: name, GroupID: groupID, OS: osName, Status: model.DeviceActive, Transport: model.TransportAttended,
+		Tags: []string{}, EnrollmentID: enrollmentID,
 	}
 	if d.OS == "" {
 		d.OS = "unknown"

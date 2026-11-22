@@ -43,6 +43,7 @@ func (s *Server) createEnrollment(w http.ResponseWriter, r *http.Request) {
 		GroupID    string `json:"group_id"`
 		TTLMinutes int    `json:"ttl_minutes"`
 		ExpectedOS string `json:"expected_os"`
+		Mode       string `json:"mode"`
 	}
 	if err := decode(r, &in); err != nil {
 		s.fail(w, r, err)
@@ -57,11 +58,12 @@ func (s *Server) createEnrollment(w http.ResponseWriter, r *http.Request) {
 		v.Range("/ttl_minutes", in.TTLMinutes, 5, 1440)
 	}
 	v.OneOf("/expected_os", in.ExpectedOS, "", "macos", "linux", "windows")
+	v.OneOf("/mode", in.Mode, "", model.EnrollModePersistent, model.EnrollModeAttended)
 	if err := v.Err(); err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	out, err := s.Enroll.Create(r.Context(), authz.ActorFrom(r.Context()), in.Name, in.GroupID, in.ExpectedOS, in.TTLMinutes)
+	out, err := s.Enroll.Create(r.Context(), authz.ActorFrom(r.Context()), in.Name, in.GroupID, in.ExpectedOS, in.Mode, in.TTLMinutes)
 	if err != nil {
 		s.fail(w, r, err)
 		return

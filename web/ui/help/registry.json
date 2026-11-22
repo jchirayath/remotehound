@@ -77,7 +77,7 @@
         "To connect as yourself, select **Use my own login** below the Connect button and save your credentials (see **Profile → My saved logins**)."
       ],
       "fields": {
-        "transport": "How the device connects. ssh-r: a reverse SSH tunnel opened by the built-in ssh client.",
+        "transport": "How the device connects. ssh-r: the enrolment script's watchdog keeps a reverse SSH tunnel up. ssh-manual: someone typed an ssh command with a key; it reconnects only when they run it again. ssh-attended: a one-time session typed with no key; it ends when the window closes and never reconnects.",
         "key_fingerprint": "Fingerprint of the device's own ed25519 key. The private key never leaves the device."
       },
       "columns": {
@@ -114,6 +114,7 @@
       "purpose": "Add a machine to RemoteHound with one short command typed on that machine. Nothing is installed: the command uses the ssh client the operating system already has.",
       "how_to": [
         "Optionally type a **Device name** and pick a **Group**, then select **Create code**.",
+        "Pick **Connection type**: **Install** for a machine you will reach again, **One-time** for a support session where nothing may be installed (or where security software blocks scripts).",
         "On the device, open Terminal (macOS / Linux) or PowerShell (Windows) and type the command shown. Use an administrator shell to let the script turn on SSH or Remote Desktop.",
         "Keep this page open: it shows **Waiting for the device…** and switches to a success message with a link to the device when it joins.",
         "Revoke a code you no longer need from the list below."
@@ -126,12 +127,14 @@
         "expires_at": "When an open code stops working, or when a used code was redeemed.",
         "created_by": "Who created the code.",
         "created_at": "When the code was created.",
-        "expected_os": "The kind of machine the code was made for. Any means it was not restricted."
+        "expected_os": "The kind of machine the code was made for. Any means it was not restricted.",
+        "mode": "Install: the script, or ssh with a key, sets up a tunnel that can stay connected. One-time: a typed ssh session with nothing installed, which ends when its window closes."
       },
       "roles": "Operators and Admins can create and revoke codes. Viewers can see the list.",
       "tips": [
         "Codes are single use and expire after 15 minutes by default; change the default in **Settings**.",
-        "Re-running the command with a new code on an already enrolled machine is safe; it replaces the old registration."
+        "Re-running the command with a new code on an already enrolled machine is safe; it replaces the old registration.",
+        "Security software (Defender, EDR) often blocks the install script. The **No script (ssh)** tab and **One-time** codes run only the ssh client the system already has; ssh opening a reverse tunnel can still be flagged, so tell your security team what to expect."
       ],
       "troubleshooting": [
         {
@@ -141,6 +144,14 @@
         {
           "problem": "Waiting never finishes",
           "fix": "Check that the device can reach the SSH tunnel port (2222 by default) and look at the last lines the script printed. Then see the device's **Client logs**."
+        },
+        {
+          "problem": "The ssh command says 'Host key verification failed'",
+          "fix": "The first part of the command saves the server's key; run the whole command again exactly as copied. If it still fails, the server's SSH host or port in Settings does not match where the device connects."
+        },
+        {
+          "problem": "On Windows, the command prints '%USERPROFILE%' errors or 'The token && is not valid'",
+          "fix": "That is PowerShell. Type cmd, press Enter, then paste the command again."
         }
       ],
       "doc": "/docs/enroll"
@@ -509,7 +520,7 @@
     "device.group_id": "Decides who can see and connect to this device.",
     "device.tags": "Comma-separated labels to help you search, for example kiosk, floor-2. Up to 20 tags of 32 characters.",
     "device.notes": "Free text for your team: location, owner, quirks. Up to 2000 characters. Never put passwords here.",
-    "device.transport": "How the device connects. ssh-r: a reverse SSH tunnel opened by the built-in ssh client.",
+    "device.transport": "How the device connects. ssh-r: the enrolment script's watchdog keeps a reverse SSH tunnel up. ssh-manual: someone typed an ssh command with a key; it reconnects only when they run it again. ssh-attended: a one-time session typed with no key; it ends when the window closes and never reconnects.",
     "device.key_fingerprint": "Fingerprint of the device's own ed25519 key. The private key never leaves the device.",
     "device.enable": "Lets the device reconnect its tunnel and accept sessions again.",
     "device.disable": "Closes the tunnel now and refuses new logins until you enable it again. Nothing on the device is removed.",
@@ -586,7 +597,11 @@
     "sessions.all_view_only": "You can see every live session and end one if needed, but you cannot join or watch it unless its owner shares it with you. Ending someone's session is audited.",
     "profile.credential_private_key": "SSH only, instead of a password: paste the whole private key (from -----BEGIN to the END line). If the key has a passphrase, put it in the password box. Stored encrypted for you alone and never shown again; the device must list the matching public key in authorized_keys.",
     "enroll.expected_os": "Which kind of machine this code is for. A machine reporting a different OS is refused (the code stays usable), so a command pasted on the wrong machine cannot enrol it. Any = no check.",
-    "enroll.command_unix_system": "Paste into Terminal and enter your password when sudo asks. The tunnel starts at boot and keeps running when nobody is logged in, and the script can turn on Remote Login (SSH) or Screen Sharing for you."
+    "enroll.command_unix_system": "Paste into Terminal and enter your password when sudo asks. The tunnel starts at boot and keeps running when nobody is logged in, and the script can turn on Remote Login (SSH) or Screen Sharing for you.",
+    "device.connection_code": "The 4 characters the person at the device sees in their terminal. Ask them to read it out to be sure you are connected to the right machine. Shown only while a typed (no-script) session is live.",
+    "enroll.mode": "Install: the script sets up a tunnel that stays connected, or someone types ssh with a key and can reconnect later. One-time: they type one ssh command; nothing is installed, and the session ends when they close the window. One-time codes cannot run the script.",
+    "enroll.ssh_unix": "Paste into Terminal. No script runs and nothing needs sudo: it saves this server's key in ~/.remotehound, then connects with ssh. SSH or Screen Sharing must already be turned on.",
+    "enroll.ssh_windows": "Paste into Command Prompt (in PowerShell, type cmd and press Enter first). Uses the ssh built into Windows 10 1809+, 11 and Server 2019+. Remote Desktop must already be turned on."
   },
   "empty": {
     "filtered": {
@@ -982,6 +997,11 @@
       "title": "This connection needs a login first",
       "fix": "Save the username and password with \"Use my own login\" on the device page, then connect. For a Mac, use your macOS account, which must be allowed under Sharing → Screen Sharing.",
       "doc": "/docs/devices"
+    },
+    "ENROLL_WRONG_METHOD": {
+      "title": "This code is for a one-time session",
+      "fix": "Use the ssh command shown with the code instead of the script. The code was not used up.",
+      "doc": "/docs/enroll"
     }
   }
 }

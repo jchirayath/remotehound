@@ -26,6 +26,7 @@ help — the request ID finds the exact log lines on the **Logs** screen (filter
 | `ENROLL_CODE_USED` | The code was already used. | Codes are single use — create a new one. |
 | `CREDENTIALS_REQUIRED` | Mac Screen Sharing, or Remote Desktop with Network Level Authentication, needs a username and password before it starts. | Save them with **Use my own login** on the device page, then connect. |
 | `ENROLL_WRONG_OS` | The code was made for another kind of machine (macOS, Linux or Windows). | Run it on the machine it was made for, or create a code for this OS. The code is still usable. |
+| `ENROLL_WRONG_METHOD` | The code is for a one-time session, and was used with the install script. | Use the ssh command shown with the code. The code is still usable. |
 | `ENROLL_CODE_EXPIRED` | The code expired. | Create a new one (the lifetime is set in Settings). |
 | `SETTINGS_PUBLIC_URL_INVALID` | The stored public address is not a plain https URL (it may predate a stricter check), so no enrolment command can be built from it. | An admin sets **Settings → Public URL** to e.g. `https://rh.example.com` (letters, digits, `. - / _ ~` only), then creates the code again. |
 | `ENROLL_KEY_INVALID` | The device sent an unusable key. | Re-run the command; it generates a fresh key. |

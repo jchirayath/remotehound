@@ -23,6 +23,19 @@ const (
 	DeviceDisabled = "disabled"
 )
 
+// Device transports: how the device's tunnel was set up (ADR-0005).
+const (
+	TransportScript   = "ssh-r"        // bootstrap script + watchdog; sends `agent v1`
+	TransportManual   = "ssh-manual"   // typed ssh with a key the person made; sends `hello v1`
+	TransportAttended = "ssh-attended" // typed ssh with no key: one session, never logs in again
+)
+
+// Enrolment code modes (ADR-0005). "" is read as persistent.
+const (
+	EnrollModePersistent = "persistent" // the scripts, or ssh with a key
+	EnrollModeAttended   = "attended"   // ssh with no key only
+)
+
 // Service kinds a device can expose through its tunnel.
 const (
 	ServiceSSH = "ssh"
@@ -125,7 +138,12 @@ type Enrollment struct {
 	// ExpectedOS: macos | linux | windows, or "" for any. A machine reporting
 	// another OS is refused, and the code stays usable on the right machine.
 	ExpectedOS string `json:"expected_os,omitempty"`
+	// Mode: EnrollModePersistent ("" too) or EnrollModeAttended.
+	Mode string `json:"mode,omitempty"`
 }
+
+// Attended reports whether the code is for an attended (keyless) session.
+func (e *Enrollment) Attended() bool { return e.Mode == EnrollModeAttended }
 
 // State reports open | used | expired at time now.
 func (e *Enrollment) State(now time.Time) string {

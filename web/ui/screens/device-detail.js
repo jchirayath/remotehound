@@ -161,11 +161,18 @@ export default function render(ctx) {
       lead: h('span', { class: `device-tile device-tile--${device.online ? 'online' : 'offline'}`, 'aria-hidden': 'true' }, icon(`domain.os.${['linux', 'macos', 'windows'].includes(device.os) ? device.os : 'unknown'}`, { size: 'lg' })),
       subtitle: h('span', { class: 'device-sub' }, presence(device), device.hostname ? h('span', { class: 'mono' }, device.hostname) : null,
         h('span', null, osLabel(device.os), device.os_version ? ` ${device.os_version}` : ''), groupPill(group),
-        device.online && device.connected_since ? h('span', { class: 'muted' }, 'connected ', relTime(device.connected_since)) : (!device.online ? h('span', { class: 'muted' }, 'last seen ', relTime(device.last_seen_at)) : null)),
+        device.online && device.connected_since ? h('span', { class: 'muted' }, 'connected ', relTime(device.connected_since)) : (!device.online ? h('span', { class: 'muted' }, 'last seen ', relTime(device.last_seen_at)) : null),
+        device.connection_code ? h('span', null, 'Connection code ', h('strong', { class: 'mono' }, device.connection_code)) : null),
       actions: [iconButton({ icon: 'action.refresh', label: 'Refresh device', onClick: loadDevice })],
     })
     if (device.status === 'disabled') append(p.body, banner('warning', 'This device is disabled', 'Its tunnel is closed and new logins are refused. Enable it in the danger zone below the Overview tab.'))
     else if (device.status === 'pending') append(p.body, banner('info', 'Waiting for the first connection', 'The device has redeemed its code but has not opened its tunnel yet. Check its client logs if this takes more than a minute.'))
+    else if (!device.online && device.transport === 'ssh-attended') append(p.body, banner('info', 'This one-time session has ended',
+      'Nothing was installed on the machine, so it cannot reconnect by itself. For another session, create a new one-time code. You can delete this entry.',
+      can('enrollment.create') ? linkButton({ href: `/enroll?name=${encodeURIComponent(device.name)}`, label: 'Create a new code', icon: 'domain.nav.enroll', size: 'sm' }) : null))
+    else if (!device.online && device.transport === 'ssh-manual') append(p.body, banner('info', 'This device is not connected',
+      'Its tunnel was typed by hand, so it reconnects only when someone at the machine runs the reconnect command it showed when it joined (or a new enrolment command).',
+      can('enrollment.create') ? linkButton({ href: `/enroll?name=${encodeURIComponent(device.name)}`, label: 'Get a new command', icon: 'domain.nav.enroll', size: 'sm' }) : null))
     else if (!device.online) append(p.body, banner('info', 'This device is not connected',
       'If the machine is on, RemoteHound may have been removed from it or reinstalled. Register it again: create a code and run the command it shows on the machine. That adds a new entry, so delete this one afterwards.',
       can('enrollment.create') ? linkButton({ href: `/enroll?name=${encodeURIComponent(device.name)}`, label: 'Get the install command', icon: 'domain.nav.enroll', size: 'sm' }) : null))
@@ -199,6 +206,7 @@ export default function render(ctx) {
         ['Hostname', device.hostname ? h('span', { class: 'mono' }, device.hostname) : null],
         ['Operating system', h('span', null, osIcon(device.os, { withText: true }), device.os_version ? ` ${device.os_version}` : '')],
         ['Transport', device.transport, fieldHelp('device.transport')],
+        ['Connection code', device.connection_code ? h('strong', { class: 'mono' }, device.connection_code) : null, fieldHelp('device.connection_code')],
         ['Key fingerprint', device.key_fingerprint ? h('span', { class: 'mono wrap' }, device.key_fingerprint) : null, fieldHelp('device.key_fingerprint')],
         ['Last IP', device.last_ip ? h('span', { class: 'mono' }, device.last_ip) : null],
         ['Last seen', device.online ? h('span', { class: 'live-text' }, 'Now') : relTime(device.last_seen_at)],

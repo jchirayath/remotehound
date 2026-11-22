@@ -45,6 +45,9 @@ export default function render(ctx) {
       group_id: field({ id: 'enroll.group_id', label: 'Group', type: 'select', options: [{ value: '', label: 'Default group' }] }),
       expected_os: field({ id: 'enroll.expected_os', label: 'Machine type', type: 'select', value: '', options: [{ value: '', label: 'Any' }, { value: 'macos', label: 'macOS' }, { value: 'linux', label: 'Linux' }, { value: 'windows', label: 'Windows' }] }),
       ttl_minutes: field({ id: 'enroll.ttl_minutes', label: 'Code valid for', type: 'select', value: '15', options: TTLS.map(([v, l]) => ({ value: String(v), label: l })) }),
+      mode: field({ id: 'enroll.mode', label: 'Connection type', type: 'select', value: 'persistent', options: [
+        { value: 'persistent', label: 'Install: stays connected' },
+        { value: 'attended', label: 'One-time: nothing installed' }] }),
     }
     groups().then(list => { for (const g of list) f.group_id.input.append(h('option', { value: g.id }, g.name)) })
       .catch(() => f.group_id.setError('Groups could not be loaded; the default group will be used.'))
@@ -54,7 +57,7 @@ export default function render(ctx) {
     const form = h('form', { class: 'form', novalidate: true },
       h('h2', { id: 'enroll-h', class: 'card__title' }, h('span', { class: 'step-num', 'aria-hidden': 'true' }, '1'), 'Choose where the device goes'),
       msg,
-      h('div', { class: 'form__grid' }, f.name.el, f.group_id.el, f.expected_os.el, f.ttl_minutes.el),
+      h('div', { class: 'form__grid' }, f.name.el, f.group_id.el, f.expected_os.el, f.mode.el, f.ttl_minutes.el),
       h('div', { class: 'form__actions' }, button({ label: 'Create code', icon: 'domain.nav.enroll', variant: 'primary', type: 'submit', size: 'lg' })))
     form.addEventListener('submit', async (ev) => {
       ev.preventDefault()
@@ -63,6 +66,7 @@ export default function render(ctx) {
       if (f.name.get().trim()) body.name = f.name.get().trim()
       if (f.group_id.get()) body.group_id = f.group_id.get()
       if (f.expected_os.get()) body.expected_os = f.expected_os.get()
+      body.mode = f.mode.get()
       const submit = form.querySelector('button[type=submit]')
       submit.disabled = true
       try {
@@ -109,7 +113,38 @@ export default function render(ctx) {
         body)
       draw()
     }
-    const cmdTabs = tabs({
+    // Script-free commands (ADR-0005): typed ssh, no download, nothing for security tools to flag but ssh itself.
+    const attended = enr.mode === 'attended'
+    const ssh = enr.ssh || {}
+    function sshBlock(os) {
+      const unix = os === 'unix'
+      return [
+        h('h3', { class: 'cmd-choice' }, unix ? 'macOS / Linux: paste into Terminal' : 'Windows: paste into Command Prompt'),
+        h('p', { class: 'muted' }, fieldHelp(unix ? 'enroll.ssh_unix' : 'enroll.ssh_windows')),
+        codeBlock((unix ? ssh.unix : ssh.windows) || '', { label: 'Copy command' }),
+      ]
+    }
+    function sshPanel(panel, oses) {
+      if (!ssh.unix) {
+        append(panel, banner('warning', 'No ssh command for this code', 'The public SSH host or port in Settings is not valid. An admin fixes it under Settings; the script commands still work.'))
+        return
+      }
+      append(panel,
+        h('p', { class: 'muted' }, attended
+          ? 'No script runs and nothing is installed. The session lasts while that window stays open; closing it ends the session, and this code is used up.'
+          : 'No script runs: ssh makes a key in ~/.remotehound and signs in with it. Nothing restarts the tunnel after a reboot or network change; the window shows the command to reconnect without a new code.'),
+        ...oses.flatMap(sshBlock),
+        h('p', { class: 'muted' }, 'Server key fingerprint (the command pins it): ', h('span', { class: 'mono' }, ssh.host_key_fingerprint || '')))
+    }
+    const osDefault = enr.expected_os === 'windows' ? 'windows' : enr.expected_os ? 'unix' : /Win/.test(navigator.platform || '') ? 'windows' : 'unix'
+    const cmdTabs = attended ? tabs({
+      label: 'Operating system',
+      tabs: [
+        { id: 'unix', label: 'macOS / Linux', icon: 'domain.os.macos', render: (panel) => sshPanel(panel, ['unix']) },
+        { id: 'windows', label: 'Windows', icon: 'domain.os.windows', render: (panel) => sshPanel(panel, ['windows']) },
+      ],
+      active: osDefault,
+    }) : tabs({
       label: 'Operating system',
       tabs: [
         { id: 'unix', label: 'macOS / Linux', icon: 'domain.os.macos', render: (panel) => installChoice(panel, {
@@ -120,8 +155,9 @@ export default function render(ctx) {
           system: { title: 'Permanent: the whole machine, starts at boot (Run as administrator)', help: 'enroll.command_windows_system', command: enr.command_windows },
           user: { title: 'Temporary: just you, only while you are logged in (no administrator)', help: 'enroll.command_windows', command: enr.command_windows },
         }) },
+        { id: 'ssh', label: 'No script (ssh)', icon: 'domain.service.ssh', render: (panel) => sshPanel(panel, osDefault === 'windows' ? ['windows', 'unix'] : ['unix', 'windows']) },
       ],
-      active: enr.expected_os === 'windows' ? 'windows' : enr.expected_os ? 'unix' : /Win/.test(navigator.platform || '') ? 'windows' : 'unix',
+      active: osDefault,
     })
     replace(wizard,
       h('h2', { id: 'enroll-h', class: 'card__title' }, h('span', { class: 'step-num', 'aria-hidden': 'true' }, '2'), 'Type this on the device'),
@@ -131,6 +167,7 @@ export default function render(ctx) {
           h('p', { class: 'countdown' }, icon('domain.object.clock', { size: 'sm' }), 'Expires in ', clock),
           h('p', { class: 'muted' }, 'Single use. Shown only once — copy it now.'),
           enr.expected_os ? h('p', { class: 'muted' }, `Only a ${OS_LABEL[enr.expected_os]} machine can use it.`) : null,
+          attended ? h('p', null, badge('One-time session', 'info'), ' Nothing is installed on the device.') : null,
           h('div', { class: 'btn-row' },
             button({ label: 'Copy code', icon: 'action.copy', variant: 'ghost', size: 'sm', onClick: () => navigator.clipboard.writeText(enr.code).then(() => toast('Code copied', { tone: 'success', timeout: 2000 }), () => toast('Copy failed — select the code manually', { tone: 'warning' })) }),
             can('enrollment.delete') ? button({ label: 'Revoke', icon: 'domain.action.revoke', variant: 'ghost', size: 'sm', onClick: async () => {
@@ -170,7 +207,9 @@ export default function render(ctx) {
     replace(wizard, h('div', { class: 'success' },
       h('span', { class: 'success__mark', 'aria-hidden': 'true' }, icon('state.check', { size: 'xl' })),
       h('h2', { id: 'enroll-h', class: 'card__title', tabindex: '-1' }, `${enr.name || 'The device'} joined`),
-      h('p', { class: 'muted' }, 'The tunnel is up. Open the device to connect or to add services.'),
+      h('p', { class: 'muted' }, enr.mode === 'attended'
+        ? 'The session is up while the window on the device stays open. Open the device to connect; ask the person to read out the connection code shown there.'
+        : 'The tunnel is up. Open the device to connect or to add services.'),
       h('div', { class: 'btn-row' },
         linkButton({ href: `/devices/${encodeURIComponent(enr.device_id)}`, label: 'Open device', icon: 'domain.nav.devices', variant: 'primary' }),
         button({ label: 'Enroll another', icon: 'action.add', variant: 'secondary', onClick: stepCreate }))))
@@ -211,6 +250,7 @@ export default function render(ctx) {
       { id: 'code_hint', label: 'Code', className: 'mono', render: (e) => `••••${e.code_hint || ''}` },
       { id: 'name', label: 'Device name', render: (e) => e.name || h('span', { class: 'muted' }, 'From hostname') },
       { id: 'expected_os', label: 'For', value: (e) => OS_LABEL[e.expected_os] || 'Any', render: (e) => (e.expected_os ? OS_LABEL[e.expected_os] : h('span', { class: 'muted' }, 'Any')) },
+      { id: 'mode', label: 'Type', value: (e) => (e.mode === 'attended' ? 'One-time' : 'Install'), render: (e) => (e.mode === 'attended' ? badge('One-time', 'info') : h('span', { class: 'muted' }, 'Install')) },
       { id: 'group', label: 'Group', value: (e) => gmap.get(e.group_id)?.name || '', render: (e) => (e.group_id ? groupPill(gmap.get(e.group_id)) : h('span', { class: 'muted' }, 'Default')) },
       { id: 'state', label: 'State', render: (e) => badge(e.state, STATE_TONE[e.state] || 'neutral') },
       { id: 'expires_at', label: 'Expires / used', value: (e) => e.used_at || e.expires_at, render: (e) => (e.used_at ? relTime(e.used_at) : relTime(e.expires_at)) },

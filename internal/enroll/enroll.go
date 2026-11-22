@@ -67,6 +67,8 @@ type View struct {
 	DeviceID  string     `json:"device_id"`
 	// ExpectedOS: the machine type the code is for (macos | linux | windows), "" = any.
 	ExpectedOS string `json:"expected_os"`
+	// Mode: persistent (scripts, or ssh with a key) | attended (ssh, no key; ADR-0005).
+	Mode string `json:"mode"`
 	// DeviceDeleted: the code was used, but that device has since been deleted.
 	DeviceDeleted bool   `json:"device_deleted,omitempty"`
 	CreatedBy     string `json:"created_by"`
@@ -85,6 +87,9 @@ type Created struct {
 	// that starts at boot and may turn on SSH / Screen Sharing (recommended).
 	CommandUnixSystem string `json:"command_unix_system"`
 	CommandWindows    string `json:"command_windows"`
+	// SSH: the script-free commands (ADR-0005). Attended codes have only these;
+	// the script commands are then "".
+	SSH SSHCommands `json:"ssh"`
 }
 
 // creatorName is who made a code, as the viewer a may see it: the same people
@@ -113,7 +118,10 @@ func toView(e *model.Enrollment, now time.Time, viewer string, devices map[strin
 		hint = e.CodeHint
 	}
 	v := View{ID: e.ID, Name: e.Name, GroupID: e.GroupID, CodeHint: hint, State: e.State(now), ExpiresAt: e.ExpiresAt,
-		DeviceID: e.DeviceID, CreatedBy: e.CreatedBy, CreatedAt: e.CreatedAt, ExpectedOS: e.ExpectedOS}
+		DeviceID: e.DeviceID, CreatedBy: e.CreatedBy, CreatedAt: e.CreatedAt, ExpectedOS: e.ExpectedOS, Mode: model.EnrollModePersistent}
+	if e.Attended() {
+		v.Mode = model.EnrollModeAttended
+	}
 	if e.DeviceID != "" && devices != nil && devices[e.DeviceID] == nil {
 		v.DeviceDeleted = true
 	}
@@ -140,16 +148,32 @@ func Commands(publicURL, code string, allowHTTP bool) (unix, windows string) {
 var errPublicURL = apierr.Conflict(apierr.CodePublicURLInvalid,
 	"The public address in Settings is not valid, so no enrolment command can be made. An admin fixes it under Settings → Public URL.")
 
-// Create issues a new code.
-func (s *Service) Create(ctx context.Context, a *authz.Actor, name, groupID, expectedOS string, ttlMinutes int) (Created, error) {
+// errSSHHost: settings.ssh_public_host/port cannot go into an ssh command.
+var errSSHHost = apierr.Conflict(apierr.CodePublicURLInvalid,
+	"The public SSH host or port in Settings is not valid, so no ssh command can be made. An admin fixes it under Settings.")
+
+// Create issues a new code. mode is model.EnrollModePersistent ("" too) or
+// model.EnrollModeAttended (ADR-0005).
+func (s *Service) Create(ctx context.Context, a *authz.Actor, name, groupID, expectedOS, mode string, ttlMinutes int) (Created, error) {
 	now := time.Now().UTC()
 	code := ids.Code()
+	if mode == model.EnrollModePersistent {
+		mode = "" // stored as the default
+	}
 	var st model.Settings
 	var out *model.Enrollment
+	var sshCmds SSHCommands
 	err := s.Store.Update(func(x *model.State) error {
 		st = x.Settings
 		if !validate.PublicURL(st.PublicURL, s.AllowHTTP) {
 			return errPublicURL
+		}
+		// The ssh commands are optional for a persistent code (the scripts still
+		// work) and required for an attended one (they are its only way in).
+		var ok bool
+		sshCmds, ok = BuildSSHCommands(st.SSHPublicHost, st.SSHPublicPort, s.Tunnel.KnownHostsLine(st.SSHPublicHost, st.SSHPublicPort), code, mode, expectedOS)
+		if !ok && mode == model.EnrollModeAttended {
+			return errSSHHost
 		}
 		if groupID == "" {
 			groupID = st.DefaultGroupID
@@ -167,7 +191,7 @@ func (s *Service) Create(ctx context.Context, a *authz.Actor, name, groupID, exp
 		}
 		e := &model.Enrollment{Meta: model.Meta{ID: ids.New("enr"), CreatedAt: now, UpdatedAt: now, Version: 1},
 			CodeHash: s.hash(code), CodeHint: code[len(code)-2:], Name: name, GroupID: groupID,
-			ExpiresAt: now.Add(time.Duration(ttlMinutes) * time.Minute), CreatedBy: a.UserID, ExpectedOS: expectedOS}
+			ExpiresAt: now.Add(time.Duration(ttlMinutes) * time.Minute), CreatedBy: a.UserID, ExpectedOS: expectedOS, Mode: mode}
 		x.Enrollments[e.ID] = e
 		out = e
 		return nil
@@ -176,10 +200,14 @@ func (s *Service) Create(ctx context.Context, a *authz.Actor, name, groupID, exp
 		s.Audit.Record(ctx, "enrollment.create", audit.Denied, "", nil)
 		return Created{}, err
 	}
-	s.Audit.Record(ctx, "enrollment.create", audit.Success, "enrollment:"+out.ID, map[string]any{"group_id": groupID, "ttl_minutes": ttlMinutes})
-	unix, win := Commands(st.PublicURL, code, s.AllowHTTP)
-	return Created{View: toView(out, now, a.UserID, nil), Code: code, CommandUnix: unix,
-		CommandUnixSystem: strings.TrimSuffix(unix, "| sh") + "| sudo sh", CommandWindows: win}, nil
+	view := toView(out, now, a.UserID, nil)
+	s.Audit.Record(ctx, "enrollment.create", audit.Success, "enrollment:"+out.ID, map[string]any{"group_id": groupID, "ttl_minutes": ttlMinutes, "mode": view.Mode})
+	res := Created{View: view, Code: code, SSH: sshCmds}
+	if !out.Attended() { // an attended code has no script: it must never install anything
+		unix, win := Commands(st.PublicURL, code, s.AllowHTTP)
+		res.CommandUnix, res.CommandUnixSystem, res.CommandWindows = unix, strings.TrimSuffix(unix, "| sh")+"| sudo sh", win
+	}
+	return res, nil
 }
 
 // List returns enrolments visible to the actor, newest first.
@@ -400,6 +428,9 @@ func (m *missLimiter) refund(t missToken) {
 	}
 }
 
+// attendedDetail: an attended code used with a script (no quotes: failScript).
+const attendedDetail = "RemoteHound: this code is for a one-time session without installing anything. Use the ssh command shown with the code instead."
+
 const busyDetail = "RemoteHound is busy: too many wrong codes were tried recently. Your code was not checked; try again in a minute."
 
 // Lookup finds the enrolment for code (for script rendering) on behalf of the
@@ -444,9 +475,12 @@ func failScript(msg string, ps bool) string {
 // one miss at most); ps selects PowerShell. It also returns the lookup state.
 // Wrong codes and a paused client get a script that explains and exits non-zero.
 func (s *Service) Script(code, ip string, ps bool) (string, string) {
-	_, state := s.Lookup(code, ip)
+	e, state := s.Lookup(code, ip)
 	switch state {
 	case "open":
+		if e.Attended() {
+			return failScript(attendedDetail, ps), state
+		}
 	case "throttled":
 		return failScript(busyDetail, ps), state
 	default:
@@ -573,6 +607,9 @@ func (s *Service) Redeem(ctx context.Context, ip string, req RedeemRequest) (Red
 		case "expired":
 			return apierr.New(410, apierr.CodeEnrollExpired, "This code has expired. Ask for a new one.")
 		}
+		if e.Attended() { // not consumed: the ssh command can still use it
+			return apierr.BadRequest(apierr.CodeEnrollWrongMethod, strings.TrimPrefix(attendedDetail, "RemoteHound: "))
+		}
 		if e.ExpectedOS != "" && req.OS != e.ExpectedOS {
 			// Not consumed: the right machine can still use this code.
 			wrongOS = true
@@ -631,7 +668,9 @@ func (s *Service) Redeem(ctx context.Context, ip string, req RedeemRequest) (Red
 // fingerprint must match so this cannot be used to enumerate device IDs.
 func (s *Service) Status(deviceID, fingerprint string) (online bool, forwards []string, err error) {
 	d := s.Devices.Device(deviceID)
-	if d == nil || !hmac.Equal([]byte(d.KeyFingerprint), []byte(fingerprint)) {
+	// An attended device has no key, hence an empty fingerprint: an empty
+	// fingerprint must never match, or this would enumerate device IDs.
+	if d == nil || d.KeyFingerprint == "" || !hmac.Equal([]byte(d.KeyFingerprint), []byte(fingerprint)) {
 		return false, nil, apierr.NotFound(apierr.CodeDeviceNotFound, "Unknown device.")
 	}
 	for rp := range s.Tunnel.Forwarded(deviceID) {

@@ -82,7 +82,7 @@ OpenSSH refuses keys readable by others), `known_hosts` (the pinned line), `devi
   own internal port. Allowed: the ports in the device's `services`. Anything else is refused (and with
   `ExitOnForwardFailure=yes` ssh exits — the watchdog logs it and retries with backoff).
 - Exec of anything other than `agent v1 …`, shell, pty, X11, agent forwarding and `direct-tcpip`
-  (local forwards) are rejected.
+  (local forwards) are rejected. (Typed tunnels use `hello v1` instead: §9.)
 
 ## 5. Watchdog behaviour (self-healing)
 
@@ -126,3 +126,69 @@ last 10 lines of `tunnel.log` and where to find it.
 
 `uninstall.sh|ps1` in the directory: stop + remove the supervisor entry, delete the directory. It does
 not disable sshd/RDP (the person may rely on them) but says so.
+
+## 9. Script-free enrolment over SSH (ADR-0005)
+
+No script is downloaded or run: the person types one command that uses the system's own OpenSSH client
+(Windows 10 1809+ / 11 / Server 2019+, macOS, Linux). The enrolment code is the SSH username.
+
+**Code modes** (`POST /api/v1/enrollments` → `mode`):
+- `persistent` (default): the scripts (§1–8), **or** ssh with an ed25519 key → device transport `ssh-manual`.
+- `attended`: ssh with **no key** → device transport `ssh-attended`; one session, never logs in again.
+  `GET /e/{code}` answers a script that explains and exits 1; `POST /api/v1/enroll` answers
+  `ENROLL_WRONG_METHOD` (400). Neither consumes the code.
+
+**The commands** (`EnrollmentCreated.ssh.unix` / `.windows`, built by the server from allow-listed
+values, or not at all):
+```sh
+# unix (attended); persistent inserts the two ssh-keygen steps and "-i … -o IdentitiesOnly=yes"
+D=~/.remotehound/rh.example.com-2222    # (spelled out in the real command) one folder per server host+port
+mkdir -p $D && echo '[rh.example.com]:2222 ssh-ed25519 AAAA…' > $D/known_hosts && \
+  ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$D/known_hosts -o ServerAliveInterval=15 \
+  -p 2222 -R 22:localhost:22 -R 5900:localhost:5900 k7q2mx@rh.example.com hello v1 os=$(uname -s) host="$(hostname)"
+```
+```bat
+:: windows (cmd.exe; PowerShell users type cmd first)
+mkdir "%USERPROFILE%\.remotehound\rh.example.com-2222" 2>nul & (echo [rh.example.com]:2222 ssh-ed25519 AAAA…)>"%USERPROFILE%\.remotehound\rh.example.com-2222\known_hosts" && ssh … -R 3389:localhost:3389 -R 22:localhost:22 k7q2mx@rh.example.com hello v1 os=windows host=%COMPUTERNAME%
+```
+Persistent keys: `rm -f` then `ssh-keygen -q -t ed25519 -N '' -C remotehound -f ~/.remotehound/<host>-<port>/id_ed25519`
+(cmd: `del /q … & ssh-keygen … -N ""`) — a fresh key every time, like the script. The folder is per server
+(`<host>-<port>`), so one machine can be enrolled on several RemoteHound servers. ssh expands the `~` in
+`-i` / `UserKnownHostsFile` itself, also on Windows.
+Forwards by machine type: Windows 3389 + 22, macOS 22 + 5900, Linux 22 + 3389, any 22 + 3389 + 5900.
+
+**Authentication.** Username = code (case-insensitive, `^[a-hjkmnp-z2-9]{6}$`). Attended: SSH `none`.
+Persistent: `publickey`, ed25519 only, signature verified. Every code lookup counts against the same
+wrong-code limiter as `/e/{code}` (§1); a non-ed25519 key is refused before any lookup. At most 3 code
+lookups per TCP connection, and at most 2 logins per code (64 in total) may wait for hello at once.
+`none` is refused for any other username.
+
+**Before hello.** The login is no device yet. **Every** global request (`tcpip-forward`, keepalives, …)
+is held in order (at most 8, else the connection closes) and answered after hello. The client must open
+one session channel and send `exec "hello v1 [os=<linux|macos|windows|Linux|Darwin>] [host=<name>]"`
+(values `^[A-Za-z0-9._:,-]{1,128}$`; others are dropped) or a bare `shell` request (= `hello v1`)
+within **10 s**, or the connection is closed. If `os` is absent, `OpenSSH_for_Windows` in the client
+banner means `windows`.
+
+**Hello.** The server consumes the code and creates the device in one transaction: name/group from the
+code (else the hostname), services = the held `-R` requests for 22/3389/5900, `client_version` = the
+banner without `SSH-2.0-` (charset-limited, 64 chars). `ExpectedOS` mismatch → refused, **not**
+consumed. On refusal the server writes `RemoteHound could not connect this machine: <reason>` and
+closes with exit status 1.
+
+**stdout** (plain text for a person, not control lines):
+```
+RemoteHound: connected as "<device name>".
+Connection code: 4F7K (read it to the person helping you).
+To reconnect later without a new code, run:          ← persistent only
+  ssh -i ~/.remotehound/rh.example.com-2222/id_ed25519 -o IdentitiesOnly=yes … -p 2222 -R … dev_8f3k…@rh.example.com hello v1
+Keep this window open. Close it, or press Ctrl+C, to end the session.
+```
+The connection code is 4 characters, new per connection, shown on the device page (`connection_code`).
+No `ping` lines; `revoked` / `reconnect` become a sentence. **stdin is never read** (it is a keyboard,
+not a log): typed devices have no client log.
+
+**Later logins (`ssh-manual`).** Username = device ID, the bound key; `hello v1` (or shell) instead of
+`agent v1` — each command only on its own transport. A `-R` for 22/3389/5900 not yet declared is
+declared then bound (clients need not send their `-R` requests before hello); any other port is
+refused. `ssh-attended` devices are refused at authentication. Nothing restarts a typed tunnel.

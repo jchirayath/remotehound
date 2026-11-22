@@ -88,6 +88,10 @@ func (c *Collector) Name(p, v string) bool {
 
 var hostnameRe = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9.-]{0,252}[A-Za-z0-9])?$`)
 
+// HostnameOK reports whether v is a non-empty DNS-ish hostname (ASCII letters,
+// digits, dots and hyphens only: safe inside a shell command).
+func HostnameOK(v string) bool { return hostnameRe.MatchString(v) }
+
 // Hostname checks a DNS-ish hostname (empty passes).
 func (c *Collector) Hostname(p, v string) bool {
 	if v == "" || hostnameRe.MatchString(v) {

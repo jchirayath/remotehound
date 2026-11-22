@@ -14,6 +14,21 @@
 //     be used to reach anything on the server side.
 //   - One live connection per device: a new login replaces the old one, which
 //     heals half-open sessions after NAT/network changes.
+//
+// Script-free enrolment (ADR-0005), enforced here too:
+//   - A username that is an enrolment code logs in through the Enroller (the
+//     same wrong-code limiter as HTTP): attended codes with "none" only,
+//     persistent codes with an ed25519 "publickey" only. "none" is refused for
+//     every other username.
+//   - A code login is no device until it sends `hello v1 …` (or a bare shell
+//     request) within helloTimeout; every global request is held
+//     (at most maxHeldForwards) and answered in order once the device exists.
+//   - Manual devices (ssh-manual, ssh-attended) may run `hello v1 …` or ask for
+//     a shell (answered as hello, no shell runs) — never `agent v1`; script
+//     devices the reverse. Attended devices never log in again.
+//   - A manual device's -R for a conventional port (22, 3389, 5900) it has not
+//     declared yet is declared, then bound (the typed equivalent of the
+//     watchdog's services= fact). Any other undeclared port is refused.
 package tunnel
 
 import (
@@ -75,6 +90,43 @@ type Hooks interface {
 	SessionClosed(sessionID string, bytesIn, bytesOut int64)
 	// ClientLog stores the device's piped log tail.
 	ClientLog(deviceID string, lines []string)
+	// AddService declares a conventional service (kind at its default port)
+	// on a typed device that forwards it before the registry has it — the
+	// typed equivalent of the watchdog's services= fact (ADR-0005).
+	AddService(deviceID, kind string, remotePort int) error
+}
+
+// Enroller lets a person enrol by typing an ssh command whose username is an
+// enrolment code (ADR-0005). Implemented by internal/enroll; faked in tests.
+type Enroller interface {
+	// CodeLogin checks code for a login from ip without consuming it. A wrong
+	// code counts against the shared wrong-code limiter; false also when the
+	// code is used, expired or the caller is throttled.
+	CodeLogin(code, ip string) (CodeInfo, bool)
+	// RedeemSSH consumes the code and creates the device. The error's message
+	// is shown to the person in their terminal.
+	RedeemSSH(enrollmentID string, r SSHEnrolment) (Redeemed, error)
+}
+
+// CodeInfo is an open enrolment code as a login sees it.
+type CodeInfo struct {
+	EnrollmentID string
+	Mode         string // model.EnrollModeAttended | model.EnrollModePersistent
+}
+
+// SSHEnrolment is what a code login reported before the device exists.
+type SSHEnrolment struct {
+	IP        string
+	Banner    string // the client's SSH version string
+	PublicKey string // authorized_keys line (persistent codes); "" for attended
+	Facts     Facts  // from hello, with Services taken from the held -R requests
+}
+
+// Redeemed is the device a code login created.
+type Redeemed struct {
+	DeviceID, DeviceName string
+	// Reconnect is the command for the next login without a code ("" for attended).
+	Reconnect string
 }
 
 // Config for the server.
@@ -98,7 +150,36 @@ type Server struct {
 
 	pending        *pending      // unauthenticated handshakes
 	preauthTimeout time.Duration // pre-auth budget (tests shorten it)
+	helloTimeout   time.Duration // a code login's budget to send hello (tests shorten it)
+	enroller       atomic.Pointer[enrollerBox]
+
+	codeMu     sync.Mutex
+	codeLogins map[string]int // enrollment ID -> code logins waiting for hello
+	codeTotal  int
+	codeChecks map[string]int // remote addr -> code lookups during its handshake
 }
+
+type enrollerBox struct{ e Enroller }
+
+// SetEnroller enables code logins (ADR-0005). Without one they are refused.
+// A nil Enroller is ignored: once enabled, code logins stay enabled.
+func (s *Server) SetEnroller(e Enroller) {
+	if e != nil {
+		s.enroller.Store(&enrollerBox{e})
+	}
+}
+
+func (s *Server) getEnroller() Enroller {
+	if b := s.enroller.Load(); b != nil {
+		return b.e
+	}
+	return nil
+}
+
+const (
+	helloTimeout    = 10 * time.Second
+	maxHeldForwards = 8
+)
 
 // New loads or creates the host key and prepares the server.
 func New(cfg Config) (*Server, error) {
@@ -110,7 +191,8 @@ func New(cfg Config) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{cfg: cfg, hostKey: signer, conns: map[string]*deviceConn{},
-		pending: newPending(maxHandshakesPerClient, maxHandshakesPerIPv6Net, maxHandshakesTotal), preauthTimeout: preauthTimeout}
+		pending: newPending(maxHandshakesPerClient, maxHandshakesPerIPv6Net, maxHandshakesTotal), preauthTimeout: preauthTimeout,
+		helloTimeout: helloTimeout, codeLogins: map[string]int{}, codeChecks: map[string]int{}}
 	s.sshCfg = &ssh.ServerConfig{
 		// No SHA-1 key exchange or MAC. Every client the bootstrap supports
 		// (OpenSSH ≥ 7.4, incl. Windows 10's 7.7) offers curve25519-sha256 and
@@ -124,7 +206,10 @@ func New(cfg Config) (*Server, error) {
 		ServerVersion:     "SSH-2.0-RemoteHound",
 		MaxAuthTries:      2,
 		PublicKeyCallback: s.authenticate,
-		// No password, keyboard-interactive or none auth: unset callbacks are refused.
+		// "none" only for attended enrolment codes (authNone refuses the rest).
+		// No password or keyboard-interactive: unset callbacks are refused.
+		NoClientAuth:         true,
+		NoClientAuthCallback: s.authNone,
 	}
 	s.sshCfg.AddHostKey(signer)
 	return s, nil
@@ -165,20 +250,89 @@ func loadOrCreateHostKey(path string) (ssh.Signer, error) {
 	return ssh.NewSignerFromKey(priv)
 }
 
+func authFail(meta ssh.ConnMetadata, reason string) (*ssh.Permissions, error) {
+	metrics.Default.Inc("remotehound_tunnel_auth_total", "Tunnel authentication attempts.", "outcome", "denied")
+	logx.L().Warn("Tunnel login refused", logx.Event("tunnel.auth"), slog.String("app.outcome", "denied"),
+		slog.String("app.reason", reason), slog.String("app.device.id", safeID(meta.User())), slog.String("client.address", hostOnly(meta.RemoteAddr())))
+	return nil, errors.New("denied")
+}
+
+// codeUser returns the enrolment code a username spells, or "".
+func codeUser(user string) string {
+	c := strings.ToLower(user)
+	if ids.ValidCode(c) {
+		return c
+	}
+	return ""
+}
+
+// errNotNone is the quiet refusal of "none": OpenSSH tries it before every
+// key login, so refusing it is routine, not an event.
+var errNotNone = errors.New("none not allowed")
+
+// authNone admits an attended enrolment code with the "none" method, and
+// nothing else.
+func (s *Server) authNone(meta ssh.ConnMetadata) (*ssh.Permissions, error) {
+	code := codeUser(meta.User())
+	e := s.getEnroller()
+	if code == "" || e == nil {
+		return nil, errNotNone
+	}
+	if !s.allowCodeCheck(meta) {
+		return authFail(meta, "too many code checks on one connection")
+	}
+	ci, ok := e.CodeLogin(code, hostOnly(meta.RemoteAddr()))
+	if !ok {
+		return authFail(meta, "enrolment code refused")
+	}
+	if ci.Mode != model.EnrollModeAttended {
+		return nil, errNotNone // a persistent code needs a key: the client tries publickey next
+	}
+	metrics.Default.Inc("remotehound_tunnel_auth_total", "Tunnel authentication attempts.", "outcome", "enrol_attended")
+	return &ssh.Permissions{Extensions: map[string]string{"enrollment_id": ci.EnrollmentID}}, nil
+}
+
+// authCodeKey admits a persistent enrolment code with an ed25519 key. x/crypto
+// verifies the signature before the login succeeds, so the key bound later is
+// one the client holds.
+func (s *Server) authCodeKey(meta ssh.ConnMetadata, code string, key ssh.PublicKey) (*ssh.Permissions, error) {
+	e := s.getEnroller()
+	if e == nil {
+		return authFail(meta, "code logins disabled")
+	}
+	if key.Type() != ssh.KeyAlgoED25519 {
+		return authFail(meta, "enrolment key is not ed25519")
+	}
+	if !s.allowCodeCheck(meta) {
+		return authFail(meta, "too many code checks on one connection")
+	}
+	ci, ok := e.CodeLogin(code, hostOnly(meta.RemoteAddr()))
+	if !ok {
+		return authFail(meta, "enrolment code refused")
+	}
+	if ci.Mode != model.EnrollModePersistent {
+		return authFail(meta, "attended code offered a key")
+	}
+	metrics.Default.Inc("remotehound_tunnel_auth_total", "Tunnel authentication attempts.", "outcome", "enrol_key")
+	return &ssh.Permissions{Extensions: map[string]string{"enrollment_id": ci.EnrollmentID,
+		"public_key": strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key)))}}, nil
+}
+
 func (s *Server) authenticate(meta ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 	id := meta.User()
-	d := s.cfg.Hooks.Device(id)
-	fail := func(reason string) (*ssh.Permissions, error) {
-		metrics.Default.Inc("remotehound_tunnel_auth_total", "Tunnel authentication attempts.", "outcome", "denied")
-		logx.L().Warn("Tunnel login refused", logx.Event("tunnel.auth"), slog.String("app.outcome", "denied"),
-			slog.String("app.reason", reason), slog.String("app.device.id", safeID(id)), slog.String("client.address", hostOnly(meta.RemoteAddr())))
-		return nil, errors.New("denied")
+	if code := codeUser(id); code != "" {
+		return s.authCodeKey(meta, code, key)
 	}
+	d := s.cfg.Hooks.Device(id)
+	fail := func(reason string) (*ssh.Permissions, error) { return authFail(meta, reason) }
 	if d == nil {
 		return fail("unknown device")
 	}
 	if d.Status != model.DeviceActive {
 		return fail("device " + d.Status)
+	}
+	if d.Transport == model.TransportAttended {
+		return fail("attended device: one session only")
 	}
 	stored, _, _, _, err := ssh.ParseAuthorizedKey([]byte(d.PublicKey))
 	if err != nil {
@@ -380,6 +534,7 @@ func (s *Server) handshake(ctx context.Context, c net.Conn) {
 	}
 	_ = c.SetDeadline(time.Now().Add(s.preauthTimeout))
 	sconn, chans, reqs, err := ssh.NewServerConn(c, s.sshCfg)
+	s.forgetCodeChecks(c.RemoteAddr().String())
 	owned := s.pending.done(pc)
 	if err == nil && !owned {
 		// Evicted just as authentication completed: the conn is already closed,
@@ -392,16 +547,99 @@ func (s *Server) handshake(ctx context.Context, c net.Conn) {
 		return
 	}
 	_ = c.SetDeadline(time.Time{})
-	id := sconn.Permissions.Extensions["device_id"]
+	ext := sconn.Permissions.Extensions
 	dc := &deviceConn{
-		srv: s, id: id, conn: sconn, remoteIP: ip,
+		srv: s, id: ext["device_id"], conn: sconn, remoteIP: ip,
 		since:     time.Now(),
 		forwards:  map[int]*forward{},
 		done:      make(chan struct{}),
 		lastAlive: time.Now(),
 	}
-	s.replace(dc)
+	if enr := ext["enrollment_id"]; enr != "" {
+		// A code login: no device, not registered, until hello (ADR-0005).
+		if !s.acquireCodeLogin(enr) {
+			logx.L().Warn("Too many logins with one enrolment code", logx.Event("tunnel.enrol"), slog.String("app.outcome", "denied"),
+				slog.String("app.enrollment.id", enr), slog.String("client.address", ip))
+			sconn.Close()
+			return
+		}
+		dc.enrol = &codeLogin{enrollmentID: enr, publicKey: ext["public_key"]}
+		dc.releaseCode = sync.OnceFunc(func() { s.releaseCodeLogin(enr) })
+		defer dc.releaseCode()
+		timer := time.AfterFunc(s.helloTimeout, func() {
+			if dc.pendingEnrol() {
+				dc.close("no hello")
+			}
+		})
+		defer timer.Stop()
+	} else {
+		if d := s.cfg.Hooks.Device(dc.id); d != nil && manualTransport(d.Transport) {
+			dc.manual = true
+		}
+		s.replace(dc)
+	}
 	dc.run(ctx, chans, reqs)
+}
+
+// manualTransport: a tunnel typed by a person (ADR-0005), not the watchdog.
+func manualTransport(t string) bool {
+	return t == model.TransportManual || t == model.TransportAttended
+}
+
+// Code-login limits. A valid code costs nothing against the wrong-code
+// limiter (it is refunded), so what a code holder can open is capped here:
+// logins waiting for hello per code and in total, and code checks per TCP
+// connection (none + publickey queries).
+const (
+	maxCodeLoginsPerCode = 2
+	maxCodeLoginsTotal   = 64
+	maxCodeChecksPerConn = 3
+)
+
+func (s *Server) acquireCodeLogin(enrollmentID string) bool {
+	s.codeMu.Lock()
+	defer s.codeMu.Unlock()
+	if s.codeLogins[enrollmentID] >= maxCodeLoginsPerCode || s.codeTotal >= maxCodeLoginsTotal {
+		return false
+	}
+	s.codeLogins[enrollmentID]++
+	s.codeTotal++
+	return true
+}
+
+func (s *Server) releaseCodeLogin(enrollmentID string) {
+	s.codeMu.Lock()
+	defer s.codeMu.Unlock()
+	if s.codeLogins[enrollmentID]--; s.codeLogins[enrollmentID] <= 0 {
+		delete(s.codeLogins, enrollmentID)
+	}
+	s.codeTotal--
+}
+
+// allowCodeCheck counts one code lookup for the TCP connection behind meta.
+func (s *Server) allowCodeCheck(meta ssh.ConnMetadata) bool {
+	k := meta.RemoteAddr().String()
+	s.codeMu.Lock()
+	defer s.codeMu.Unlock()
+	s.codeChecks[k]++
+	return s.codeChecks[k] <= maxCodeChecksPerConn
+}
+
+// forgetCodeChecks drops a connection's count once its handshake ended.
+func (s *Server) forgetCodeChecks(remoteAddr string) {
+	s.codeMu.Lock()
+	delete(s.codeChecks, remoteAddr)
+	s.codeMu.Unlock()
+}
+
+// codeLogin is a login with an enrolment code, before its device exists.
+type codeLogin struct {
+	enrollmentID string
+	publicKey    string
+	redeeming    bool           // RedeemSSH is running: the hello timer must not close it
+	done         bool           // hello handled (device created or refused)
+	draining     bool           // held requests are being answered in order
+	held         []*ssh.Request // every global request, in arrival order
 }
 
 // replace registers dc and closes any previous connection for the device.
@@ -507,6 +745,8 @@ type Info struct {
 	ClientVersion   string        `json:"client_version"`
 	LastKeepaliveAt time.Time     `json:"last_keepalive_at"`
 	Forwards        []ForwardInfo `json:"forwards"`
+	// ConnectionCode is set for typed (script-free) tunnels (ADR-0005).
+	ConnectionCode string `json:"connection_code,omitempty"`
 }
 
 // ForwardInfo describes one bound forward.
@@ -553,6 +793,27 @@ type deviceConn struct {
 	lastAlive time.Time
 	closed    bool
 	done      chan struct{}
+
+	// Script-free tunnels (ADR-0005). id is written once, under mu, when a
+	// code login becomes a device; read it with devID() where that can race.
+	enrol  *codeLogin // nil for a device login
+	manual bool       // typed by a person: plain-language status lines, stdin unread
+	code   string     // connection code shown to the person and on the device page
+	// releaseCode frees this login's code-login slot (once; nil for device logins).
+	releaseCode func()
+}
+
+func (dc *deviceConn) devID() string {
+	dc.mu.Lock()
+	defer dc.mu.Unlock()
+	return dc.id
+}
+
+// pendingEnrol: a code login that has not sent hello yet.
+func (dc *deviceConn) pendingEnrol() bool {
+	dc.mu.Lock()
+	defer dc.mu.Unlock()
+	return dc.enrol != nil && !dc.enrol.done && !dc.enrol.redeeming
 }
 
 type forward struct {
@@ -568,9 +829,18 @@ type forward struct {
 	conns        map[string]net.Conn // sessionID -> conn
 }
 
-func (dc *deviceConn) log() *slog.Logger { return logx.L().With(slog.String("app.device.id", dc.id)) }
+func (dc *deviceConn) log() *slog.Logger {
+	l := logx.L().With(slog.String("app.device.id", dc.devID()))
+	if dc.enrol != nil {
+		l = l.With(slog.String("app.enrollment.id", dc.enrol.enrollmentID))
+	}
+	return l
+}
 
 func (dc *deviceConn) scopeCtx(ctx context.Context) context.Context {
+	if dc.id == "" {
+		return ctx
+	}
 	d := dc.srv.cfg.Hooks.Device(dc.id)
 	return logx.WithScope(ctx, logx.Scope{DeviceID: dc.id, Debug: d != nil && d.Debug})
 }
@@ -582,7 +852,9 @@ func (dc *deviceConn) run(parent context.Context, chans <-chan ssh.NewChannel, r
 	dc.log().InfoContext(ctx, "Tunnel connected", logx.Event("tunnel.open"), slog.String("client.address", dc.remoteIP),
 		slog.String("app.client_version", string(dc.conn.ClientVersion())))
 
-	go dc.keepalive(ctx)
+	if dc.enrol == nil {
+		go dc.keepalive(ctx) // a code login starts it once it is a device
+	}
 	go func() {
 		for nc := range chans {
 			dc.handleChannel(ctx, nc)
@@ -602,6 +874,7 @@ func (dc *deviceConn) close(reason string) {
 		return
 	}
 	dc.closed = true
+	id := dc.id
 	fwds := make([]*forward, 0, len(dc.forwards))
 	for _, f := range dc.forwards {
 		fwds = append(fwds, f)
@@ -613,13 +886,17 @@ func (dc *deviceConn) close(reason string) {
 		f.closeConns()
 	}
 	dc.conn.Close()
+	if id == "" { // a code login that never became a device
+		dc.log().Info("Tunnel closed", logx.Event("tunnel.close"), slog.String("app.reason", reason))
+		return
+	}
 	wasCurrent := false
 	dc.srv.mu.RLock()
-	wasCurrent = dc.srv.conns[dc.id] == dc
+	wasCurrent = dc.srv.conns[id] == dc
 	dc.srv.mu.RUnlock()
 	dc.srv.remove(dc)
 	if wasCurrent {
-		dc.srv.cfg.Hooks.Disconnected(dc.id)
+		dc.srv.cfg.Hooks.Disconnected(id)
 	}
 	dc.log().Info("Tunnel closed", logx.Event("tunnel.close"), slog.String("app.reason", reason),
 		slog.Int64("app.duration_ms", time.Since(dc.since).Milliseconds()))
@@ -671,8 +948,18 @@ func (dc *deviceConn) keepalive(ctx context.Context) {
 
 func (dc *deviceConn) control(line string) {
 	dc.mu.Lock()
-	ch := dc.session
+	ch, manual := dc.session, dc.manual
 	dc.mu.Unlock()
+	if manual { // a person reads this, not the watchdog
+		switch line {
+		case "revoked":
+			line = "RemoteHound: this session was ended from the RemoteHound console."
+		case "reconnect":
+			line = "RemoteHound: the server closed this session. Run your command again to reconnect."
+		default:
+			return // no heartbeats in someone's terminal
+		}
+	}
 	if ch != nil {
 		_, _ = io.WriteString(ch, line+"\n")
 	}
@@ -683,7 +970,44 @@ type tcpipForwardMsg struct {
 	Port uint32
 }
 
+// handleGlobal answers a global request, or holds it while a code login has
+// no device yet: replies must go out in request order, so everything that
+// arrives before hello (and while the held ones drain) waits in line.
 func (dc *deviceConn) handleGlobal(ctx context.Context, req *ssh.Request) {
+	dc.mu.Lock()
+	if e := dc.enrol; e != nil && (!e.done || e.draining) {
+		if len(e.held) >= maxHeldForwards {
+			dc.mu.Unlock()
+			dc.log().WarnContext(ctx, "Too many requests before hello", logx.Event("tunnel.enrol"), slog.String("app.outcome", "denied"))
+			dc.close("too many requests before hello")
+			return
+		}
+		e.held = append(e.held, req)
+		dc.mu.Unlock()
+		return
+	}
+	dc.mu.Unlock()
+	dc.answerGlobal(ctx, req)
+}
+
+// drainHeld answers held requests in order until none are left.
+func (dc *deviceConn) drainHeld(ctx context.Context) {
+	for {
+		dc.mu.Lock()
+		e := dc.enrol
+		if len(e.held) == 0 {
+			e.draining = false
+			dc.mu.Unlock()
+			return
+		}
+		req := e.held[0]
+		e.held = e.held[1:]
+		dc.mu.Unlock()
+		dc.answerGlobal(ctx, req)
+	}
+}
+
+func (dc *deviceConn) answerGlobal(ctx context.Context, req *ssh.Request) {
 	switch req.Type {
 	case "tcpip-forward":
 		var m tcpipForwardMsg
@@ -723,6 +1047,16 @@ func (dc *deviceConn) bind(ctx context.Context, m tcpipForwardMsg) error {
 		return errors.New("device not active")
 	}
 	svc := d.ServiceByRemotePort(int(m.Port))
+	if svc == nil && manualTransport(d.Transport) {
+		// A typed ssh may send its -R requests after hello (clients need not
+		// pipeline them): declare a conventional port, never any other.
+		if kind := kindForPort(int(m.Port)); kind != "" && d.Service(kind) == nil {
+			if err := dc.srv.cfg.Hooks.AddService(dc.id, kind, int(m.Port)); err != nil {
+				return err
+			}
+			svc = &model.Service{Kind: kind, RemotePort: int(m.Port)}
+		}
+	}
 	if svc == nil {
 		return fmt.Errorf("port %d is not a declared service", m.Port)
 	}
@@ -884,7 +1218,8 @@ func (dc *deviceConn) terminate(sessionID string) bool {
 func (dc *deviceConn) info() Info {
 	dc.mu.Lock()
 	defer dc.mu.Unlock()
-	in := Info{DeviceID: dc.id, RemoteAddress: dc.remoteIP, ConnectedSince: dc.since, ClientVersion: dc.version, LastKeepaliveAt: dc.lastAlive}
+	in := Info{DeviceID: dc.id, RemoteAddress: dc.remoteIP, ConnectedSince: dc.since, ClientVersion: dc.version, LastKeepaliveAt: dc.lastAlive,
+		ConnectionCode: dc.code}
 	for _, f := range dc.forwards {
 		in.Forwards = append(in.Forwards, ForwardInfo{Kind: f.kind, RemotePort: f.remotePort, InternalPort: f.internalPort,
 			ActiveConns: f.active.Load(), BytesIn: f.bytesIn.Load(), BytesOut: f.bytesOut.Load()})
@@ -919,14 +1254,23 @@ func (dc *deviceConn) handleChannel(ctx context.Context, nc ssh.NewChannel) {
 
 func (dc *deviceConn) sessionRequests(ctx context.Context, ch ssh.Channel, reqs <-chan *ssh.Request) {
 	defer ch.Close()
+	dc.mu.Lock()
+	typed := dc.manual || dc.enrol != nil // a person's ssh: hello, not agent
+	dc.mu.Unlock()
 	for req := range reqs {
-		if req.Type != "exec" {
-			// shell, pty-req, x11-req, env, subsystem, auth-agent-req@openssh.com …
-			_ = req.Reply(false, nil)
-			continue
-		}
-		var m struct{ Command string }
-		if ssh.Unmarshal(req.Payload, &m) != nil {
+		var cmd string
+		switch {
+		case req.Type == "exec":
+			var m struct{ Command string }
+			if ssh.Unmarshal(req.Payload, &m) != nil {
+				_ = req.Reply(false, nil)
+				continue
+			}
+			cmd = m.Command
+		case req.Type == "shell" && typed:
+			cmd = "hello v1" // ssh with no command: answered as hello; no shell exists
+		default:
+			// shell (script devices), pty-req, x11-req, env, subsystem, auth-agent-req@openssh.com …
 			_ = req.Reply(false, nil)
 			continue
 		}
@@ -934,17 +1278,25 @@ func (dc *deviceConn) sessionRequests(ctx context.Context, ch ssh.Channel, reqs 
 		again := dc.execDone
 		dc.execDone = true
 		dc.mu.Unlock()
-		if again { // one agent command per tunnel: no presence-write amplification
+		if again { // one command per tunnel: no presence-write amplification
 			_ = req.Reply(false, nil)
 			continue
 		}
-		facts, err := ParseAgentCommand(m.Command)
+		parse := ParseAgentCommand
+		if typed {
+			parse = ParseHello
+		}
+		facts, err := parse(cmd)
 		if err != nil {
 			_ = req.Reply(false, nil)
 			dc.log().WarnContext(ctx, "Refused exec", logx.Event("tunnel.exec"), slog.String("app.outcome", "denied"), slog.String("app.reason", err.Error()))
 			continue
 		}
 		_ = req.Reply(true, nil)
+		if typed {
+			dc.hello(ctx, ch, facts)
+			continue
+		}
 		dc.mu.Lock()
 		dc.session = ch
 		dc.version = facts.ClientVersion
@@ -953,6 +1305,125 @@ func (dc *deviceConn) sessionRequests(ctx context.Context, ch ssh.Channel, reqs 
 		_, _ = io.WriteString(ch, "ok "+dc.id+"\n")
 		go dc.readClientLog(ch)
 	}
+}
+
+// hello handles a typed tunnel's hello: for a code login it creates the device
+// first. It writes plain-language status lines; stdin (the person's keyboard)
+// is never read.
+func (dc *deviceConn) hello(ctx context.Context, ch ssh.Channel, facts Facts) {
+	if facts.OS == "" && strings.Contains(string(dc.conn.ClientVersion()), "OpenSSH_for_Windows") {
+		facts.OS = "windows"
+	}
+	reconnect := ""
+	if dc.enrol != nil {
+		enr := dc.srv.getEnroller()
+		dc.mu.Lock()
+		if enr == nil || dc.closed {
+			dc.mu.Unlock()
+			dc.close("no enroller")
+			return
+		}
+		dc.enrol.redeeming = true // the hello timer leaves a redeem alone
+		facts.Services = heldServices(dc.enrol.held)
+		dc.mu.Unlock()
+		r, err := enr.RedeemSSH(dc.enrol.enrollmentID, SSHEnrolment{IP: dc.remoteIP,
+			Banner: string(dc.conn.ClientVersion()), PublicKey: dc.enrol.publicKey, Facts: facts})
+		if err != nil {
+			dc.mu.Lock()
+			dc.enrol.done = true
+			dc.mu.Unlock()
+			dc.releaseCode()
+			_, _ = io.WriteString(ch, "RemoteHound could not connect this machine: "+cleanLogLine(err.Error())+"\n")
+			_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{1}))
+			dc.log().WarnContext(ctx, "Enrolment over SSH refused", logx.Event("tunnel.enrol"), slog.String("app.outcome", "denied"), slog.String("app.reason", err.Error()))
+			dc.close("enrolment refused")
+			return
+		}
+		dc.mu.Lock()
+		dc.id, dc.manual = r.DeviceID, true
+		dc.enrol.done, dc.enrol.draining = true, true
+		dc.mu.Unlock()
+		dc.releaseCode()
+		reconnect = r.Reconnect
+		// Register, then re-check: a client that dropped right after hello was
+		// closed before it was registered (its close could not unregister it),
+		// so a closed conn found here is removed again instead of staying
+		// "online" for good. (s.mu is taken before dc.mu elsewhere, so the
+		// registration cannot sit inside the dc.mu section.)
+		dc.srv.replace(dc)
+		dc.mu.Lock()
+		closed := dc.closed
+		dc.mu.Unlock()
+		if closed {
+			dc.srv.remove(dc)
+			return
+		}
+		go dc.keepalive(ctx)
+		dc.drainHeld(ctx)
+		dc.log().InfoContext(ctx, "Enrolled over SSH", logx.Event("tunnel.enrol"), slog.String("app.outcome", "success"))
+	}
+	name := dc.id
+	if d := dc.srv.cfg.Hooks.Device(dc.id); d != nil && d.Name != "" {
+		name = d.Name
+	}
+	code := connectionCode()
+	dc.mu.Lock()
+	dc.session, dc.code = ch, code
+	dc.mu.Unlock()
+	dc.srv.cfg.Hooks.Connected(dc.id, dc.remoteIP, facts)
+	msg := "RemoteHound: connected as \"" + cleanLogLine(name) + "\".\n" +
+		"Connection code: " + code + " (read it to the person helping you).\n"
+	if reconnect != "" {
+		msg += "To reconnect later without a new code, run:\n  " + reconnect + "\n"
+	}
+	msg += "Keep this window open. Close it, or press Ctrl+C, to end the session.\n"
+	_, _ = io.WriteString(ch, msg)
+}
+
+// kindForPort maps a conventional port (22, 3389, 5900) to its kind, else "".
+func kindForPort(port int) string {
+	for kind, p := range model.DefaultRemotePort {
+		if p == port {
+			return kind
+		}
+	}
+	return ""
+}
+
+// heldServices are the services named by held -R requests: only the
+// conventional ports (22, 3389, 5900), each kind once.
+func heldServices(held []*ssh.Request) []model.Service {
+	var out []model.Service
+	seen := map[string]bool{}
+	for _, r := range held {
+		var m tcpipForwardMsg
+		if r.Type != "tcpip-forward" || ssh.Unmarshal(r.Payload, &m) != nil {
+			continue
+		}
+		if kind := kindForPort(int(m.Port)); kind != "" && !seen[kind] {
+			seen[kind] = true
+			out = append(out, model.Service{Kind: kind, RemotePort: int(m.Port)})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].RemotePort < out[j].RemotePort })
+	return out
+}
+
+// connectionCode is 4 characters from the code alphabet, upper case, for a
+// person to read out over the phone.
+func connectionCode() string { return strings.ToUpper(ids.Code()[:4]) }
+
+// ConnectionCode returns the live typed tunnel's connection code ("" if none).
+func (s *Server) ConnectionCode(deviceID string) string {
+	s.mu.RLock()
+	dc := s.conns[deviceID]
+	s.mu.RUnlock()
+	if dc == nil {
+		return ""
+	}
+	dc.mu.Lock()
+	defer dc.mu.Unlock()
+	return dc.code
 }
 
 func (dc *deviceConn) readClientLog(ch ssh.Channel) {
@@ -992,10 +1463,21 @@ func cleanLogLine(s string) string {
 // Unknown keys are ignored (forward-compatible); values are length- and
 // charset-limited.
 func ParseAgentCommand(cmd string) (Facts, error) {
+	return parseFacts(cmd, "agent")
+}
+
+// ParseHello validates a typed tunnel's `hello v1 [os=…] [host=…]` (ADR-0005).
+// The person's shell expands the values ($(uname -s), %COMPUTERNAME%), so os
+// also accepts uname's spelling: Darwin, Linux.
+func ParseHello(cmd string) (Facts, error) {
+	return parseFacts(cmd, "hello")
+}
+
+func parseFacts(cmd, verb string) (Facts, error) {
 	var f Facts
 	fields := strings.Fields(cmd)
-	if len(fields) < 2 || fields[0] != "agent" || fields[1] != "v1" {
-		return f, errors.New("not an agent v1 command")
+	if len(fields) < 2 || fields[0] != verb || fields[1] != "v1" {
+		return f, errors.New("not a " + verb + " v1 command")
 	}
 	if len(cmd) > 1024 {
 		return f, errors.New("command too long")
@@ -1010,6 +1492,10 @@ func ParseAgentCommand(cmd string) (Facts, error) {
 			switch v {
 			case "linux", "macos", "windows":
 				f.OS = v
+			case "Linux":
+				f.OS = "linux"
+			case "Darwin":
+				f.OS = "macos"
 			}
 		case "ver":
 			f.ClientVersion = v
