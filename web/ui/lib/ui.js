@@ -313,7 +313,11 @@ export function kv(rows) {
 
 /** Monospace block with a copy button. */
 export function codeBlock(text, { label = 'Copy', wrap = false } = {}) {
-  return h('div', { class: ['code', wrap && 'code--wrap'] }, h('pre', null, h('code', null, text)), copyButton(text, { label, compact: true, variant: 'ghost' }))
+  // A long command scrolls sideways: the <pre> takes focus so keyboard users can scroll it with the
+  // arrow keys (WCAG 2.1.1; axe scrollable-region-focusable). The global :focus-visible ring shows it.
+  return h('div', { class: ['code', wrap && 'code--wrap'] },
+    h('pre', { tabindex: '0', 'aria-label': 'Command text' }, h('code', null, text)),
+    copyButton(text, { label, compact: true, variant: 'ghost' }))
 }
 
 /* ───────────────────────── states ───────────────────────── */

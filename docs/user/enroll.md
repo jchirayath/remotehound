@@ -70,6 +70,6 @@ Used and expired codes cannot be edited; create a new code instead.
 - **macOS asks for Full Disk Access.** Turning on Remote Login from a script needs it for Terminal. The script prints where to grant it.
 - **"This code is for a … machine, but this one reports …"** (`ENROLL_WRONG_OS`). The code was made for another kind of machine. Run it on the right one, or create a code for this OS. The code was not used up.
 - **The ssh command says "Host key verification failed".** Run the whole command again exactly as copied (its first part saves the server's key). If it still fails, the SSH host or port in Settings does not match where the machine connects.
-- **Windows prints `The token '&&' is not a valid statement separator`.** That is PowerShell: type `cmd`, press Enter, and paste again.
+- **Windows prints `The ampersand (&) character is not allowed` or `The token '&&' is not a valid statement separator`.** That is PowerShell; nothing was run. Type `cmd`, press Enter, and paste again.
 - **"RemoteHound could not connect this machine: …"** The ssh window shows why (wrong machine type, code used or expired). For a wrong machine type the code is still usable.
 - **Re-running on an enrolled machine** with a new code is safe and replaces the old registration on the machine. RemoteHound keeps the old entry, which shows **Check identity** (enrolled twice): delete the one you no longer use.
