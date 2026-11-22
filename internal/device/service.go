@@ -422,7 +422,11 @@ func (s *Service) toView(d *model.Device, peers []*model.Device) View {
 	if v.Services == nil {
 		v.Services = []ServiceView{}
 	}
-	v.IdentityWarnings = identityWarnings(d, peers)
+	var presence func(string) bool // live tunnels: a one-time session still running counts as a duplicate
+	if s.Tunnel != nil {
+		presence = s.Tunnel.Online
+	}
+	v.IdentityWarnings = identityWarnings(d, peers, presence)
 	return v
 }
 

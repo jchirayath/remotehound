@@ -71,15 +71,23 @@ func hostKey(d *model.Device) string {
 	return d.OS + "|" + h
 }
 
+// endedOneTime: a finished one-time session (ADR-0005). It has no key and can
+// never reconnect; each session is a new device, so these are the machine's
+// session history, not a second enrolment. online is live tunnel presence
+// (nil: unknown, treated as ended).
+func endedOneTime(o *model.Device, online func(string) bool) bool {
+	return o.Transport == model.TransportAttended && (online == nil || !online(o.ID))
+}
+
 // identityWarnings for d, given the other devices the viewer can see.
-func identityWarnings(d *model.Device, others []*model.Device) []IdentityWarning {
+func identityWarnings(d *model.Device, others []*model.Device, online func(string) bool) []IdentityWarning {
 	out := []IdentityWarning{}
 	if w := nameOSWarning(d); w != nil {
 		out = append(out, *w)
 	}
 	if k := hostKey(d); k != "" {
 		for _, o := range others {
-			if o.ID != d.ID && hostKey(o) == k {
+			if o.ID != d.ID && hostKey(o) == k && !endedOneTime(o, online) {
 				out = append(out, IdentityWarning{Code: "DUPLICATE_HOST", OtherDeviceID: o.ID, OtherDeviceName: o.Name,
 					Message: "\"" + o.Name + "\" reports the same machine (" + d.Hostname + ", " + osNames[d.OS] + "). One machine may have been enrolled twice; delete the entry you no longer use."})
 				break
@@ -97,7 +105,7 @@ func RedeemWarnings(d *model.Device, all map[string]*model.Device) []string {
 		others = append(others, o)
 	}
 	var codes []string
-	for _, w := range identityWarnings(d, others) {
+	for _, w := range identityWarnings(d, others, nil) {
 		codes = append(codes, w.Code)
 	}
 	return codes
