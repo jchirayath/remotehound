@@ -14,7 +14,7 @@ import { can, groups, groupMap } from '../lib/session.js'
 import { fieldHelp } from '../lib/help.js'
 import {
   page, field, button, linkButton, codeBlock, tabs, badge, grid, segmented, relTime, groupPill, confirmDialog,
-  toast, toastError, applyFieldErrors, formError, banner, emptyState, deviceLink,
+  toast, toastError, applyFieldErrors, formError, banner, emptyState, deviceLink, drawer,
 } from '../lib/ui.js'
 import { countdown, toDate } from '../lib/format.js'
 
@@ -196,11 +196,13 @@ export default function render(ctx) {
     query: { state: stateFilter },
     onClearFilters: () => { stateFilter = ''; listGrid.reload({ state: '' }) },
     initialSort: { id: 'created_at', dir: 'desc' },
-    toolbar: segmented({
-      label: 'Code state', value: stateFilter,
-      options: [{ value: '', label: 'All' }, { value: 'open', label: 'Open' }, { value: 'used', label: 'Used' }, { value: 'expired', label: 'Expired' }],
-      onChange: (v) => { stateFilter = v; ctx.setQuery(v ? { state: v } : {}); listGrid.reload({ state: v }) },
-    }),
+    toolbar: h('div', { class: 'btn-row' },
+      segmented({
+        label: 'Code state', value: stateFilter,
+        options: [{ value: '', label: 'All' }, { value: 'open', label: 'Open' }, { value: 'used', label: 'Used' }, { value: 'expired', label: 'Expired' }],
+        onChange: (v) => { stateFilter = v; ctx.setQuery(v ? { state: v } : {}); listGrid.reload({ state: v }) },
+      }),
+      can('enrollment.delete') ? button({ label: 'Clear used & expired', icon: 'action.delete', variant: 'ghost', size: 'sm', onClick: clearOld }) : null),
     load: async ({ pageToken, query, signal }) => {
       gmap = await groupMap()
       return api.get('/api/v1/enrollments', { ...query, page_size: 50, page_token: pageToken }, { signal })
@@ -212,18 +214,73 @@ export default function render(ctx) {
       { id: 'group', label: 'Group', value: (e) => gmap.get(e.group_id)?.name || '', render: (e) => (e.group_id ? groupPill(gmap.get(e.group_id)) : h('span', { class: 'muted' }, 'Default')) },
       { id: 'state', label: 'State', render: (e) => badge(e.state, STATE_TONE[e.state] || 'neutral') },
       { id: 'expires_at', label: 'Expires / used', value: (e) => e.used_at || e.expires_at, render: (e) => (e.used_at ? relTime(e.used_at) : relTime(e.expires_at)) },
-      { id: 'created_by', label: 'Created by' },
+      { id: 'created_by', label: 'Created by', value: (e) => e.created_by_name || '', render: (e) => e.created_by_name || h('span', { class: 'muted' }, 'Another user') },
       { id: 'created_at', label: 'Created', render: (e) => relTime(e.created_at) },
-      { id: 'actions', label: 'Actions', sortable: false, exportable: false, help: false, render: (e) => (e.device_id
-        ? deviceLink(e, 'Device')
-        : e.state === 'open' && can('enrollment.delete')
-          ? button({ label: 'Revoke', icon: 'domain.action.revoke', variant: 'ghost', size: 'sm', onClick: async () => {
-            if (!(await confirmDialog({ title: `Revoke code ••••${e.code_hint}?`, body: 'Anyone who has it can no longer enrol a device with it.', confirmLabel: 'Revoke', tone: 'danger' }))) return
-            try { await api.del(`/api/v1/enrollments/${encodeURIComponent(e.id)}`); toast('Code revoked', { tone: 'success' }); listGrid.refresh() } catch (err) { toastError(err) }
-          } })
+      { id: 'actions', label: 'Actions', sortable: false, exportable: false, help: false, render: (e) => h('span', { class: 'btn-row btn-row--tight' },
+        e.device_id ? deviceLink(e, 'Device') : null,
+        e.state === 'open' && can('enrollment.create')
+          ? button({ label: 'Edit', icon: 'action.edit', variant: 'ghost', size: 'sm', onClick: () => editCode(e) }) : null,
+        can('enrollment.delete')
+          ? button({ label: e.state === 'open' ? 'Revoke' : 'Delete', icon: e.state === 'open' ? 'domain.action.revoke' : 'action.delete', variant: 'ghost', size: 'sm', onClick: () => removeCode(e) })
           : null) },
     ],
   }) : null
+
+  async function removeCode(e) {
+    const open = e.state === 'open'
+    const ok = await confirmDialog(open
+      ? { title: `Revoke code ••••${e.code_hint || ''}?`, body: 'Anyone who has it can no longer enrol a device with it.', confirmLabel: 'Revoke', tone: 'danger' }
+      : { title: `Delete this ${e.state} code?`, body: `Removes the ${e.name || 'unnamed'} code from this list.${e.device_id && !e.device_deleted ? ' The device it enrolled stays.' : ''}`, confirmLabel: 'Delete', tone: 'danger' })
+    if (!ok) return
+    try {
+      await api.del(`/api/v1/enrollments/${encodeURIComponent(e.id)}`)
+      toast(open ? 'Code revoked' : 'Code deleted', { tone: 'success' })
+      listGrid.refresh()
+    } catch (err) { toastError(err) }
+  }
+
+  async function clearOld() {
+    const ok = await confirmDialog({ title: 'Clear used and expired codes?', body: 'Removes every used and expired code you can manage from this list. Open codes and enrolled devices are not affected.', confirmLabel: 'Clear', tone: 'danger' })
+    if (!ok) return
+    try {
+      const r = await api.post('/api/v1/enrollments/cleanup')
+      const n = r.data?.removed || 0
+      toast(n ? `Removed ${n} code${n === 1 ? '' : 's'}` : 'Nothing to clear', { tone: 'success' })
+      listGrid.refresh()
+    } catch (err) { toastError(err) }
+  }
+
+  function editCode(e) {
+    const f = {
+      name: field({ id: 'enroll_edit.name', label: 'Device name (optional)', maxlength: 64, placeholder: 'Uses the hostname if empty', value: e.name || '' }),
+      group_id: field({ id: 'enroll_edit.group_id', label: 'Group', type: 'select', options: [{ value: '', label: 'Default group' }] }),
+      expected_os: field({ id: 'enroll_edit.expected_os', label: 'Machine type', type: 'select', value: e.expected_os || '', options: [{ value: '', label: 'Any' }, { value: 'macos', label: 'macOS' }, { value: 'linux', label: 'Linux' }, { value: 'windows', label: 'Windows' }] }),
+    }
+    groups().then(list => {
+      for (const g of list) f.group_id.input.append(h('option', { value: g.id }, g.name))
+      f.group_id.input.value = e.group_id || ''
+    }).catch(() => f.group_id.setError('Groups could not be loaded.'))
+    const msg = h('div', { class: 'form__msg' })
+    const form = h('form', { class: 'form', novalidate: true, id: 'enroll-edit-form' },
+      h('p', { class: 'muted' }, `Code ••••${e.code_hint || ''} keeps working; only what it creates changes.`), msg, f.name.el, f.group_id.el, f.expected_os.el)
+    const save = button({ label: 'Save', icon: 'action.save', variant: 'primary', type: 'submit' })
+    save.setAttribute('form', 'enroll-edit-form')
+    const d = drawer({ title: 'Edit enrolment code', content: form, footer: h('div', { class: 'btn-row' }, button({ label: 'Cancel', variant: 'ghost', onClick: () => d.close() }), save) })
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault()
+      replace(msg)
+      save.disabled = true
+      try {
+        await api.patch(`/api/v1/enrollments/${encodeURIComponent(e.id)}`, { name: f.name.get().trim(), group_id: f.group_id.get(), expected_os: f.expected_os.get() })
+        toast('Code updated', { tone: 'success' })
+        d.close()
+        listGrid.refresh()
+      } catch (err) {
+        if (!applyFieldErrors(f, err)) replace(msg, formError(err))
+        save.disabled = false
+      }
+    })
+  }
 
   stepCreate()
   append(p.body, wizard,

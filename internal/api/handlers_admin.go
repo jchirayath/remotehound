@@ -93,6 +93,54 @@ func (s *Server) revokeEnrollment(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (s *Server) updateEnrollment(w http.ResponseWriter, r *http.Request) {
+	if !s.can(w, r, authz.EnrollmentCreate) {
+		return
+	}
+	var in struct {
+		Name       *string `json:"name"`
+		GroupID    *string `json:"group_id"`
+		ExpectedOS *string `json:"expected_os"`
+	}
+	if err := decode(r, &in); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	var v validate.Collector
+	if in.Name != nil && *in.Name != "" {
+		v.Name("/name", *in.Name)
+	}
+	if in.GroupID != nil {
+		v.ID("/group_id", *in.GroupID, "grp")
+	}
+	if in.ExpectedOS != nil {
+		v.OneOf("/expected_os", *in.ExpectedOS, "", "macos", "linux", "windows")
+	}
+	if err := v.Err(); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	out, err := s.Enroll.Update(r.Context(), authz.ActorFrom(r.Context()), r.PathValue("id"), in.Name, in.GroupID, in.ExpectedOS)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, out, nil)
+}
+
+// cleanupEnrollments removes the used and expired codes the caller may delete.
+func (s *Server) cleanupEnrollments(w http.ResponseWriter, r *http.Request) {
+	if !s.can(w, r, authz.EnrollmentDelete) {
+		return
+	}
+	n, err := s.Enroll.Cleanup(r.Context(), authz.ActorFrom(r.Context()))
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"removed": n}, nil)
+}
+
 // ---- groups ---------------------------------------------------------------------
 
 // Group colours are domain tokens (color.domain.group.*) defined in design/.
@@ -512,7 +560,12 @@ func (s *Server) patchUser(w http.ResponseWriter, r *http.Request) {
 					return apierr.BadRequest(apierr.CodeGroupNotFound, "One of the groups does not exist.")
 				}
 			}
-			u.GroupIDs, privChange = *in.GroupIDs, true
+			// The edit form always sends the groups; only a real change ends
+			// sessions (it also rotates a proxy session's CSRF token).
+			if !sameSet(u.GroupIDs, *in.GroupIDs) {
+				privChange = true
+			}
+			u.GroupIDs = *in.GroupIDs
 		}
 		if in.Disabled != nil && *in.Disabled != u.Disabled {
 			u.Disabled, privChange = *in.Disabled, true
@@ -784,4 +837,20 @@ func nonNil[T any](xs []T) []T {
 		return []T{}
 	}
 	return xs
+}
+
+// sameSet reports whether a and b hold the same IDs, ignoring order and repeats.
+func sameSet(a, b []string) bool {
+	in := map[string]bool{}
+	for _, x := range a {
+		in[x] = true
+	}
+	seen := map[string]bool{}
+	for _, x := range b {
+		if !in[x] {
+			return false
+		}
+		seen[x] = true
+	}
+	return len(seen) == len(in)
 }

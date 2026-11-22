@@ -220,3 +220,31 @@ test('@feature:enroll @feature:devices a wrong-machine enrolment is refused or f
   await expect(page.getByRole('row', { name: new RegExp(`Studio-${stamp}`) }).getByText('Check identity')).toHaveCount(2) // both entries of the twice-enrolled Mac
   await page.screenshot({ path: 'test-results/identity-devices.png' })
 })
+
+test('@feature:enroll edit an open code, clear used and expired codes, revoke the open one', async ({ page }) => {
+  await open(page, '/enroll')
+  await page.getByLabel('Device name (optional)').first().fill('typo-nmae')
+  await page.getByRole('button', { name: 'Create code' }).click()
+  await expect(page.getByText('Waiting for the device…')).toBeVisible()
+  const codes = page.getByRole('region', { name: 'Enrolment codes' }).or(page.locator('section[aria-labelledby=codes-h]'))
+  const row = codes.getByRole('row').filter({ hasText: 'typo-nmae' }).first()
+  await row.getByRole('button', { name: 'Edit' }).click()
+  const drawer = page.getByRole('dialog', { name: 'Edit enrolment code' })
+  await drawer.getByLabel('Device name (optional)').fill('fixed-name')
+  await drawer.getByLabel('Machine type').selectOption('linux')
+  await drawer.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByText('Code updated')).toBeVisible()
+  const fixed = codes.getByRole('row').filter({ hasText: 'fixed-name' }).first()
+  await expect(fixed).toContainText('Linux')
+  await expect(fixed).not.toContainText('usr_') // created by shows a person, not an ID
+  await page.screenshot({ path: 'test-results/enroll-codes-manage.png', fullPage: true })
+  // Clear removes every used and expired code; open ones stay.
+  await page.getByRole('button', { name: 'Clear used & expired' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Clear', exact: true }).click()
+  await expect(page.getByText(/Removed \d+ codes?|Nothing to clear/)).toBeVisible()
+  await expect(codes.getByRole('row').filter({ hasText: 'fixed-name' }).first()).toBeVisible()
+  await expect(codes.getByRole('row').filter({ has: page.getByText('Used', { exact: true }) })).toHaveCount(0)
+  await fixed.getByRole('button', { name: 'Revoke' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Revoke' }).click()
+  await expect(page.getByText('Code revoked')).toBeVisible()
+})

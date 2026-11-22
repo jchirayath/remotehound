@@ -575,3 +575,89 @@ func TestInstallScopeIsReported(t *testing.T) {
 		}
 	}
 }
+
+// Enrolment codes can be tidied: an open code can be edited, a used one
+// cannot, removing a used code leaves its device alone, and cleanup removes
+// used and expired codes but keeps open ones.
+func TestEnrolmentCodesEditAndCleanup(t *testing.T) {
+	h := start(t)
+	key := func() string {
+		pub, _, _ := ed25519.GenerateKey(rand.Reader)
+		sp, _ := ssh.NewPublicKey(pub)
+		return string(ssh.MarshalAuthorizedKey(sp))
+	}
+	type one struct {
+		Data struct {
+			ID            string `json:"id"`
+			Code          string `json:"code"`
+			Name          string `json:"name"`
+			ExpectedOS    string `json:"expected_os"`
+			State         string `json:"state"`
+			CreatedByName string `json:"created_by_name"`
+		}
+	}
+	var open, used one
+	h.do("POST", "/api/v1/enrollments", map[string]any{"name": "typo-nmae"}, 201, &open)
+	h.do("POST", "/api/v1/enrollments", map[string]any{"name": "box1"}, 201, &used)
+	var dev struct {
+		Data struct {
+			DeviceID string `json:"device_id"`
+		} `json:"data"`
+	}
+	h.do("POST", "/api/v1/enroll", map[string]any{"code": used.Data.Code, "public_key": key(), "hostname": "box1", "os": "linux"}, 201, &dev)
+
+	var edited one
+	h.do("PATCH", "/api/v1/enrollments/"+open.Data.ID, map[string]any{"name": "fixed-name", "expected_os": "macos"}, 200, &edited)
+	if edited.Data.Name != "fixed-name" || edited.Data.ExpectedOS != "macos" || edited.Data.State != "open" || edited.Data.CreatedByName == "" {
+		t.Fatalf("edit open code: %+v", edited.Data)
+	}
+	h.do("PATCH", "/api/v1/enrollments/"+open.Data.ID, map[string]any{"expected_os": "beos"}, 400, nil)
+	h.do("PATCH", "/api/v1/enrollments/"+used.Data.ID, map[string]any{"name": "x"}, 409, nil)
+
+	var cleaned struct {
+		Data struct {
+			Removed int `json:"removed"`
+		}
+	}
+	h.do("POST", "/api/v1/enrollments/cleanup", nil, 200, &cleaned)
+	if cleaned.Data.Removed != 1 {
+		t.Fatalf("cleanup removed %d, want 1 (the used code)", cleaned.Data.Removed)
+	}
+	h.do("GET", "/api/v1/enrollments/"+used.Data.ID, nil, 404, nil)
+	h.do("GET", "/api/v1/enrollments/"+open.Data.ID, nil, 200, nil)
+	h.do("GET", "/api/v1/devices/"+dev.Data.DeviceID, nil, 200, nil) // the device stays
+	h.do("DELETE", "/api/v1/enrollments/"+open.Data.ID, nil, 204, nil)
+}
+
+// created_by_name follows the directory's rules: a viewer (no directory
+// access) must not learn who made a code; an operator in the group may.
+func TestEnrolmentCreatorNameIsNotLeaked(t *testing.T) {
+	h := start(t)
+	var grp struct{ Data struct{ ID string } }
+	h.do("POST", "/api/v1/groups", map[string]any{"name": "Lab"}, 201, &grp)
+	var code struct{ Data struct{ ID string } }
+	h.do("POST", "/api/v1/enrollments", map[string]any{"name": "lab-box", "group_id": grp.Data.ID}, 201, &code)
+	mk := func(email, role string) *harness {
+		var u struct{ Data struct{ ID string } }
+		h.do("POST", "/api/v1/users", map[string]any{"email": email, "role": role, "group_ids": []string{grp.Data.ID}}, 201, &u)
+		return h.as(u.Data.ID)
+	}
+	name := func(as *harness) string {
+		var v struct {
+			Data struct {
+				CreatedByName string `json:"created_by_name"`
+			}
+		}
+		as.do("GET", "/api/v1/enrollments/"+code.Data.ID, nil, 200, &v)
+		return v.Data.CreatedByName
+	}
+	if n := name(mk("view@example.com", "viewer")); n != "" {
+		t.Fatalf("viewer learned the creator: %q", n)
+	}
+	if n := name(mk("op@example.com", "operator")); n == "" {
+		t.Fatal("operator in the group should see the (admin) creator, as in the directory")
+	}
+	if n := name(h); n == "" {
+		t.Fatal("the creator should see themselves")
+	}
+}

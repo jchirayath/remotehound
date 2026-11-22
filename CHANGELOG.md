@@ -5,6 +5,13 @@ Security fixes are disclosed here once users can update (VULN-7).
 
 ## [Unreleased]
 
+### Added
+- Enrolment codes can be tidied: **Edit** an open code (device name, group, machine type), **Delete** a used or expired one, or **Clear used & expired** in one go (`PATCH /api/v1/enrollments/{id}`, `POST /api/v1/enrollments/cleanup`). **Created by** shows the person, not a user ID (`created_by_name`).
+
+### Fixed
+- Saving a user in **Users** no longer ends their sessions unless their role, groups or disabled state really changed (the form always sends the groups). Behind a proxy that also made the page's CSRF token stale, so the next change, e.g. Sign out, was refused once. The UI now also fetches a fresh token and retries once when the server reports `AUTH_CSRF_FAILED`.
+- Enrolment codes show who created them only to people who may see that user (the same rules as the user directory); others see "Another user", so viewers no longer learn creators' emails.
+
 ## [0.1.0] — 2026-11-21
 
 First public release.

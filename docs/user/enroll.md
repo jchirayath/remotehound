@@ -31,7 +31,14 @@ Keep the Enroll page open. It shows **Waiting for the device…** and checks eve
 
 ## Managing codes
 
-The list under the wizard shows every code: *Open* (still usable), *Used* (a device enrolled with it) or *Expired*. Select **Revoke** on an open code you no longer need.
+The list under the wizard shows every code: *Open* (still usable), *Used* (a device enrolled with it) or *Expired*, and who created it.
+
+- **Edit** an open code to fix the device name, group or machine type before it is used. The code itself stays the same.
+- **Revoke** an open code you no longer need: nobody can enrol with it after that.
+- **Delete** a used or expired code to remove it from the list. A device it enrolled stays.
+- **Clear used & expired** removes every used and expired code you can manage in one go. Open codes stay.
+
+Used and expired codes cannot be edited; create a new code instead.
 
 ## Troubleshooting
 

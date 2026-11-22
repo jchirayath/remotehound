@@ -215,6 +215,16 @@ export async function request(method, path, opts = {}) {
     if (!res.ok) {
       lastErr = await parseProblem(res)
       if (!mutation && [502, 503, 504].includes(res.status)) continue
+      // The session's CSRF token changed under us (e.g. an admin change to
+      // your own account rotated it). The server refused before doing
+      // anything, so fetch the current token and send the request once more.
+      if (mutation && lastErr.code === 'AUTH_CSRF_FAILED' && !opts.csrfRetried) {
+        const me = await request('GET', '/api/v1/me', { signal: opts.signal })
+        if (me?.data?.csrf_token && me.data.csrf_token !== config.csrfToken) {
+          setCsrfToken(me.data.csrf_token)
+          return request(method, path, { ...opts, csrfRetried: true })
+        }
+      }
       throw lastErr
     }
     const requestId = res.headers.get('X-Request-Id') || ''

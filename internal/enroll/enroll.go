@@ -15,6 +15,7 @@ import (
 	"encoding/hex"
 	"net/url"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -61,8 +62,11 @@ type View struct {
 	// ExpectedOS: the machine type the code is for (macos | linux | windows), "" = any.
 	ExpectedOS string `json:"expected_os"`
 	// DeviceDeleted: the code was used, but that device has since been deleted.
-	DeviceDeleted bool      `json:"device_deleted,omitempty"`
-	CreatedBy     string    `json:"created_by"`
+	DeviceDeleted bool   `json:"device_deleted,omitempty"`
+	CreatedBy     string `json:"created_by"`
+	// CreatedByName: the creator's display name or email, only when the viewer
+	// may see that user (as in the directory); "" otherwise or if deleted.
+	CreatedByName string    `json:"created_by_name"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
@@ -75,6 +79,26 @@ type Created struct {
 	// that starts at boot and may turn on SSH / Screen Sharing (recommended).
 	CommandUnixSystem string `json:"command_unix_system"`
 	CommandWindows    string `json:"command_windows"`
+}
+
+// creatorName is who made a code, as the viewer a may see it: the same people
+// the user directory (GET /api/v1/directory) shows them, plus themselves.
+// Anyone else, e.g. a viewer, gets "": the list must not leak emails.
+func creatorName(a *authz.Actor, users map[string]*model.User, id string) string {
+	u := users[id]
+	if u == nil {
+		return ""
+	}
+	visible := id == a.UserID || a.IsAdmin() ||
+		(authz.Can(a, authz.SessionShare, authz.Resource{Global: true}) && !u.Disabled &&
+			(u.Role == model.RoleAdmin || slices.ContainsFunc(u.GroupIDs, func(g string) bool { return slices.Contains(a.GroupIDs, g) })))
+	if !visible {
+		return ""
+	}
+	if u.DisplayName != "" {
+		return u.DisplayName
+	}
+	return u.Email
 }
 
 func toView(e *model.Enrollment, now time.Time, viewer string, devices map[string]*model.Device) View {
@@ -155,9 +179,13 @@ func (s *Service) List(a *authz.Actor, state string, pageSize int, token string)
 	now := time.Now().UTC()
 	var all []*model.Enrollment
 	present := map[string]*model.Device{} // devices that still exist, for DeviceDeleted
+	names := map[string]string{}
 	s.Store.View(func(x *model.State) {
 		for id, d := range x.Devices {
 			present[id] = d
+		}
+		for id := range x.Users {
+			names[id] = creatorName(a, x.Users, id)
 		}
 		for _, e := range x.Enrollments {
 			if !authz.SeesGroup(a, e.GroupID) && e.CreatedBy != a.UserID {
@@ -180,6 +208,7 @@ func (s *Service) List(a *authz.Actor, state string, pageSize int, token string)
 	out := make([]View, len(page))
 	for i, id := range page {
 		out[i] = toView(byID[id], now, a.UserID, present)
+		out[i].CreatedByName = names[out[i].CreatedBy]
 	}
 	return out, next
 }
@@ -190,6 +219,7 @@ func (s *Service) Get(a *authz.Actor, id string) (View, error) {
 	s.Store.View(func(x *model.State) {
 		if e, ok := x.Enrollments[id]; ok && (authz.SeesGroup(a, e.GroupID) || e.CreatedBy == a.UserID) {
 			v := toView(e, time.Now().UTC(), a.UserID, x.Devices)
+			v.CreatedByName = creatorName(a, x.Users, e.CreatedBy)
 			out = &v
 		}
 	})
@@ -199,20 +229,96 @@ func (s *Service) Get(a *authz.Actor, id string) (View, error) {
 	return *out, nil
 }
 
-// Revoke deletes an unused code.
+// canDelete: the actor may revoke or remove e.
+func canDelete(a *authz.Actor, e *model.Enrollment) bool {
+	return authz.Can(a, authz.EnrollmentDelete, authz.Resource{GroupID: e.GroupID}) || e.CreatedBy == a.UserID
+}
+
+// Revoke deletes a code: an open one stops working, a used or expired one is
+// removed from the list (its device, if any, is not affected).
 func (s *Service) Revoke(ctx context.Context, a *authz.Actor, id string) error {
+	var state string
 	err := s.Store.Update(func(x *model.State) error {
 		e, ok := x.Enrollments[id]
-		if !ok || !(authz.Can(a, authz.EnrollmentDelete, authz.Resource{GroupID: e.GroupID}) || e.CreatedBy == a.UserID) {
+		if !ok || !canDelete(a, e) {
 			return apierr.NotFound(apierr.CodeNotFound, "No enrolment code with that ID.")
 		}
+		state = e.State(time.Now().UTC())
 		delete(x.Enrollments, id)
 		return nil
 	})
 	if err == nil {
-		s.Audit.Record(ctx, "enrollment.revoke", audit.Success, "enrollment:"+id, nil)
+		s.Audit.Record(ctx, "enrollment.revoke", audit.Success, "enrollment:"+id, map[string]any{"state": state})
 	}
 	return err
+}
+
+// Cleanup removes every used and expired code the actor may delete, and
+// returns how many. Open codes stay. Devices are not affected.
+func (s *Service) Cleanup(ctx context.Context, a *authz.Actor) (int, error) {
+	now := time.Now().UTC()
+	n := 0
+	err := s.Store.Update(func(x *model.State) error {
+		for id, e := range x.Enrollments {
+			if e.State(now) != "open" && canDelete(a, e) {
+				delete(x.Enrollments, id)
+				n++
+			}
+		}
+		return nil
+	})
+	if err == nil {
+		s.Audit.Record(ctx, "enrollment.cleanup", audit.Success, "", map[string]any{"removed": n})
+	}
+	return n, err
+}
+
+// Update changes an open code's device name, group or machine type. Used and
+// expired codes cannot change: create a new one.
+func (s *Service) Update(ctx context.Context, a *authz.Actor, id string, name, groupID, expectedOS *string) (View, error) {
+	now := time.Now().UTC()
+	var out View
+	err := s.Store.Update(func(x *model.State) error {
+		e, ok := x.Enrollments[id]
+		if !ok || !(authz.SeesGroup(a, e.GroupID) || e.CreatedBy == a.UserID) {
+			return apierr.NotFound(apierr.CodeNotFound, "No enrolment code with that ID.")
+		}
+		if !canDelete(a, e) {
+			return apierr.Forbidden("You cannot change this code.")
+		}
+		if e.State(now) != "open" {
+			return apierr.Conflict(apierr.CodeEnrollUsed, "Only an open code can be changed. Create a new code instead.")
+		}
+		if groupID != nil && *groupID != e.GroupID {
+			g := *groupID
+			if g == "" {
+				g = x.Settings.DefaultGroupID
+			}
+			if g != "" {
+				if _, ok := x.Groups[g]; !ok {
+					return apierr.BadRequest(apierr.CodeGroupNotFound, "That group does not exist.")
+				}
+			}
+			if !authz.Can(a, authz.EnrollmentCreate, authz.Resource{GroupID: g, Global: a.IsAdmin()}) {
+				return apierr.Forbidden("You can only enrol devices into your own groups. Pick one of your groups.")
+			}
+			e.GroupID = g
+		}
+		if name != nil {
+			e.Name = *name
+		}
+		if expectedOS != nil {
+			e.ExpectedOS = *expectedOS
+		}
+		e.Touch(now)
+		out = toView(e, now, a.UserID, x.Devices)
+		out.CreatedByName = creatorName(a, x.Users, e.CreatedBy)
+		return nil
+	})
+	if err == nil {
+		s.Audit.Record(ctx, "enrollment.update", audit.Success, "enrollment:"+id, map[string]any{"group_id": out.GroupID, "expected_os": out.ExpectedOS})
+	}
+	return out, err
 }
 
 // failures is a GLOBAL brake on wrong codes (complements per-IP limits that a

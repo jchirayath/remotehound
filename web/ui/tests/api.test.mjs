@@ -112,3 +112,21 @@ test('@feature:logs buildUrl and pointerToKey helpers', async () => {
   const e = await parseProblem(new Response('nope', { status: 404, statusText: 'Not Found' }))
   assert.equal(e.code, 'HTTP_404')
 })
+
+test('@feature:services a stale CSRF token is refreshed from /me and the mutation sent once more', async () => {
+  queue.push(res(403, { title: 'Forbidden', status: 403, code: 'AUTH_CSRF_FAILED' }))
+  queue.push(res(200, { data: { csrf_token: 'csrf-2' } }))
+  queue.push(res(200, { data: { redirect: '/signed-out' } }))
+  const r = await api.post('/auth/logout')
+  assert.equal(r.data.redirect, '/signed-out')
+  assert.equal(calls.length, 3)
+  assert.equal(calls[1].url, '/api/v1/me')
+  assert.equal(calls[2].init.headers['X-CSRF-Token'], 'csrf-2')
+})
+
+test('@feature:services CSRF refusal with an unchanged token is not retried', async () => {
+  queue.push(res(403, { title: 'Forbidden', status: 403, code: 'AUTH_CSRF_FAILED' }))
+  queue.push(res(200, { data: { csrf_token: 'csrf-1' } }))
+  await assert.rejects(api.post('/auth/logout'), (e) => e.code === 'AUTH_CSRF_FAILED')
+  assert.equal(calls.length, 2)
+})

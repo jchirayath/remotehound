@@ -242,7 +242,10 @@ paths:
   /api/v1/enrollments/{id}:
     parameters: [ { $ref: "#/components/parameters/Id" } ]
     get: { tags: [enrollments], responses: { "200": { description: one enrolment, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Enrollment" } } } } } } } }
-    delete: { tags: [enrollments], summary: Revoke an unused code, responses: { "204": { description: revoked } } }
+    patch: { tags: [enrollments], summary: "Change an open code's device name, group or machine type (409 ENROLL_CODE_USED once used or expired)", requestBody: { required: true, content: { application/merge-patch+json: { schema: { type: object, properties: { name: { type: string, maxLength: 64 }, group_id: { type: string }, expected_os: { type: string, enum: ["", macos, linux, windows] } } } } } }, responses: { "200": { description: the updated enrolment, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Enrollment" } } } } } } } }
+    delete: { tags: [enrollments], summary: "Revoke an open code, or remove a used or expired one from the list (its device is not affected)", responses: { "204": { description: removed } } }
+  /api/v1/enrollments/cleanup:
+    post: { tags: [enrollments], summary: Remove every used and expired code the caller may delete; open codes stay, responses: { "200": { description: how many were removed, content: { application/json: { schema: { type: object, properties: { data: { type: object, properties: { removed: { type: integer } } } } } } } } } }
 
   /api/v1/groups:
     get: { tags: [groups], responses: { "200": { description: list, content: { application/json: { schema: { $ref: "#/components/schemas/GroupList" } } } } } }
@@ -488,6 +491,7 @@ components:
         expected_os: { type: string, enum: ["", macos, linux, windows], description: "the machine type the code is for; empty = any" }
         device_deleted: { type: boolean, description: "the device this row refers to has since been deleted; omitted when false" }
         created_by: { type: string }
+        created_by_name: { type: string, description: "The creator's display name or email, only when the caller may see that user (as in GET /api/v1/directory, or yourself); empty otherwise" }
         created_at: { type: string, format: date-time }
     EnrollmentCreate:
       type: object

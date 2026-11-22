@@ -270,6 +270,42 @@ func TestProxyModeNoIdentityAndSignOut(t *testing.T) {
 	if n := nameOf(); n != "" {
 		t.Fatalf("stored subject not cleared: %q", n)
 	}
+	// 3c. Editing your own name (the form also sends the unchanged groups)
+	// must not rotate the session: behind a proxy that would make the page's
+	// CSRF token stale, and the next change (sign out) was refused.
+	meOf := func() (id, csrf string) {
+		r := get("/api/v1/me", "X-Auth-Request-Email", "boss@example.com")
+		defer r.Body.Close()
+		var m struct {
+			Data struct {
+				ID   string `json:"id"`
+				CSRF string `json:"csrf_token"`
+			}
+		}
+		json.NewDecoder(r.Body).Decode(&m) //nolint:errcheck
+		return m.Data.ID, m.Data.CSRF
+	}
+	uid, csrf1 := meOf()
+	ur := get("/api/v1/users/"+uid, "X-Auth-Request-Email", "boss@example.com")
+	etag := ur.Header.Get("ETag")
+	ur.Body.Close()
+	preq, _ := http.NewRequestWithContext(context.Background(), "PATCH", srv.URL+"/api/v1/users/"+uid,
+		strings.NewReader(`{"display_name":"Boss Person","group_ids":[]}`))
+	preq.Header.Set("Content-Type", "application/merge-patch+json")
+	preq.Header.Set("X-Auth-Request-Email", "boss@example.com")
+	preq.Header.Set("X-CSRF-Token", csrf1)
+	preq.Header.Set("If-Match", etag)
+	presp, err := noFollow.Do(preq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	presp.Body.Close()
+	if presp.StatusCode != 200 {
+		t.Fatalf("edit own name: %d", presp.StatusCode)
+	}
+	if _, csrf2 := meOf(); csrf2 != csrf1 {
+		t.Fatal("editing your own name rotated the CSRF token")
+	}
 	// 4. Sign out returns the proxy's logout URL.
 	var me struct {
 		Data struct {

@@ -107,6 +107,8 @@ func (s *Server) Routes() http.Handler {
 	mux.Handle("POST /api/v1/enrollments", priv(s.createEnrollment))
 	mux.Handle("GET /api/v1/enrollments/{id}", priv(s.getEnrollment))
 	mux.Handle("DELETE /api/v1/enrollments/{id}", priv(s.revokeEnrollment))
+	mux.Handle("PATCH /api/v1/enrollments/{id}", priv(s.updateEnrollment))
+	mux.Handle("POST /api/v1/enrollments/cleanup", priv(s.cleanupEnrollments))
 
 	// Groups and users.
 	mux.Handle("GET /api/v1/groups", priv(s.listGroups))
