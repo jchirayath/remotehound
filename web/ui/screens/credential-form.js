@@ -22,7 +22,10 @@ const credPath = (deviceId, service) => `/api/v1/me/credentials/${encodeURICompo
 export function openCredentialForm(o = {}) {
   const locked = !!(o.existing || o.deviceId)
   const f = {
+    // Editing an existing login: select its device (the only option). Without a value the
+    // locked select shows blank and Save stops at "Choose the device…".
     device_id: field({ id: 'profile.credential_device', label: 'Device', type: 'select', required: true, disabled: locked,
+      value: o.existing?.device_id,
       options: o.existing ? [{ value: o.existing.device_id, label: o.existing.device_name || o.existing.device_id }] : [{ value: '', label: 'Loading devices…' }] }),
     service: field({ id: 'profile.credential_service', label: 'Service', type: 'select', required: true, disabled: !!o.existing, options: [] }),
     username: field({ id: 'profile.credential_username', label: 'Username', value: o.existing?.username || '', maxlength: 128, autocomplete: 'off' }),
