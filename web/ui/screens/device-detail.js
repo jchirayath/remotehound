@@ -466,12 +466,20 @@ export default function render(ctx) {
   /* ── diagnostics tab ── */
 
   function diagnosticsTab(panel) {
-    const results = h('div', { class: 'probe' }, emptyState('device.probe', { action: null }))
+    const results = h('div', { class: 'probe', 'aria-live': 'polite' }, emptyState('device.probe', { action: null }))
+    // The results land below the action cards, often under the fold: bring them into view and say
+    // what happened, or the click looks like it did nothing.
+    const showResults = (rows) => {
+      results.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      const okN = rows.filter(x => x.ok).length
+      toast(`Probe finished: ${okN} reachable, ${rows.length - okN} failed`, { tone: okN === rows.length ? 'success' : 'warning', timeout: 4000 })
+    }
     const runProbe = async () => {
       replace(results, skeleton('rows', 3))
       try {
         const r = await api.post(`${path}/probe`)
         const rows = r.data || []
+        requestAnimationFrame(() => showResults(rows))
         replace(results, grid({
           label: 'Probe results', helpScreen: 'device', emptyKey: 'device.probe', searchable: false, rows,
           rowKey: (x) => x.service,

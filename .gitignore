@@ -28,3 +28,6 @@ ssh_host_*_key
 *.p8
 *.key
 e2e/node_modules
+
+# e2e/azure/run.sh results and screenshots
+e2e/azure/out/
