@@ -22,6 +22,13 @@ immediately (docs/RUNBOOK.md → Rotate secrets); rewriting history does not un-
 ```bash
 go test ./... && node --test web/ui/tests/ && sh client/test/run.sh && ./ci/guards.sh && tools/standard/check.sh
 ```
+Browser tests (`e2e/`, also run by CI's `e2e` job) need the bundle with the TEST-ONLY sign-in overlay, on
+loopback only — never on a reachable host, it signs everyone in as admin:
+```bash
+sh deploy/test/make-env.sh
+(cd deploy && docker compose -f compose.yml -f test/compose.e2e.yml --env-file test/e2e.env up -d --build --wait)
+(cd e2e && npm ci --ignore-scripts && npx playwright test)
+```
 Conventional commits (`feat:`, `fix:`, `docs:` …). By contributing you agree your contribution is licensed
 under Apache-2.0 (inbound = outbound); sign off your commits (`git commit -s`, DCO).
 

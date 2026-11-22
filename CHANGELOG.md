@@ -10,6 +10,9 @@ Security fixes are disclosed here once users can update (VULN-7).
 - Each live typed session shows a 4-character **connection code** in the person's window and on the device page, to confirm you are on the right machine.
 - `e2e/azure/run.sh`: unattended end-to-end test on real Windows and Linux machines in Azure (creates and deletes its own resource group).
 
+### Changed
+- CI runs the browser tests (`e2e/`) against the bundle built from each commit. They now edit, block and delete through the UI and check for exactly one audit event per change, and cover each list screen's empty and error states (with request ID). Integration tests cover group and user CRUD, theme preference, job runs, log level and recording download confinement. `deploy/test/make-env.sh` writes the test bundle's env file.
+
 ### Fixed
 - **Run probe** on a device's Diagnostics tab showed its results below the visible area, so the click looked like it did nothing. Results now scroll into view, are announced to screen readers, and a toast summarises them.
 - Long commands in code blocks can be scrolled with the keyboard.

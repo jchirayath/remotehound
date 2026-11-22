@@ -3,9 +3,8 @@ description: Bring up the full bundle locally and enrol a real (containerised) d
 ---
 Run RemoteHound's live smoke test and report each step's result verbatim.
 
-1. Make sure `deploy/test/e2e.env` exists; if not, create it with `RH_DOMAIN=localhost`,
-   `RH_PUBLIC_URL=https://localhost:8443`, `RH_AUTH_MODE=proxy`, `RH_SSH_PUBLISH=127.0.0.1:2222`, and fresh
-   `RH_SECRET_KEY` (`openssl rand -hex 32`) / `RH_GUAC_JSON_SECRET` (`openssl rand -hex 16`).
+1. `sh deploy/test/make-env.sh` — writes `deploy/test/e2e.env` with throwaway keys if it does not exist
+   (the same file CI's e2e job uses).
 2. `cd deploy && docker compose -f compose.yml -f test/compose.e2e.yml --env-file test/e2e.env up -d --build`
    and wait until the guacamole log shows `Server startup in`.
 3. `curl -sk https://localhost:8443/api/v1/integration` — every check must be `pass` (recording may be `skip`).

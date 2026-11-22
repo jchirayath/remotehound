@@ -6,14 +6,31 @@
 // personal saved login, shares it view-only with the operator, joins as the
 // operator, proves keystrokes from the viewer do not reach the shell, checks the
 // grantee cannot re-share or end it, then ends it as admin.
+// Keystrokes are checked on the device itself (docker exec into the smoke
+// container, RH_LIVE_DEVICE, default rh-device): the admin's `touch` must land
+// (positive control) and the viewer's must not.
+import { execFileSync } from 'node:child_process'
 import { chromium, request } from '@playwright/test'
 import { api, ADMIN, OPERATOR } from '../fixtures.mjs'
 
 const out = process.argv[2] || '.'
+const container = process.env.RH_LIVE_DEVICE || 'rh-device'
 const must = (cond, msg) => { if (!cond) { console.error('FAIL', msg); process.exit(1) } console.log('PASS', msg) }
+const onDevice = (file) => { try { execFileSync('docker', ['exec', container, 'test', '-e', file]); return true } catch { return false } }
+execFileSync('docker', ['exec', container, 'rm', '-f', '/tmp/rh-admin-typed', '/tmp/rh-viewer-typed'])
 const rq = await request.newContext({ ignoreHTTPSErrors: true })
 const dev = (await api(rq, ADMIN, 'GET', '/api/v1/devices?q=live-box')).body.data.find(d => d.online)
 must(dev, 'live-box is online')
+// Sessions are shared only with people who can reach the device (its group, or an admin):
+// put live-box in the operator's group (the e2e global setup puts op@example.com in "E2E").
+const opGroup = (await api(rq, OPERATOR, 'GET', '/api/v1/me')).body.data.group_ids?.[0]
+must(opGroup, 'the operator belongs to a group')
+if (dev.group_id !== opGroup) {
+  const cur = (await api(rq, ADMIN, 'GET', `/api/v1/devices/${dev.id}`)).body.data
+  const res = await rq.fetch(ADMIN + `/api/v1/devices/${dev.id}`, { method: 'PATCH', ignoreHTTPSErrors: true, data: { group_id: opGroup },
+    headers: { 'X-CSRF-Token': (await api(rq, ADMIN, 'GET', '/api/v1/me')).body.data.csrf_token, 'If-Match': cur.etag, 'Content-Type': 'application/json' } })
+  must(res.status() === 200, "live-box moved into the operator's group")
+}
 await api(rq, ADMIN, 'PUT', `/api/v1/me/credentials/${dev.id}/ssh`, { username: 'rh', password: 'rh-demo-pass' })
 
 const b = await chromium.launch({ channel: 'chrome' })
@@ -27,10 +44,11 @@ const gp = await popup
 await canvas(gp)
 await gp.waitForTimeout(2500)
 await gp.mouse.click(640, 400)
-await gp.keyboard.type('echo SHARED-$((6*7)) as $(whoami)')
+await gp.keyboard.type('echo SHARED-$((6*7)) as $(whoami); touch /tmp/rh-admin-typed')
 await gp.keyboard.press('Enter')
 await gp.waitForTimeout(2000)
 await gp.screenshot({ path: `${out}/1-admin-session.png` })
+must(onDevice('/tmp/rh-admin-typed'), "the owner's keystrokes reach the device's shell")
 
 const opMe = (await api(rq, OPERATOR, 'GET', '/api/v1/me')).body.data
 const s = (await api(rq, ADMIN, 'GET', '/api/v1/sessions?scope=mine&active=true')).body.data[0]
@@ -47,15 +65,16 @@ const jp = await jpop
 await canvas(jp)
 await jp.waitForTimeout(2500)
 await jp.mouse.click(640, 400)
-await jp.keyboard.type('echo VIEWER-TYPED')
+await jp.keyboard.type('echo VIEWER-TYPED; touch /tmp/rh-viewer-typed')
 await jp.keyboard.press('Enter')
 await jp.waitForTimeout(1500)
 await jp.screenshot({ path: `${out}/2-operator-joined-view-only.png` })
 await gp.screenshot({ path: `${out}/3-admin-after-viewer-typed.png` })
+must(!onDevice('/tmp/rh-viewer-typed'), "a view-only viewer's keystrokes do not reach the device's shell")
 must((await api(rq, OPERATOR, 'POST', `/api/v1/sessions/${s.id}/shares`, { user_id: opMe.id, mode: 'control' })).status === 403, 'grantee cannot re-share')
 must((await api(rq, OPERATOR, 'POST', `/api/v1/sessions/${s.id}/terminate`)).status === 403, 'grantee cannot end the session')
 must((await api(rq, ADMIN, 'POST', `/api/v1/sessions/${s.id}/terminate`)).status === 202, 'admin ends the session')
 await gp.waitForTimeout(2500)
 await gp.screenshot({ path: `${out}/4-ended.png` })
-console.log('Screenshots in', out, '— check 3-admin-after-viewer-typed.png does NOT show VIEWER-TYPED.')
+console.log('Screenshots in', out)
 await b.close()

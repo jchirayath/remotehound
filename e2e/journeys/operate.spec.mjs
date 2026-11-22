@@ -1,6 +1,7 @@
 // @kind:e2e
 // Main journeys through the real UI against the live bundle (TEST-0 e2e kind).
-import { test, expect, open, api, ADMIN } from '../fixtures.mjs'
+import { test, expect, open, api, ADMIN, OPERATOR, enrolDevice, sshPublicKey, auditFor } from '../fixtures.mjs'
+import { SEED_DEVICE } from '../global-setup.mjs'
 
 test('@feature:overview overview shows live numbers and the Guacamole state', async ({ page }) => {
   await open(page, '/')
@@ -26,9 +27,14 @@ test('@feature:enroll create an enrolment code and see both one-liners', async (
 
 test('@feature:devices list, filter, drill into a device and export', async ({ page }) => {
   await open(page, '/devices')
-  const rows = page.getByRole('row')
-  await expect(rows.nth(1)).toBeVisible()
-  await rows.nth(1).click()
+  await page.getByRole('searchbox', { name: 'Search devices' }).fill(SEED_DEVICE)
+  await expect(page).toHaveURL(new RegExp(`q=${SEED_DEVICE}`))
+  const row = page.getByRole('row', { name: new RegExp(SEED_DEVICE) })
+  await expect(row).toHaveCount(1)
+  await page.getByRole('searchbox', { name: 'Search devices' }).fill('no-such-device-zzz')
+  await expect(page.getByRole('row', { name: new RegExp(SEED_DEVICE) })).toHaveCount(0)
+  await page.getByRole('searchbox', { name: 'Search devices' }).fill(SEED_DEVICE)
+  await row.click()
   await expect(page).toHaveURL(/\/devices\/dev_/)
   await expect(page.getByRole('tab', { name: /services/i })).toBeVisible()
   await page.goto('/devices')
@@ -37,25 +43,146 @@ test('@feature:devices list, filter, drill into a device and export', async ({ p
   expect((await dl).suggestedFilename()).toMatch(/\.csv$/)
 })
 
-test('@feature:groups create, edit and delete a group', async ({ page }) => {
+test('@feature:devices edit, disable, enable and delete a device; each change audited once', async ({ page, request }) => {
+  const stamp = Date.now().toString(36)
+  const id = await enrolDevice(request, { name: `crud-${stamp}` })
+  await open(page, `/devices/${id}`)
+
+  // Edit name, tags and notes on the Overview tab.
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`crud-renamed-${stamp}`)
+  await page.getByRole('textbox', { name: 'Tags' }).fill('kiosk, floor-2')
+  await page.getByRole('textbox', { name: 'Notes' }).fill('Front desk')
+  await page.getByRole('button', { name: 'Save changes' }).click()
+  await expect(page.getByText('Device saved')).toBeVisible()
+  await expect(page.locator('h1')).toHaveText(`crud-renamed-${stamp}`)
+  const saved = (await api(request, ADMIN, 'GET', `/api/v1/devices/${id}`)).body.data
+  expect(saved.tags).toEqual(['kiosk', 'floor-2'])
+  expect(saved.notes).toBe('Front desk')
+
+  // Disable (confirmed), then enable.
+  await page.getByRole('button', { name: 'Disable', exact: true }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Disable' }).click()
+  await expect(page.getByText('Device disabled')).toBeVisible()
+  await expect.poll(async () => (await api(request, ADMIN, 'GET', `/api/v1/devices/${id}`)).body.data.status).toBe('disabled')
+  await page.getByRole('button', { name: 'Enable', exact: true }).click()
+  await expect(page.getByText('Device enabled')).toBeVisible()
+
+  // Delete needs the name typed; Delete stays disabled until it matches.
+  await page.getByRole('button', { name: 'Delete', exact: true }).click()
+  const dlg = page.getByRole('alertdialog')
+  await expect(dlg.getByRole('button', { name: 'Delete device' })).toBeDisabled()
+  await dlg.getByRole('textbox').fill(`crud-renamed-${stamp}`)
+  await dlg.getByRole('button', { name: 'Delete device' }).click()
+  await expect(page).toHaveURL(/\/devices$/)
+  expect((await api(request, ADMIN, 'GET', `/api/v1/devices/${id}`)).status).toBe(404)
+
+  const res = `device:${id}`
+  expect(await auditFor(request, 'device.update', res)).toHaveLength(1)
+  expect(await auditFor(request, 'device.disable', res)).toHaveLength(1)
+  expect(await auditFor(request, 'device.enable', res)).toHaveLength(1)
+  expect(await auditFor(request, 'device.delete', res)).toHaveLength(1)
+})
+
+test('@feature:groups create, edit and delete a group; each change audited once', async ({ page, request }) => {
   const name = 'Journey ' + Date.now().toString(36)
   await open(page, '/groups')
   await page.getByRole('button', { name: 'New group' }).click()
   await page.getByLabel(/^name/i).fill(name)
   await page.getByRole('button', { name: 'Create group' }).click()
+  await expect(page.getByText(`Group ${name} created`)).toBeVisible()
   await expect(page.getByRole('cell', { name, exact: true })).toBeVisible()
-  await page.getByRole('row', { name: new RegExp(name) }).getByRole('button', { name: /delete/i }).click()
+  const id = (await api(request, ADMIN, 'GET', '/api/v1/groups')).body.data.find(g => g.name === name).id
+
+  // Edit: rename, describe, recolour.
+  await page.getByRole('button', { name: `Edit ${name}` }).click()
+  const drawer = page.getByRole('dialog', { name: `Edit ${name}` })
+  await drawer.getByLabel(/^name/i).fill(`${name} v2`)
+  await drawer.getByLabel('Description').fill('Second floor')
+  await drawer.getByText('rose', { exact: true }).click()
+  await drawer.getByRole('button', { name: 'Save group' }).click()
+  await expect(page.getByText(`Group ${name} v2 saved`)).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'Second floor' })).toBeVisible()
+  const after = (await api(request, ADMIN, 'GET', `/api/v1/groups/${id}`)).body.data
+  expect([after.name, after.description, after.color]).toEqual([`${name} v2`, 'Second floor', 'rose'])
+
+  await page.getByRole('button', { name: `Delete ${name} v2` }).click()
   await page.getByRole('alertdialog').getByRole('button', { name: /delete/i }).click()
-  await expect(page.getByRole('cell', { name, exact: true })).toHaveCount(0)
+  await expect(page.getByRole('cell', { name: `${name} v2`, exact: true })).toHaveCount(0)
+
+  for (const ev of ['group.create', 'group.update', 'group.delete']) expect(await auditFor(request, ev, `group:${id}`), ev).toHaveLength(1)
 })
 
-test('@feature:users add a user who can sign in later', async ({ page }) => {
+test('@feature:users add, edit, block and delete a user; each change audited once', async ({ page, request }) => {
   const email = `e2e-${Date.now().toString(36)}@example.com`
   await open(page, '/users')
   await page.getByRole('button', { name: 'Add user' }).first().click()
   await page.getByLabel(/email/i).fill(email)
   await page.getByRole('dialog').getByRole('button', { name: 'Add user' }).click()
   await expect(page.getByRole('cell', { name: email, exact: true })).toBeVisible()
+  const id = (await api(request, ADMIN, 'GET', `/api/v1/users?q=${encodeURIComponent(email)}`)).body.data[0].id
+
+  // Edit: name, role, a group, and block sign-in.
+  await page.getByRole('button', { name: `Edit ${email}` }).click()
+  const drawer = page.getByRole('dialog')
+  await drawer.getByLabel('Display name').fill('Journey Person')
+  await drawer.getByLabel('Role').selectOption('operator')
+  await drawer.getByLabel(/E2E/).check()
+  await drawer.getByText('Block sign-in', { exact: true }).click() // the switch's visible label, as a person clicks it
+  await expect(drawer.getByRole('switch', { name: 'Block sign-in' })).toBeChecked()
+  await drawer.getByRole('button', { name: 'Save user' }).click()
+  await expect(page.getByText('User saved')).toBeVisible()
+  const row = page.getByRole('row', { name: new RegExp(email) })
+  await expect(row.getByText('Blocked')).toBeVisible()
+  await expect(row.getByText('operator')).toBeVisible()
+  const u = (await api(request, ADMIN, 'GET', `/api/v1/users/${id}`)).body.data
+  expect([u.display_name, u.role, u.disabled, u.group_ids.length]).toEqual(['Journey Person', 'operator', true, 1])
+
+  // The signed-in admin cannot delete themselves: no delete button on their own row.
+  await expect(page.getByRole('button', { name: 'Delete admin@example.com' })).toHaveCount(0)
+
+  await page.getByRole('button', { name: `Delete ${email}` }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete user' }).click()
+  await expect(page.getByText('User deleted')).toBeVisible()
+  await expect(page.getByRole('cell', { name: email, exact: true })).toHaveCount(0)
+
+  for (const ev of ['user.create', 'user.update', 'user.delete']) expect(await auditFor(request, ev, `user:${id}`), ev).toHaveLength(1)
+})
+
+test('@feature:help save, edit and delete my own login for a device', async ({ page, request }) => {
+  const dev = (await api(request, ADMIN, 'GET', `/api/v1/devices?q=${SEED_DEVICE}`)).body.data.find(d => d.name === SEED_DEVICE)
+  await open(page, '/profile')
+  await page.getByRole('button', { name: 'Save a login' }).click()
+  const drawer = page.getByRole('dialog', { name: 'Save my own login' })
+  await drawer.getByLabel('Device').selectOption({ label: SEED_DEVICE })
+  await drawer.getByLabel('Service').selectOption('ssh')
+  await drawer.getByLabel('Username').fill('e2e-user')
+  await drawer.getByLabel('Password').fill('e2e-dummy-pass') // gitleaks:allow (fixture against a throwaway test bundle)
+  await drawer.getByRole('button', { name: 'Save login' }).click()
+  await expect(page.getByText('Login saved')).toBeVisible()
+  const row = page.getByRole('row', { name: new RegExp(SEED_DEVICE) })
+  await expect(row.getByText('e2e-user')).toBeVisible()
+  // The API never returns the secret.
+  const listed = (await api(request, ADMIN, 'GET', '/api/v1/me/credentials')).body.data.find(c => c.device_id === dev.id)
+  expect(JSON.stringify(listed)).not.toContain('e2e-dummy-pass')
+
+  // Edit: username changes only when the password is typed again.
+  await row.getByRole('button', { name: 'Edit' }).click()
+  const edit = page.getByRole('dialog', { name: new RegExp(`Edit my login · ${SEED_DEVICE}`) })
+  await edit.getByLabel('Username').fill('e2e-user2')
+  await edit.getByRole('button', { name: 'Save login' }).click()
+  await expect(edit.getByText(/Enter the password/)).toBeVisible()
+  await edit.getByLabel('Password').fill('e2e-dummy-pass2') // gitleaks:allow
+  await edit.getByRole('button', { name: 'Save login' }).click()
+  await expect(row.getByText('e2e-user2')).toBeVisible()
+
+  await row.getByRole('button', { name: 'Edit' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
+  await expect(page.getByText('Saved login deleted')).toBeVisible()
+  await expect(page.getByRole('row', { name: new RegExp(SEED_DEVICE) })).toHaveCount(0)
+
+  expect((await auditFor(request, 'credential.save', `device:${dev.id}`)).length).toBeGreaterThanOrEqual(2)
+  expect((await auditFor(request, 'credential.delete', `device:${dev.id}`)).length).toBeGreaterThanOrEqual(1)
 })
 
 test('@feature:sessions session tabs reflect ownership rules', async ({ page }) => {
@@ -71,15 +198,49 @@ test('@feature:integration run the Guacamole checks: every hop passes', async ({
   await expect(page.getByText('Guacamole is ready')).toBeVisible({ timeout: 15_000 })
 })
 
-test('@feature:logs logs are searchable and filter by level', async ({ page }) => {
+test('@feature:logs logs are searchable, filter by level and follow one request ID', async ({ page, request }) => {
+  // A denied request writes WARN records (authz.denied, http.denied) under one request ID.
+  const denied = await request.get(OPERATOR + '/api/v1/settings', { ignoreHTTPSErrors: true })
+  expect(denied.status()).toBe(403)
+  const rid = denied.headers()['x-request-id']
+  expect(rid).toBeTruthy()
+
   await open(page, '/logs')
   await expect(page.getByText(/http\.request|job\./).first()).toBeVisible({ timeout: 10_000 })
+  const records = page.getByRole('row').filter({ has: page.getByRole('cell') })
+
+  await page.getByRole('combobox', { name: 'Level' }).selectOption('WARN')
+  await expect(page).toHaveURL(/level=WARN/)
+  await expect(records.first()).toBeVisible()
+  await expect(records.filter({ hasText: /\bINFO\b/ })).toHaveCount(0)
+
+  await page.getByRole('searchbox', { name: 'Search' }).fill('authz.denied')
+  await expect(page).toHaveURL(/q=authz\.denied/)
+  await expect(records.filter({ hasText: 'authz.denied' }).first()).toBeVisible()
+  await expect(records.filter({ hasNotText: 'authz.denied' })).toHaveCount(0)
+
+  // Request ID: every record of the denied request, and nothing else.
+  await page.goto(`/logs?request_id=${rid}`)
+  await expect(records.first()).toBeVisible()
+  const events = await records.locator('td.mono').allTextContents()
+  expect(events.join(' ')).toMatch(/authz\.denied/)
+  expect(events.join(' ')).toMatch(/http\.denied/)
 })
 
-test('@feature:debug run a background job now', async ({ page }) => {
+test('@feature:debug run a background job now and change the log level', async ({ page, request }) => {
+  const before = (await api(request, ADMIN, 'GET', '/api/v1/jobs')).body.data.find(j => j.name === 'audit-verify').last_run_at
   await open(page, '/debug')
   await page.getByRole('row', { name: /audit-verify/ }).getByRole('button', { name: 'Run now' }).click()
-  await expect(page.getByText(/started|queued|running|accepted/i).first()).toBeVisible()
+  await expect(page.getByText('audit-verify started')).toBeVisible()
+  await expect.poll(async () => (await api(request, ADMIN, 'GET', '/api/v1/jobs')).body.data.find(j => j.name === 'audit-verify').last_run_at, { timeout: 15_000 }).not.toBe(before)
+
+  const level = page.getByRole('radiogroup', { name: 'Server log level' })
+  await level.getByText('DEBUG', { exact: true }).click()
+  await expect(page.getByText('Log level set to DEBUG')).toBeVisible()
+  await expect.poll(async () => (await api(request, ADMIN, 'GET', '/api/v1/debug/runtime')).body.data.log_level).toBe('DEBUG')
+  await level.getByText('INFO', { exact: true }).click()
+  await expect(page.getByText('Log level set to INFO')).toBeVisible()
+  await expect.poll(async () => (await api(request, ADMIN, 'GET', '/api/v1/debug/runtime')).body.data.log_level).toBe('INFO')
 })
 
 test('@feature:settings change a setting and see it persist', async ({ page, request }) => {
@@ -180,12 +341,7 @@ test('@feature:devices a removed device explains how to register the machine', a
 })
 
 test('@feature:enroll @feature:devices a wrong-machine enrolment is refused or flagged', async ({ page, request }) => {
-  const pubkey = async () => {
-    const { publicKey } = (await import('node:crypto')).generateKeyPairSync('ed25519')
-    const raw = publicKey.export({ type: 'spki', format: 'der' }).subarray(12)
-    return 'ssh-ed25519 ' + Buffer.concat([Buffer.from([0, 0, 0, 11]), Buffer.from('ssh-ed25519'), Buffer.from([0, 0, 0, 32]), raw]).toString('base64')
-  }
-  const redeem = async (code, os, hostname) => request.post(ADMIN + '/api/v1/enroll', { ignoreHTTPSErrors: true, data: { code, public_key: await pubkey(), hostname, os } })
+  const redeem = async (code, os, hostname) => request.post(ADMIN + '/api/v1/enroll', { ignoreHTTPSErrors: true, data: { code, public_key: await sshPublicKey(), hostname, os } })
   const stamp = Date.now().toString(36)
 
   // Machine type on the code: a Mac cannot use a Linux code, and the code survives.

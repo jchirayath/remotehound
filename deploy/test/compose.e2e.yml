@@ -22,8 +22,9 @@ services:
     profiles: !reset []
     environment:
       RH_CONTROL_TOKEN: e2e-test-control-token-not-a-secret-0000000000000000
-    # Docker Desktop's socket is root:root inside the VM.
-    user: "65532:0"
+    # Docker Desktop's socket is root:root inside the VM (gid 0, the default);
+    # on Linux (CI) pass the socket's group: DOCKER_GID=$(stat -c %g /var/run/docker.sock).
+    user: "65532:${DOCKER_GID:-0}"
   caddy:
     environment:
       RH_DOMAIN: localhost

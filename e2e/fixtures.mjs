@@ -46,3 +46,28 @@ export async function a11y(page) {
   const bad = r.violations.filter(v => ['serious', 'critical'].includes(v.impact))
   expect(bad.map(v => `${v.id}: ${v.nodes.length} × ${v.help}`)).toEqual([])
 }
+
+/** A fresh ed25519 public key in OpenSSH authorized_keys form. */
+export async function sshPublicKey() {
+  const { publicKey } = (await import('node:crypto')).generateKeyPairSync('ed25519')
+  const raw = publicKey.export({ type: 'spki', format: 'der' }).subarray(12)
+  const blob = Buffer.concat([Buffer.from([0, 0, 0, 11]), Buffer.from('ssh-ed25519'), Buffer.from([0, 0, 0, 32]), raw])
+  return 'ssh-ed25519 ' + blob.toString('base64')
+}
+
+/**
+ * Enrol a device through the real API (it never connects, so it stays offline).
+ * Returns the device ID.
+ */
+export async function enrolDevice(request, { name, os = 'linux', groupId, services = [{ kind: 'ssh', remote_port: 22 }] }) {
+  const enr = (await api(request, ADMIN, 'POST', '/api/v1/enrollments', { name, ...(groupId ? { group_id: groupId } : {}) })).body.data
+  const res = await request.post(ADMIN + '/api/v1/enroll', { ignoreHTTPSErrors: true, data: { code: enr.code, public_key: await sshPublicKey(), hostname: name, os, services } })
+  expect(res.status()).toBe(201)
+  return (await res.json()).data.device_id
+}
+
+/** Audit events named `event` for `resource` (e.g. "group:grp_…"). */
+export async function auditFor(request, event, resource) {
+  const r = await api(request, ADMIN, 'GET', `/api/v1/audit?page_size=500&event=${encodeURIComponent(event)}`)
+  return r.body.data.filter(e => e.event === event && e.resource === resource)
+}
