@@ -46,15 +46,20 @@ for (const [id, kind] of [[rdpDev, 'RDP'], [sshDev, 'SSH']]) {
   await check(`${d.name}: Connect ${kind} opens a Guacamole session that draws`, async () => {
     await page.goto(`${base}/devices/${id}`)
     const [tab] = await Promise.all([ctx.waitForEvent('page'), page.getByRole('button', { name: new RegExp(`Connect ${kind}`) }).first().click()])
-    await tab.waitForFunction(() => { // Guacamole's display canvas has real content
-      const c = [...document.querySelectorAll('canvas')].find(x => x.width > 200 && x.height > 200)
-      if (!c) return false
-      const px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
-      for (let i = 0; i < px.length; i += 4000) if (px[i] || px[i + 1] || px[i + 2]) return true
-      return false
-    }, null, { timeout: 60000, polling: 1000 })
-    await tab.screenshot({ path: `${outDir}/${kind}-session.png` })
-    await tab.close()
+    try {
+      // Guacamole has drawn: a large canvas with opaque pixels. Opacity, not colour: an SSH
+      // terminal is almost all black, while a canvas nothing was drawn on is transparent.
+      await tab.waitForFunction(() => [...document.querySelectorAll('canvas')].some((c) => {
+        if (c.width < 200 || c.height < 200) return false
+        const px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
+        let opaque = 0
+        for (let i = 3; i < px.length; i += 400) if (px[i] === 255) opaque++
+        return opaque > px.length / 400 / 2 // over half the samples
+      }), null, { timeout: 60000, polling: 1000 })
+    } finally {
+      await tab.screenshot({ path: `${outDir}/${kind}-session.png` }) // also on failure: shows what Guacamole did
+      await tab.close()
+    }
   })
 }
 

@@ -11,7 +11,13 @@ export const test = base.extend({
     const problems = []
     page.on('console', m => { if (m.type() === 'error' && !page.allowedErrors?.some(r => r.test(m.text()))) problems.push('console: ' + m.text()) })
     page.on('pageerror', e => problems.push('pageerror: ' + e.message))
-    page.on('requestfailed', r => { if (!/\/api\/v1\/logs\/stream/.test(r.url())) problems.push('requestfailed: ' + r.url() + ' ' + r.failure()?.errorText) })
+    // ERR_ABORTED is the browser cancelling an in-flight request because the test moved on (navigated,
+    // switched colour scheme). Over a real network (e2e/azure) that is routine; a server failure shows
+    // up as an HTTP error status or a connection error instead, which still fails the test.
+    page.on('requestfailed', r => {
+      const why = r.failure()?.errorText || ''
+      if (!/\/api\/v1\/logs\/stream/.test(r.url()) && !/ERR_ABORTED/.test(why)) problems.push('requestfailed: ' + r.url() + ' ' + why)
+    })
     await use(page)
     expect(problems, problems.join('\n')).toEqual([])
   },
