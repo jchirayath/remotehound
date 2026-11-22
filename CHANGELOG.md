@@ -6,6 +6,7 @@ Security fixes are disclosed here once users can update (VULN-7).
 ## [Unreleased]
 
 ### Added
+- Safari and iOS show the beagle icon: the console and the website now ship `favicon.ico` and `apple-touch-icon.png` next to the SVG favicon, which Safari ignores (`tools/brand/raster.mjs`).
 - Enrolment codes can be tidied: **Edit** an open code (device name, group, machine type), **Delete** a used or expired one, or **Clear used & expired** in one go (`PATCH /api/v1/enrollments/{id}`, `POST /api/v1/enrollments/cleanup`). **Created by** shows the person, not a user ID (`created_by_name`).
 
 ### Fixed

@@ -7,7 +7,9 @@ console, and why it was built next to MeshCentral.
 ```
 website/
 ├── index.html       # the page (a template: install-specific URLs are {{PLACEHOLDERS}})
-├── img/             # screenshots, and the mascot/mark/favicon written by tools/brand/build.mjs
+├── img/             # screenshots, the mascot/mark/favicon written by tools/brand/build.mjs, and
+│                    #   favicon.ico + apple-touch-icon.png from tools/brand/raster.mjs (deploy.sh also
+│                    #   publishes those two at the site root, where Safari looks for them)
 ├── deploy.sh        # render the template with local/website.env and publish it
 └── README.md
 ```

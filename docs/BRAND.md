@@ -16,6 +16,7 @@ Change the artwork there, not in the SVG files, so the files can't drift apart.
 | `web/ui/brand/mascot.svg` · `mascot-dark.svg` | Full mascot (window, beagle, signal). Sign-in page, empty states, 404, website hero. |
 | `web/ui/brand/mark.svg` · `mark-dark.svg` | Beagle head under the signal arcs. App header / sidebar, loading screen. Both files are the same; the pair is kept so `app.css`'s theme switch stays uniform. |
 | `web/ui/favicon.svg` | Browser tab icon (16 / 32 px): the head only, on a light outline. |
+| `web/ui/favicon.ico` · `apple-touch-icon.png` | Bitmap copies for Safari (which ignores SVG favicons) and iOS home screens: the favicon at 16/32/48 px, and the mark on the light panel colour at 180 px. Rendered from the SVGs by `node tools/brand/raster.mjs` (needs Chrome); re-run it after `build.mjs` and commit the output. |
 | `docs/img/logo-light.svg` · `logo-dark.svg` | Mark + "Remote**Hound**" wordmark for the README and docs. |
 | `website/img/*.svg` | Copies for the project website (written by the same script). |
 

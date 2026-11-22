@@ -46,6 +46,9 @@ STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$STAGE/img"
 cp website/img/* "$STAGE/img/"
+# Browsers (Safari especially) also ask for these at the root, without reading the page's <link> tags.
+cp website/img/favicon.ico "$STAGE/favicon.ico"
+cp website/img/apple-touch-icon.png "$STAGE/apple-touch-icon.png"
 
 # Render the template. Values are substituted literally (no shell or sed
 # expansion of their contents) and HTML-escaped.
