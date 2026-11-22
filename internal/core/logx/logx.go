@@ -27,6 +27,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -39,7 +40,7 @@ type Resource struct {
 
 var (
 	level    = new(slog.LevelVar)
-	global   *slog.Logger
+	global   atomic.Pointer[slog.Logger] // swapped by Init, read by L from any goroutine
 	ring     = NewRing(5000)
 	initOnce sync.Mutex
 )
@@ -52,16 +53,17 @@ func Init(w io.Writer, res Resource, lvl string) *slog.Logger {
 	if w == nil {
 		w = os.Stdout
 	}
-	global = slog.New(&handler{w: w, res: res, mu: &sync.Mutex{}})
-	return global
+	l := slog.New(&handler{w: w, res: res, mu: &sync.Mutex{}})
+	global.Store(l)
+	return l
 }
 
 // L returns the process logger (a discard-safe default before Init).
 func L() *slog.Logger {
-	if global == nil {
-		return Init(io.Discard, Resource{ServiceName: "remotehound"}, "INFO")
+	if l := global.Load(); l != nil {
+		return l
 	}
-	return global
+	return Init(io.Discard, Resource{ServiceName: "remotehound"}, "INFO")
 }
 
 // GetRing returns the shared in-memory ring.

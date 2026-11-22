@@ -88,7 +88,7 @@ type Server struct {
 	cfg     Config
 	sshCfg  *ssh.ServerConfig
 	hostKey ssh.Signer
-	ln      net.Listener
+	ln      atomic.Pointer[net.Listener] // set by Serve, read by Addr from other goroutines
 
 	mu    sync.RWMutex
 	conns map[string]*deviceConn // deviceID -> live connection
@@ -204,7 +204,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("ssh listen %s: %w", s.cfg.ListenAddr, err)
 	}
-	s.ln = ln
+	s.ln.Store(&ln)
 	logx.L().Info("Tunnel SSH server listening", logx.Event("tunnel.listen"), slog.String("server.address", ln.Addr().String()))
 	go func() {
 		<-ctx.Done()
@@ -229,10 +229,11 @@ func (s *Server) Serve(ctx context.Context) error {
 
 // Addr returns the bound listener address (useful when ListenAddr used :0).
 func (s *Server) Addr() net.Addr {
-	if s.ln == nil {
+	ln := s.ln.Load()
+	if ln == nil {
 		return nil
 	}
-	return s.ln.Addr()
+	return (*ln).Addr()
 }
 
 const (
