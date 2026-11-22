@@ -762,6 +762,21 @@ func missingLogin(kind, deviceOS string, p map[string]string) string {
 	return ""
 }
 
+// splitRDPDomain turns a Windows-style "DOMAIN\user" login (".\admin" for a local
+// account, "AzureAD\user@domain" for Entra) into RDP's separate domain and username.
+// FreeRDP sends the username verbatim, so unsplit it never matches an account and the
+// automatic sign-in always fails. An explicit domain option is left alone.
+func splitRDPDomain(p map[string]string) {
+	if p["domain"] != "" {
+		return
+	}
+	dom, user, ok := strings.Cut(p["username"], `\`)
+	if !ok || dom == "" || user == "" {
+		return
+	}
+	p["domain"], p["username"] = dom, user
+}
+
 // Connect mints a short-lived Guacamole connection for one service.
 func (s *Service) Connect(ctx context.Context, a *authz.Actor, id, kind string) (ConnectResult, error) {
 	d, err := s.Load(a, authz.DeviceConnect, id)
@@ -840,6 +855,7 @@ func (s *Service) Connect(ctx context.Context, a *authz.Actor, id, kind string) 
 		return ConnectResult{}, apierr.Conflict(apierr.CodeCredsRequired, msg)
 	}
 	if kind == model.ServiceRDP {
+		splitRDPDomain(params)
 		if _, ok := params["ignore-cert"]; !ok {
 			params["ignore-cert"] = "true" // the device's self-signed RDP cert, reached over our own tunnel
 		}

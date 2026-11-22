@@ -576,7 +576,7 @@
     "profile.credentials": "Your own usernames and passwords for devices. Connect uses your own login, so you get your own session; nobody — admins included — can read it.",
     "profile.credential_device": "Devices you can connect to that have at least one service.",
     "profile.credential_service": "Only the services this device offers are listed.",
-    "profile.credential_username": "The account on the device, for example your Windows or macOS user name.",
+    "profile.credential_username": "The account on the device, for example your Windows or macOS user name. For Windows, .\\name is a local account and DOMAIN\\name (AzureAD\\you@company.com for Entra) a domain one.",
     "profile.credential_password": "Your password (or, with an SSH key, the key's passphrase if it has one). Stored encrypted for you alone and never shown again; type it again whenever you save.",
     "sessions.share": "Invite one person at a time. They see the session under Shared with me and can join until the time runs out or you remove them.",
     "sessions.share_user": "People who can sign in to RemoteHound, excluding you.",

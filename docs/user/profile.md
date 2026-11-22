@@ -27,6 +27,8 @@ A saved login is your own username and password for one service (SSH, RDP or VNC
 
 The password is encrypted for you alone and never shown again — to change anything, type the password again. Select a saved login to edit or delete it.
 
+**Windows accounts.** For a local account on the PC write `.\name` (for example `.\admin`); for a domain account `DOMAIN\name`. On a PC joined to Microsoft Entra ID use `AzureAD\you@company.com`, and the account needs a password: Remote Desktop through the browser cannot do a passwordless (passkey or Authenticator) sign-in.
+
 **SSH keys.** Many Linux servers accept keys only (no passwords). For an SSH service you can paste a **private key** instead: the whole key, from `-----BEGIN … PRIVATE KEY-----` to the `END` line. If the key has a passphrase, put it in the password box; otherwise leave the password empty. The device must list the matching public key in that user's `~/.ssh/authorized_keys`. Use a key made for RemoteHound, not your personal one: it is stored encrypted for you alone, but a dedicated key can be revoked on its own.
 
 You can also save a login from a device's page: select **Use my own login** below its Connect button.

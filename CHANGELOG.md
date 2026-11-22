@@ -9,6 +9,7 @@ Security fixes are disclosed here once users can update (VULN-7).
 - Enrolment codes can be tidied: **Edit** an open code (device name, group, machine type), **Delete** a used or expired one, or **Clear used & expired** in one go (`PATCH /api/v1/enrollments/{id}`, `POST /api/v1/enrollments/cleanup`). **Created by** shows the person, not a user ID (`created_by_name`).
 
 ### Fixed
+- Remote Desktop logins written `DOMAIN\name` (`.\admin` for a local account, `AzureAD\you@company.com` for Entra) are sent with the domain separately, so Windows signs in automatically instead of failing with "no such user" and showing its sign-in screen.
 - **Edit my login** showed a blank, locked Device field and could not be saved; it now shows the login's device and saves.
 - Saving a user in **Users** no longer ends their sessions unless their role, groups or disabled state really changed (the form always sends the groups). Behind a proxy that also made the page's CSRF token stale, so the next change, e.g. Sign out, was refused once. The UI now also fetches a fresh token and retries once when the server reports `AUTH_CSRF_FAILED`.
 - Enrolment codes show who created them only to people who may see that user (the same rules as the user directory); others see "Another user", so viewers no longer learn creators' emails.
