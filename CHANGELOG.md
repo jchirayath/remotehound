@@ -11,6 +11,7 @@ Security fixes are disclosed here once users can update (VULN-7).
 ### Fixed
 - Saving a user in **Users** no longer ends their sessions unless their role, groups or disabled state really changed (the form always sends the groups). Behind a proxy that also made the page's CSRF token stale, so the next change, e.g. Sign out, was refused once. The UI now also fetches a fresh token and retries once when the server reports `AUTH_CSRF_FAILED`.
 - Enrolment codes show who created them only to people who may see that user (the same rules as the user directory); others see "Another user", so viewers no longer learn creators' emails.
+- The macOS / Linux bootstrap script passes ShellCheck (SC2209) in CI; no change in behaviour.
 
 ## [0.1.0] — 2026-11-21
 

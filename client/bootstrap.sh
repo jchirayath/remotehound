@@ -264,14 +264,14 @@ stage1() {
   # Where to install, and which service manager keeps the tunnel running.
   if [ "$RH_TEST" = 1 ]; then
     [ -n "${RH_TEST_DIR:-}" ] || die "RH_TEST_DIR must be set in test mode"
-    RH_DIR="$RH_TEST_DIR/remotehound"; RH_SUP=test
+    RH_DIR="$RH_TEST_DIR/remotehound"; RH_SUP="test"
   elif [ "$RH_OS" = linux ]; then
     if [ "$RH_ROOT" = 1 ]; then
       RH_DIR=/etc/remotehound
-      if [ -d /run/systemd/system ] && have systemctl; then RH_SUP=systemd-system; else RH_SUP=nohup; fi
+      if [ -d /run/systemd/system ] && have systemctl; then RH_SUP=systemd-system; else RH_SUP="nohup"; fi
     else
       RH_DIR="${HOME:?}/.config/remotehound"
-      if have systemctl && systemctl --user show-environment >/dev/null 2>&1; then RH_SUP=systemd-user; else RH_SUP=nohup; fi
+      if have systemctl && systemctl --user show-environment >/dev/null 2>&1; then RH_SUP=systemd-user; else RH_SUP="nohup"; fi
     fi
   else
     if [ "$RH_ROOT" = 1 ]; then RH_DIR="/Library/Application Support/RemoteHound"; RH_SUP=launchd-daemon
