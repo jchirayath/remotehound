@@ -27,6 +27,7 @@ type fakeGuac struct {
 	revoked   []string
 	lastToken string
 	loginSeen string // token / content type the last data= login reached Guacamole with
+	otherSeen string // tokens the last other request reached Guacamole with
 }
 
 func newFakeGuac(t *testing.T) *fakeGuac {
@@ -54,6 +55,9 @@ func newFakeGuac(t *testing.T) *fakeGuac {
 			f.revoked = append(f.revoked, r.Header.Get("Guacamole-Token"))
 			w.WriteHeader(204)
 		default:
+			b, _ := io.ReadAll(r.Body)
+			form, _ := url.ParseQuery(string(b))
+			f.otherSeen = "header=" + r.Header.Get("Guacamole-Token") + " query=" + r.URL.Query().Get("token") + " form=" + form.Get("token")
 			w.Header().Set("Content-Type", "application/json")
 			io.WriteString(w, "{}")
 		}
@@ -63,6 +67,16 @@ func newFakeGuac(t *testing.T) *fakeGuac {
 }
 
 func (f *fakeGuac) count() int { f.mu.Lock(); defer f.mu.Unlock(); return f.redeemed }
+
+// seen returns (and clears) the tokens the last other request reached
+// Guacamole with: "" means no request was forwarded since the last call.
+func (f *fakeGuac) seen() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	s := f.otherSeen
+	f.otherSeen = ""
+	return s
+}
 
 // waitRevoked waits up to 3 s for Guacamole to be asked to end token's session.
 func (f *fakeGuac) waitRevoked(tok string) bool {
@@ -220,8 +234,12 @@ func TestGuacamoleTokensAreBoundToTheUser(t *testing.T) {
 	if c, _ := guacDo(t, h, "POST", "/guacamole/api/tokens", url.Values{"username": {"guacadmin"}, "password": {"x"}}); c != 403 {
 		t.Fatalf("unbound login answer handed out: %d", c)
 	}
-	if c, _ := guacDo(t, h, "GET", api, nil, "Guacamole-Token", "NOT-ISSUED-HERE"); c != 403 {
-		t.Fatalf("unknown token accepted: %d", c)
+	fg.seen()
+	if c, _ := guacDo(t, h, "GET", api, nil, "Guacamole-Token", "NOT-ISSUED-HERE"); c != 200 {
+		t.Fatalf("unknown token: %d", c)
+	}
+	if got := fg.seen(); got != "header= query= form=" {
+		t.Fatalf("unknown token reached guacamole: %q", got)
 	}
 	if !auditHas(t, h, "session.guacamole_denied", "denied") {
 		t.Error("audit lacks session.guacamole_denied denied")
@@ -233,8 +251,14 @@ func TestGuacamoleTokensAreBoundToTheUser(t *testing.T) {
 		t.Fatal("logout did not revoke the Guacamole session")
 	}
 	h2 := h.asGen(adminID, 1)
-	if c, _ := guacDo(t, h2, "GET", api, nil, "Guacamole-Token", tok); c != 403 {
-		t.Fatalf("token survived sign out: %d", c)
+	// The revoked token is now stale: the gate removes it, so Guacamole sees an
+	// unauthenticated request and the token authenticates nothing.
+	fg.seen()
+	if c, _ := guacDo(t, h2, "GET", api, nil, "Guacamole-Token", tok); c != 200 {
+		t.Fatalf("revoked token: %d", c)
+	}
+	if got := fg.seen(); got != "header= query= form=" {
+		t.Fatalf("token survived sign out: guacamole saw %q", got)
 	}
 	if code, _ := redeem(t, h2, blob); code != 403 {
 		t.Fatalf("blob redeemable again after sign out: %d", code)
@@ -259,6 +283,71 @@ func TestGuacamoleTokensAreBoundToTheUser(t *testing.T) {
 	}
 	if c, _ := guacDo(t, h2, "POST", "/guacamole/api/tokens/", url.Values{"data": {sealFor(t, h, "dev@localhost")}}); c != 403 {
 		t.Fatalf("/api/tokens/ (trailing slash): %d", c)
+	}
+}
+
+// A browser tab still holding a Guacamole token RemoteHound no longer knows
+// (issued before a restart, or revoked) keeps polling /api/session and
+// re-authenticating. The gate removes such tokens and forwards the request
+// unauthenticated, so Guacamole answers as for an expired session and its app
+// stops; that is not a denial and adds nothing to the audit trail. Another
+// user's token is still refused and audited (TestGuacamoleTokensAreBoundToTheUser).
+func TestStaleGuacamoleTokenIsDroppedNotAudited(t *testing.T) {
+	fg := newFakeGuac(t)
+	h := startWith(t, map[string]string{"RH_GUAC_URL": fg.srv.URL + "/guacamole"})
+	_, own := redeem(t, h, sealFor(t, h, "dev@localhost"))
+	fg.seen()
+
+	if c, _ := guacDo(t, h, "HEAD", "/guacamole/api/session?token=STALE", nil, "Guacamole-Token", "STALE"); c != 200 {
+		t.Fatalf("stale-token keepalive: %d", c)
+	}
+	if got := fg.seen(); got != "header= query= form=" {
+		t.Fatalf("stale token reached guacamole: %q", got)
+	}
+	if c, _ := guacDo(t, h, "POST", "/guacamole/tunnel?connect", url.Values{"token": {"STALE"}}); c != 200 {
+		t.Fatalf("stale form token: %d", c)
+	}
+	if got := fg.seen(); got != "header= query= form=" {
+		t.Fatalf("stale form token reached guacamole: %q", got)
+	}
+	// Only the stale token goes: the user's own live token alongside it stays.
+	if c, _ := guacDo(t, h, "GET", "/guacamole/api/session/data/json/self?token=STALE", nil, "Guacamole-Token", own); c != 200 {
+		t.Fatalf("own token with a stale one: %d", c)
+	}
+	if got := fg.seen(); got != "header="+own+" query= form=" {
+		t.Fatalf("guacamole saw %q", got)
+	}
+	if auditHas(t, h, "session.guacamole_denied", "denied") {
+		t.Error("a stale token was audited as a denial")
+	}
+
+	// Denied paths. Every Guacamole-Token value is checked (the proxy forwards
+	// them all): a stale one first must not hide another user's token behind
+	// it, nor may an empty one. A stale token in the path cannot be stripped.
+	var u struct{ Data struct{ ID string } }
+	h.do("POST", "/api/v1/users", map[string]any{"email": "op@example.com", "role": "operator"}, 201, &u)
+	op := h.as(u.Data.ID)
+	for _, first := range []string{"STALE", ""} {
+		req, _ := http.NewRequest("GET", h.srv.URL+"/guacamole/api/session/data/json/self", nil)
+		req.Header.Add("Guacamole-Token", first)
+		req.Header.Add("Guacamole-Token", own)
+		resp, err := op.client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != 403 {
+			t.Fatalf("other user's token behind %q: %d", first, resp.StatusCode)
+		}
+	}
+	if c, _ := guacDo(t, h, "DELETE", "/guacamole/api/tokens/STALE", nil); c != 403 {
+		t.Fatalf("stale token in the path: %d", c)
+	}
+	if got := fg.seen(); got != "" {
+		t.Fatalf("a denied request reached guacamole: %q", got)
+	}
+	if !auditHas(t, h, "session.guacamole_denied", "denied") {
+		t.Error("the foreign token was not audited")
 	}
 }
 

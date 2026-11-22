@@ -191,6 +191,25 @@ func (s *Sessions) bindLocked(token, userID string, now time.Time) {
 	s.tokens[token] = &tokenInfo{userID: userID, lastUsed: now}
 }
 
+// Stale returns the tokens this process does not track: issued before a
+// restart, revoked, pruned, or never issued here. The proxy removes them
+// before forwarding, so they authenticate nothing.
+func (s *Sessions) Stale(tokens []string) map[string]bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.init()
+	var out map[string]bool
+	for _, t := range tokens {
+		if _, ok := s.tokens[t]; !ok {
+			if out == nil {
+				out = map[string]bool{}
+			}
+			out[t] = true
+		}
+	}
+	return out
+}
+
 // Allow checks every token a request by userID carries and returns, from
 // the same locked section, the user's revocation generation (for Bind).
 func (s *Sessions) Allow(userID string, tokens []string, now time.Time) (uint64, error) {

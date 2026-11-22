@@ -110,6 +110,14 @@ func TestTokenAndBlobBinding(t *testing.T) {
 	if cached, err := s.Redeem("usr_a", "a@example.com", blob, now); err != nil || string(cached) != `{"authToken":"TA"}` {
 		t.Fatalf("same-user repeat: %s %v", cached, err)
 	}
+	// Stale: only tokens not tracked; another user's token is not stale (Allow refuses it).
+	if st := s.Stale([]string{"TA", "OLD"}); len(st) != 1 || !st["OLD"] {
+		t.Fatalf("stale: %v", st)
+	}
+	s.Revoke(context.Background(), "usr_a")
+	if st := s.Stale([]string{"TA"}); !st["TA"] {
+		t.Fatalf("revoked token not stale: %v", st)
+	}
 }
 
 // TOCTOU: a re-auth answer is bound only if the presented token is still the

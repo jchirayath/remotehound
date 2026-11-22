@@ -5,6 +5,9 @@ Security fixes are disclosed here once users can update (VULN-7).
 
 ## [Unreleased]
 
+### Fixed
+- A Guacamole tab left open across a RemoteHound restart or Sign out no longer adds a `session.guacamole_denied` entry to the audit log every few minutes. Its stale token is removed before the request reaches Guacamole, which answers as for an expired session (logged as `guacamole.stale_token`). Another user's token is still refused and audited. Every `Guacamole-Token` header value is now checked, not only the first.
+
 ## [0.1.0] — 2026-11-22
 
 First public release.

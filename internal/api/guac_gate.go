@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	"github.com/jchirayath/remotehound/internal/core/apierr"
 	"github.com/jchirayath/remotehound/internal/core/audit"
 	"github.com/jchirayath/remotehound/internal/core/authz"
+	"github.com/jchirayath/remotehound/internal/core/logx"
 	"github.com/jchirayath/remotehound/internal/guac"
 )
 
@@ -60,7 +62,7 @@ func (s *Server) guacGate(next http.Handler) http.Handler {
 			// A login with a connect blob: any token sent along is the browser's
 			// stale one (Guacamole's app always sends it). The gate removes it
 			// itself, from header, query and body, so only the blob counts.
-			dropTokens(r, form)
+			dropTokens(r, form, func(string) bool { return true })
 			cached, err := s.GuacSessions.Redeem(a.UserID, a.Email, data, now)
 			if err != nil {
 				s.guacDenied(w, r, err)
@@ -83,6 +85,18 @@ func (s *Server) guacGate(next http.Handler) http.Handler {
 			return
 		}
 		toks := guacTokens(r, form)
+		if stale := s.GuacSessions.Stale(toks); len(stale) > 0 {
+			// A token this process does not track (issued before a restart, or
+			// revoked) is what a browser tab left open sends while it polls. Strip
+			// it and forward the request unauthenticated: Guacamole answers as for
+			// an expired session and its app stops. A token in the path cannot be
+			// stripped; it stays and is refused below. Another user's token is
+			// not stale and is refused (and audited) by Allow.
+			dropTokens(r, form, func(t string) bool { return stale[t] })
+			logx.L().InfoContext(r.Context(), "Stale Guacamole token removed", logx.Event("guacamole.stale_token"),
+				slog.Int("app.count", len(stale)))
+			toks = guacTokens(r, form)
+		}
 		gen, err := s.GuacSessions.Allow(a.UserID, toks, now) // tokens and generation checked together
 		if err != nil {
 			s.guacDenied(w, r, err)
@@ -143,15 +157,41 @@ func formOf(r *http.Request) (url.Values, error) {
 	return url.ParseQuery(string(b))
 }
 
-// dropTokens removes every Guacamole token from r (header, query, form body).
-func dropTokens(r *http.Request, form url.Values) {
-	r.Header.Del("Guacamole-Token")
+// dropTokens removes the Guacamole tokens drop selects from r's header, query
+// and form body (not from the path).
+func dropTokens(r *http.Request, form url.Values, drop func(string) bool) {
+	keep := func(vs []string) (out []string) {
+		for _, v := range vs {
+			if !drop(v) {
+				out = append(out, v)
+			}
+		}
+		return out
+	}
+	if vs := r.Header.Values("Guacamole-Token"); len(vs) > 0 {
+		r.Header.Del("Guacamole-Token")
+		for _, v := range keep(vs) {
+			r.Header.Add("Guacamole-Token", v)
+		}
+	}
 	if q := r.URL.Query(); q.Has("token") {
-		q.Del("token")
-		r.URL.RawQuery = q.Encode()
+		if kept := keep(q["token"]); len(kept) != len(q["token"]) {
+			q["token"] = kept
+			if len(kept) == 0 {
+				q.Del("token")
+			}
+			r.URL.RawQuery = q.Encode()
+		}
 	}
 	if form.Has("token") {
-		form.Del("token")
+		kept := keep(form["token"])
+		if len(kept) == len(form["token"]) {
+			return
+		}
+		form["token"] = kept
+		if len(kept) == 0 {
+			form.Del("token")
+		}
 		b := []byte(form.Encode())
 		r.Body = io.NopCloser(bytes.NewReader(b))
 		r.ContentLength = int64(len(b))
@@ -167,7 +207,9 @@ func guacTokens(r *http.Request, form url.Values) []string {
 			out = append(out, t)
 		}
 	}
-	add(r.Header.Get("Guacamole-Token"))
+	for _, t := range r.Header.Values("Guacamole-Token") { // every value: the proxy forwards them all
+		add(t)
+	}
 	for _, t := range r.URL.Query()["token"] {
 		add(t)
 	}
