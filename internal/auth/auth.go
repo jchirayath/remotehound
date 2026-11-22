@@ -32,7 +32,11 @@ type Authenticator struct {
 	ProxyEmail     string
 	ProxyName      string
 	ProxyGroups    string
+	ProxySubject   string // optional header with the IdP's stable subject (identity key when set)
 	ProxySecret    []byte
+	// OnAccessChange runs after Resolve changed a user's role (an IdP group
+	// mapping change), so live desktop sessions can be ended (api.endUserAccess).
+	OnAccessChange func(ctx context.Context, userID, reason string)
 }
 
 func (a *Authenticator) timeouts() (idle, abs time.Duration) {
@@ -97,7 +101,9 @@ func (a *Authenticator) fromProxy(r *http.Request) (*authz.Actor, *Session) {
 			slog.String("app.reason", "untrusted_peer"))
 		return nil, nil
 	}
-	if len(a.ProxySecret) > 0 && subtle.ConstantTimeCompare([]byte(r.Header.Get("X-RemoteHound-Proxy-Secret")), a.ProxySecret) != 1 {
+	// Fail closed: config refuses proxy mode without the shared value, and an
+	// empty one here must never mean "no check".
+	if len(a.ProxySecret) == 0 || subtle.ConstantTimeCompare([]byte(r.Header.Get("X-RemoteHound-Proxy-Secret")), a.ProxySecret) != 1 {
 		// A trusted address without the secret: a misconfigured proxy, or
 		// something else on the proxy's network. Worth a warning.
 		logx.L().WarnContext(r.Context(), "Proxy identity ignored: proxy secret missing or wrong", logx.Event("auth.proxy_rejected"),
@@ -113,6 +119,17 @@ func (a *Authenticator) fromProxy(r *http.Request) (*authz.Actor, *Session) {
 		return nil, nil
 	}
 	id := Identity{Provider: "proxy", Subject: email, Email: email, EmailVerified: true, Name: truncateStr(r.Header.Get(a.ProxyName), 128)}
+	if a.ProxySubject != "" {
+		sub := strings.TrimSpace(r.Header.Get(a.ProxySubject))
+		if sub == "" || len(sub) > 256 {
+			logx.L().DebugContext(r.Context(), "Proxy identity missing: no usable subject header", logx.Event("auth.proxy_rejected"),
+				slog.String("app.reason", "no_subject"), slog.String("app.header", a.ProxySubject))
+			return nil, nil
+		}
+		// Own namespace: a subject can never equal (and so resolve to) a
+		// legacy email-keyed "proxy" identity.
+		id.Provider, id.Subject, id.MigrateFrom = ProxySubjectProvider, sub, email
+	}
 	if g := r.Header.Get(a.ProxyGroups); g != "" {
 		for _, p := range strings.Split(g, ",") {
 			if p = strings.TrimSpace(p); p != "" {
@@ -127,6 +144,10 @@ func (a *Authenticator) fromProxy(r *http.Request) (*authz.Actor, *Session) {
 	sid := "proxy:" + u.ID + ":" + itoa(u.SessionGen)
 	return actorOf(u), &Session{UserID: u.ID, Gen: u.SessionGen, SID: sid, CSRF: a.Sessions.CSRFToken(sid)}
 }
+
+// ProxySubjectProvider is the identity namespace for proxy users keyed on
+// RH_PROXY_SUBJECT_HEADER (email-keyed proxy users are "proxy").
+const ProxySubjectProvider = "proxy-sub"
 
 func itoa(n int) string {
 	if n == 0 {
@@ -156,8 +177,17 @@ func (a *Authenticator) Resolve(ctx context.Context, id Identity, linkTo string,
 	if id.Provider == "" || id.Subject == "" {
 		return nil, apierr.Forbidden("The sign-in did not return a usable identity.")
 	}
+	// Proxy mode resolves on EVERY request: answer from a read-only view when
+	// nothing would change, so the store is not rewritten (and fsynced) per request.
+	if linkTo == "" && !interactive {
+		if u, ok, err := a.lookup(id); ok {
+			return u, err
+		}
+	}
 	var out *model.User
+	roleChanged := false
 	err := a.Store.Update(func(s *model.State) error {
+		roleChanged = false
 		now := time.Now().UTC()
 		mapped := mappedRole(s.Settings.RolesMap, id.Groups)
 		var u *model.User
@@ -165,6 +195,22 @@ func (a *Authenticator) Resolve(ctx context.Context, id Identity, linkTo string,
 			if c.HasIdentity(id.Provider, id.Subject) {
 				u = c
 				break
+			}
+		}
+		if u == nil && id.MigrateFrom != "" && strings.EqualFold(id.MigrateFrom, id.Email) {
+			// Only the legacy identity keyed on exactly this request's
+			// (proxy-verified) email; never anything matched by the subject.
+			for _, c := range s.Users {
+				for i := range c.Identities {
+					if c.Identities[i].Provider == "proxy" && c.Identities[i].Subject == id.MigrateFrom {
+						c.Identities[i].Provider, c.Identities[i].Subject = id.Provider, id.Subject // the email no longer identifies anyone
+						c.Touch(now)
+						u = c
+					}
+				}
+				if u != nil {
+					break
+				}
 			}
 		}
 		link := func(c *model.User) {
@@ -208,8 +254,11 @@ func (a *Authenticator) Resolve(ctx context.Context, id Identity, linkTo string,
 				Email: id.Email, DisplayName: personName(id.Name), Role: role, GroupIDs: []string{}, Theme: "system"}
 			link(u)
 			s.Users[u.ID] = u
-		} else if mapped != "" && mapped != u.Role && !(u.Role == model.RoleAdmin && countAdmins(s) == 1) {
+		} else if remap(s, u, mapped) {
 			u.Role = mapped
+			u.SessionGen++ // new rights apply now, as for an admin's edit
+			u.Touch(now)
+			roleChanged = true
 		}
 		if u.Disabled {
 			return apierr.Forbidden("Your RemoteHound account is disabled.")
@@ -230,7 +279,48 @@ func (a *Authenticator) Resolve(ctx context.Context, id Identity, linkTo string,
 		out = &cp
 		return nil
 	})
+	if err == nil && roleChanged && a.OnAccessChange != nil {
+		a.OnAccessChange(ctx, out.ID, "role_mapping")
+	}
 	return out, err
+}
+
+// remap reports whether roles_map now grants u a different role (never
+// demoting the last admin).
+func remap(s *model.State, u *model.User, mapped string) bool {
+	return mapped != "" && mapped != u.Role && !(u.Role == model.RoleAdmin && countAdmins(s) == 1)
+}
+
+// lookup is Resolve's read-only fast path: ok=false means "a write may be
+// needed, use the transaction". It answers only for an already-linked user
+// whose role and name would stay the same.
+func (a *Authenticator) lookup(id Identity) (out *model.User, ok bool, err error) {
+	a.Store.View(func(s *model.State) {
+		var u *model.User
+		for _, c := range s.Users {
+			if c.HasIdentity(id.Provider, id.Subject) {
+				u = c
+				break
+			}
+		}
+		if u == nil {
+			return
+		}
+		if u.Disabled {
+			err, ok = apierr.Forbidden("Your RemoteHound account is disabled."), true
+			return
+		}
+		if remap(s, u, mappedRole(s.Settings.RolesMap, id.Groups)) {
+			return
+		}
+		if personName(u.DisplayName) == "" && personName(id.Name) != u.DisplayName {
+			return
+		}
+		cp := *u
+		cp.GroupIDs = append([]string{}, u.GroupIDs...)
+		out, ok = &cp, true
+	})
+	return out, ok, err
 }
 
 func mappedRole(m map[string]string, groups []string) string {

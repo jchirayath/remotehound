@@ -23,6 +23,7 @@ import (
 	"github.com/jchirayath/remotehound/internal/core/apierr"
 	"github.com/jchirayath/remotehound/internal/core/audit"
 	"github.com/jchirayath/remotehound/internal/core/authz"
+	"github.com/jchirayath/remotehound/internal/core/ids"
 	"github.com/jchirayath/remotehound/internal/core/logx"
 	"github.com/jchirayath/remotehound/internal/core/metrics"
 )
@@ -214,9 +215,24 @@ func securityHeaders(next http.Handler) http.Handler {
 	})
 }
 
+// publicPath reports routes that never need an identity. Identity headers or
+// cookies on them are not even looked at, so a request to an ungated path can
+// never create or modify a user (and costs no store access).
+func publicPath(p string) bool {
+	switch p {
+	case "/healthz", "/readyz", "/signed-out", "/auth/providers", "/api/v1/enroll", "/api/v1/enroll/status", "/favicon.ico":
+		return true
+	}
+	return strings.HasPrefix(p, "/ui/") || strings.HasPrefix(p, "/e/") || strings.HasPrefix(p, "/docs/")
+}
+
 // authenticate loads the actor (if any) into the context.
 func (s *Server) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if publicPath(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
 		actor, sess := s.Auth.Authenticate(w, r)
 		ctx := r.Context()
 		if actor != nil {
@@ -305,23 +321,9 @@ func (l *limiter) allow(key string) bool {
 	return true
 }
 
-// limitKey groups IPv6 clients by /64 (one customer allocation), so address
-// rotation inside a prefix does not multiply the budget.
-func limitKey(ip string) string {
-	a, err := netip.ParseAddr(ip)
-	if err != nil || a.Is4() || a.Is4In6() {
-		return ip
-	}
-	p, err := a.Prefix(64)
-	if err != nil {
-		return ip
-	}
-	return p.String()
-}
-
 func (s *Server) limit(l *limiter, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		key := limitKey(clientIP(r, s.TrustedProxies))
+		key := ids.ClientKey(clientIP(r, s.TrustedProxies))
 		if a := authz.ActorFrom(r.Context()); !a.Anonymous() {
 			key = a.UserID
 		}

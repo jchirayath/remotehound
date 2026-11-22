@@ -68,3 +68,75 @@ func TestGuacLoginWithDataDropsStaleToken(t *testing.T) {
 		t.Fatalf("token refresh altered: form=%v header=%q", got, gotHeader)
 	}
 }
+
+// The proxy forwards no identity, proxy-secret or sign-in-proxy material to
+// Guacamole: X-Auth-Request-*, the configured identity headers, and every
+// cookie except the allow-listed Tomcat one.
+func TestGuacProxyStripsIdentityHeadersAndCookies(t *testing.T) {
+	var got *http.Request
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { got = r.Clone(r.Context()) }))
+	defer backend.Close()
+	u, _ := url.Parse(backend.URL + "/guacamole")
+	h := GuacProxy(u, "X-Custom-Email", "X-Custom-Sub")
+	req := httptest.NewRequest("GET", "/guacamole/api/languages", nil)
+	for _, k := range []string{"X-Auth-Request-Email", "X-Auth-Request-User", "X-Auth-Request-Groups", "X-Auth-Request-Access-Token",
+		"X-Forwarded-Email", "X-Forwarded-User", "X-Forwarded-Groups", "X-Forwarded-Preferred-Username", "X-Forwarded-Access-Token",
+		"X-Custom-Email", "X-Custom-Sub", "X-RemoteHound-Proxy-Secret", "Authorization", "X-CSRF-Token"} {
+		req.Header.Set(k, "secret-value")
+	}
+	req.Header.Set("Guacamole-Token", "TOK")
+	req.Header.Set("Cookie", "_oauth2_proxy=abc; __Host-rh_session=x; rh_flow=y; other=z; JSESSIONID=keep")
+	h.ServeHTTP(httptest.NewRecorder(), req)
+	if got == nil {
+		t.Fatal("request not forwarded")
+	}
+	for k, v := range got.Header {
+		if strings.Contains(strings.Join(v, ","), "secret-value") {
+			t.Errorf("forwarded %s", k)
+		}
+	}
+	if got.Header.Get("Guacamole-Token") != "TOK" {
+		t.Error("Guacamole's own token header was dropped")
+	}
+	if c := got.Header.Get("Cookie"); c != "JSESSIONID=keep" {
+		t.Errorf("cookies forwarded: %q", c)
+	}
+}
+
+// Tomcat treats ";" as a path parameter, so "..;" walks out of the context
+// path. The proxy refuses any path containing ";" (raw or encoded).
+func TestGuacProxyRejectsPathParameters(t *testing.T) {
+	hit := false
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { hit = true }))
+	defer backend.Close()
+	u, _ := url.Parse(backend.URL + "/guacamole")
+	h := GuacProxy(u)
+	for _, p := range []string{"/guacamole/..;/manager/html", "/guacamole/api;x=1/tokens", "/guacamole/%2e%2e%3b/manager"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest("GET", p, nil))
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: %d, want 400", p, rec.Code)
+		}
+	}
+	if hit {
+		t.Fatal("a path with ';' reached Guacamole")
+	}
+}
+
+// The proxy recognises a form body exactly as the gate does (guac.BodyKind):
+// an unusual spelling of the media type still drops the stale token.
+func TestGuacLoginFormDetectionMatchesGate(t *testing.T) {
+	var got url.Values
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		got, _ = url.ParseQuery(string(b))
+	}))
+	defer backend.Close()
+	u, _ := url.Parse(backend.URL + "/guacamole")
+	req := httptest.NewRequest("POST", "/guacamole/api/tokens", strings.NewReader("token=OLD&data=BLOB"))
+	req.Header.Set("Content-Type", "Application/X-WWW-Form-Urlencoded;Charset=UTF-8")
+	GuacProxy(u).ServeHTTP(httptest.NewRecorder(), req)
+	if got.Get("token") != "" || got.Get("data") != "BLOB" {
+		t.Fatalf("stale token kept for an odd media-type spelling: %v", got)
+	}
+}

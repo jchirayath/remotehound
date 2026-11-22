@@ -27,6 +27,7 @@ help — the request ID finds the exact log lines on the **Logs** screen (filter
 | `CREDENTIALS_REQUIRED` | Mac Screen Sharing, or Remote Desktop with Network Level Authentication, needs a username and password before it starts. | Save them with **Use my own login** on the device page, then connect. |
 | `ENROLL_WRONG_OS` | The code was made for another kind of machine (macOS, Linux or Windows). | Run it on the machine it was made for, or create a code for this OS. The code is still usable. |
 | `ENROLL_CODE_EXPIRED` | The code expired. | Create a new one (the lifetime is set in Settings). |
+| `SETTINGS_PUBLIC_URL_INVALID` | The stored public address is not a plain https URL (it may predate a stricter check), so no enrolment command can be built from it. | An admin sets **Settings → Public URL** to e.g. `https://rh.example.com` (letters, digits, `. - / _ ~` only), then creates the code again. |
 | `ENROLL_KEY_INVALID` | The device sent an unusable key. | Re-run the command; it generates a fresh key. |
 | `GROUP_NOT_EMPTY` | The group still has devices. | Move or delete them first. |
 | `GROUP_NOT_FOUND` | The group does not exist. | Pick an existing group. |

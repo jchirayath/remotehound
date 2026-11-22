@@ -33,10 +33,11 @@ type Server struct {
 	Commit         string
 	StartedAt      time.Time
 	SSHListen      string
-	Static         http.Handler // the SPA (index.html fallback)
-	Docs           http.Handler // /docs/{page}.md
-	GuacProxy      http.Handler // <GuacPath>/*
-	GuacPath       string       // e.g. /guacamole
+	Static         http.Handler   // the SPA (index.html fallback)
+	Docs           http.Handler   // /docs/{page}.md
+	GuacProxy      http.Handler   // <GuacPath>/*
+	GuacPath       string         // e.g. /guacamole
+	GuacSessions   *guac.Sessions // binds Guacamole tokens and connect blobs to users (nil: no binding)
 	OnLogLevel     func(level string)
 	Services       *services.Sources // the Services screen's report builder
 	Control        *control.Client   // nil when rh-control is not configured
@@ -161,7 +162,7 @@ func (s *Server) Routes() http.Handler {
 
 	// Guacamole (authenticated: our session is checked before Guacamole's token).
 	if s.GuacProxy != nil {
-		mux.Handle(s.GuacPath+"/", s.requireGuacSession(s.GuacProxy))
+		mux.Handle(s.GuacPath+"/", s.requireGuacSession(s.guacGate(s.GuacProxy)))
 	}
 	if s.Docs != nil {
 		mux.Handle("GET /docs/{page}", s.Docs)

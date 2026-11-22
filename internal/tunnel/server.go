@@ -18,6 +18,7 @@ package tunnel
 
 import (
 	"bufio"
+	"container/list"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -37,9 +38,11 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode"
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/jchirayath/remotehound/internal/core/ids"
 	"github.com/jchirayath/remotehound/internal/core/logx"
 	"github.com/jchirayath/remotehound/internal/core/metrics"
 	"github.com/jchirayath/remotehound/internal/model"
@@ -93,8 +96,8 @@ type Server struct {
 	mu    sync.RWMutex
 	conns map[string]*deviceConn // deviceID -> live connection
 
-	perIP   sync.Map // ip -> *int64 concurrent unauthenticated handshakes
-	preauth atomic.Int64
+	pending        *pending      // unauthenticated handshakes
+	preauthTimeout time.Duration // pre-auth budget (tests shorten it)
 }
 
 // New loads or creates the host key and prepares the server.
@@ -106,8 +109,18 @@ func New(cfg Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{cfg: cfg, hostKey: signer, conns: map[string]*deviceConn{}}
+	s := &Server{cfg: cfg, hostKey: signer, conns: map[string]*deviceConn{},
+		pending: newPending(maxHandshakesPerClient, maxHandshakesPerIPv6Net, maxHandshakesTotal), preauthTimeout: preauthTimeout}
 	s.sshCfg = &ssh.ServerConfig{
+		// No SHA-1 key exchange or MAC. Every client the bootstrap supports
+		// (OpenSSH ≥ 7.4, incl. Windows 10's 7.7) offers curve25519-sha256 and
+		// AES-GCM / chacha20 / hmac-sha2-*-etm. Ciphers stay at the x/crypto
+		// defaults (no CBC/RC4); strict-kex is added by x/crypto regardless.
+		Config: ssh.Config{
+			KeyExchanges: []string{ssh.KeyExchangeMLKEM768X25519, ssh.KeyExchangeCurve25519, ssh.KeyExchangeECDHP256,
+				ssh.KeyExchangeECDHP384, ssh.KeyExchangeECDHP521, ssh.KeyExchangeDH14SHA256},
+			MACs: []string{ssh.HMACSHA256ETM, ssh.HMACSHA512ETM, ssh.HMACSHA256, ssh.HMACSHA512},
+		},
 		ServerVersion:     "SSH-2.0-RemoteHound",
 		MaxAuthTries:      2,
 		PublicKeyCallback: s.authenticate,
@@ -236,34 +249,144 @@ func (s *Server) Addr() net.Addr {
 	return (*ln).Addr()
 }
 
+// Pre-auth limits. A client is ids.ClientKey (IPv4 address, IPv6 /64); an
+// IPv6 /48 (ids.ClientNetKey) is capped too, so rotating /64s inside one site
+// allocation does not multiply the budget. A real device finishes its
+// handshake in well under a second, so a short budget plus "evict from the
+// busiest client" when full means a flood of slow handshakes delays devices by
+// at most a retry instead of locking them out: a client holding one pending
+// handshake is evicted only once every pending client holds just one.
 const (
-	maxHandshakesPerIP = 8
-	maxHandshakesTotal = 256
+	maxHandshakesPerClient  = 8
+	maxHandshakesPerIPv6Net = 64
+	maxHandshakesTotal      = 1024
+	preauthTimeout          = 5 * time.Second
 )
+
+// pending tracks unauthenticated handshakes per client, oldest first.
+type pending struct {
+	mu        sync.Mutex
+	perClient int
+	perNet    int
+	total     int
+	n         int
+	seq       uint64
+	byClient  map[string]int // pending per client key (mirrors len(lists[key]))
+	byNet     map[string]int // pending per IPv6 /48
+	lists     map[string]*list.List
+}
+
+type pendingConn struct {
+	c        net.Conn
+	key, net string
+	seq      uint64
+	el       *list.Element // nil once released or evicted
+}
+
+func newPending(perClient, perNet, total int) *pending {
+	return &pending{perClient: perClient, perNet: perNet, total: total,
+		byClient: map[string]int{}, byNet: map[string]int{}, lists: map[string]*list.List{}}
+}
+
+// admit registers a handshake from ip. It refuses when that client (or its
+// IPv6 /48) is at its cap; when the table is full it closes the oldest pending
+// handshake of the client holding the most (ties: the oldest overall) instead
+// of refusing the new one.
+func (p *pending) admit(ip string, c net.Conn) (*pendingConn, bool) {
+	key, nk := ids.ClientKey(ip), ids.ClientNetKey(ip)
+	p.mu.Lock()
+	if p.byClient[key] >= p.perClient || (nk != "" && p.byNet[nk] >= p.perNet) {
+		p.mu.Unlock()
+		metrics.Default.Inc("remotehound_tunnel_preauth_refused_total", "Unauthenticated SSH handshakes refused at the per-client or per-/48 cap.")
+		return nil, false
+	}
+	var evicted net.Conn
+	if p.n >= p.total {
+		var victim *pendingConn
+		for _, l := range p.lists {
+			old := l.Front().Value.(*pendingConn)
+			if victim == nil || l.Len() > p.byClient[victim.key] || (l.Len() == p.byClient[victim.key] && old.seq < victim.seq) {
+				victim = old
+			}
+		}
+		p.removeLocked(victim)
+		evicted = victim.c
+	}
+	p.seq++
+	pc := &pendingConn{c: c, key: key, net: nk, seq: p.seq}
+	l := p.lists[key]
+	if l == nil {
+		l = list.New()
+		p.lists[key] = l
+	}
+	pc.el = l.PushBack(pc)
+	p.byClient[key]++
+	if nk != "" {
+		p.byNet[nk]++
+	}
+	p.n++
+	p.mu.Unlock()
+	if evicted != nil {
+		metrics.Default.Inc("remotehound_tunnel_preauth_evicted_total", "Unauthenticated SSH handshakes closed to make room when the table was full.")
+		evicted.Close() // its NewServerConn fails, and done reports the eviction
+	}
+	return pc, true
+}
+
+// done releases pc and reports whether it still owned its slot: false means
+// it was evicted (its conn is closed) and the handshake must be abandoned even
+// if it completed. Idempotent.
+func (p *pending) done(pc *pendingConn) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if pc.el == nil {
+		return false
+	}
+	p.removeLocked(pc)
+	return true
+}
+
+// removeLocked drops pc; maps lose a key with its last handshake (bounded).
+func (p *pending) removeLocked(pc *pendingConn) {
+	l := p.lists[pc.key]
+	l.Remove(pc.el)
+	pc.el = nil
+	p.n--
+	if l.Len() == 0 {
+		delete(p.lists, pc.key)
+	}
+	if p.byClient[pc.key]--; p.byClient[pc.key] <= 0 {
+		delete(p.byClient, pc.key)
+	}
+	if pc.net != "" {
+		if p.byNet[pc.net]--; p.byNet[pc.net] <= 0 {
+			delete(p.byNet, pc.net)
+		}
+	}
+}
+
+func (p *pending) count() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.n
+}
 
 func (s *Server) handshake(ctx context.Context, c net.Conn) {
 	ip := hostOnly(c.RemoteAddr())
-	if s.preauth.Add(1) > maxHandshakesTotal {
-		s.preauth.Add(-1)
+	pc, ok := s.pending.admit(ip, c)
+	if !ok {
 		c.Close()
 		return
 	}
-	cnt, _ := s.perIP.LoadOrStore(ip, new(int64))
-	n := cnt.(*int64)
-	release := func() {
-		s.preauth.Add(-1)
-		if atomic.AddInt64(n, -1) <= 0 {
-			s.perIP.Delete(ip) // bounded map: no entry outlives its handshakes
-		}
-	}
-	if atomic.AddInt64(n, 1) > maxHandshakesPerIP {
-		release()
-		c.Close()
-		return
-	}
-	_ = c.SetDeadline(time.Now().Add(15 * time.Second)) // pre-auth budget
+	_ = c.SetDeadline(time.Now().Add(s.preauthTimeout))
 	sconn, chans, reqs, err := ssh.NewServerConn(c, s.sshCfg)
-	release()
+	owned := s.pending.done(pc)
+	if err == nil && !owned {
+		// Evicted just as authentication completed: the conn is already closed,
+		// so finish cleanly rather than register a dead tunnel.
+		sconn.Close()
+		err = net.ErrClosed
+	}
 	if err != nil {
 		c.Close()
 		return
@@ -841,11 +964,28 @@ func (dc *deviceConn) readClientLog(ch ssh.Channel) {
 		if len(line) > 500 {
 			line = line[:500]
 		}
-		lines = append(lines, line)
+		lines = append(lines, cleanLogLine(line))
 	}
 	if len(lines) > 0 {
 		dc.srv.cfg.Hooks.ClientLog(dc.id, lines)
 	}
+}
+
+// cleanLogLine makes a device-supplied log line safe to show: valid UTF-8,
+// without control characters (C0 except tab, DEL, C1: terminal escapes in a
+// CLI), format characters (Cf: bidi controls, zero-width characters, BOM,
+// interlinear annotations, tag characters: text that reads differently from
+// what it is) or line/paragraph separators (Zl, Zp).
+func cleanLogLine(s string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r == '\t':
+			return r
+		case r < 0x20, r >= 0x7f && r <= 0x9f, unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp):
+			return -1
+		}
+		return r
+	}, strings.ToValidUTF8(s, ""))
 }
 
 // ParseAgentCommand validates `agent v1 key=value …` and extracts facts.

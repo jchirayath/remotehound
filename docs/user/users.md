@@ -17,6 +17,7 @@ The Users screen controls who can sign in, what they can do and which devices th
 
 - **Block sign-in** suspends a user immediately and ends their sessions, but keeps them in the list and in the audit log.
 - **Delete** removes the user. Their audit history is kept.
+- Blocking or deleting someone, or changing their role or groups, also **closes any remote desktop or terminal they have open** right away, including sessions they joined from someone else. They can connect again with their new rights.
 
 ## Safety rules
 

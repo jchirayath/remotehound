@@ -75,7 +75,13 @@ services:
       options: { max-size: "10m", max-file: "3" }
 
   guacamole:
-    image: guacamole/guacamole:1.6.0@sha256:f344085e618bb05e22b964b0208dbd06d3468275bac70206f93805245e067b40
+    # Guacamole 1.6.0 rebuilt on a current Tomcat with only the JSON-auth
+    # extension and patched Jackson/Guava (deploy/guacamole/Dockerfile): the
+    # stock image carries 18 critical / 120 high CVEs in Tomcat 9.0.106 and
+    # unused extensions. `docker compose up -d --build` builds it.
+    image: rh-guacamole:1.6.0
+    build:
+      context: ./guacamole
     restart: unless-stopped
     environment:
       GUACD_HOSTNAME: guacd
@@ -94,6 +100,10 @@ services:
     logging: *logging
 
   guacd:
+    # Stock image: built on Alpine 3.18 (end of life). Rebuilding 1.6.0 on a
+    # supported Alpine needs upstream recipe changes (FreeRDP 2 and GCC 14,
+    # FreeRDP 3 and cJSON); tracked in docs/THREAT_MODEL.md. The confinement
+    # below (no capabilities, read-only root, internal network) is the mitigation.
     image: guacamole/guacd:1.6.0@sha256:8974eaa9ba32f713daf311e7cc8cd7e4cdfba1edea39eed75524e78ef4b08f4f
     restart: unless-stopped
     environment:
@@ -115,7 +125,7 @@ services:
     logging: *logging
 
   caddy:
-    image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    image: caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0
     restart: unless-stopped
     environment:
       RH_DOMAIN: ${RH_DOMAIN:?set RH_DOMAIN in .env, e.g. rh.example.com}

@@ -6,6 +6,7 @@ localhost {
 	reverse_proxy remotehound:8080 {
 		header_up X-Forwarded-Email admin@example.com
 		header_up X-Forwarded-User "E2E Admin"
+		header_up X-RemoteHound-Proxy-Secret e2e-test-proxy-value-not-a-secret
 		transport http {
 			read_timeout 0
 			write_timeout 0
@@ -19,6 +20,7 @@ localhost:8444 {
 	reverse_proxy remotehound:8080 {
 		header_up X-Forwarded-Email op@example.com
 		header_up X-Forwarded-User "E2E Operator"
+		header_up X-RemoteHound-Proxy-Secret e2e-test-proxy-value-not-a-secret
 		transport http {
 			read_timeout 0
 			write_timeout 0

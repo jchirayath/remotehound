@@ -20,6 +20,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/jchirayath/remotehound/internal/core/validate"
 )
 
 // Key documents one environment variable.
@@ -53,8 +55,9 @@ var Keys = []Key{
 	{Name: "RH_PROXY_EMAIL_HEADER", Default: "X-Forwarded-Email", Help: "proxy mode: header carrying the authenticated user's email."},
 	{Name: "RH_PROXY_NAME_HEADER", Default: "X-Forwarded-User", Help: "proxy mode: header carrying the display name / user."},
 	{Name: "RH_PROXY_GROUPS_HEADER", Default: "X-Forwarded-Groups", Help: "proxy mode: comma-separated groups (mapped through the roles_map setting)."},
+	{Name: "RH_PROXY_SUBJECT_HEADER", Default: "", Help: "proxy mode, optional: header carrying the IdP's stable subject (e.g. X-Auth-Request-User from oauth2-proxy). When set, it is the identity key and the email header is for display and first-time matching only, so an email change or reuse at the IdP cannot move an account. Empty = identity keyed on the email header. On first sign-in after enabling it, a user's existing email-keyed proxy identity is converted to the subject."},
 	{Name: "RH_TRUSTED_PROXIES", Default: "", Help: "Comma-separated CIDRs allowed to set X-Forwarded-For and (proxy mode) identity headers, e.g. 172.18.0.0/16."},
-	{Name: "RH_PROXY_SECRET", Secret: true, Help: "proxy mode, optional: value the proxy must send in X-RemoteHound-Proxy-Secret."},
+	{Name: "RH_PROXY_SECRET", Secret: true, Required: "when RH_AUTH_MODE=proxy", Help: "proxy mode: value the proxy must send in X-RemoteHound-Proxy-Secret on every request (generate with: remotehound gen-secret). Required: a trusted CIDR alone would admit anything else on that network."},
 	{Name: "RH_PROXY_LOGOUT_URL", Default: "", Help: "proxy mode, optional: where Sign out sends the browser so the PROXY's session ends too, e.g. https://sso.example.com/oauth2/sign_out?rd=https%3A%2F%2Frh.example.com%2Fsigned-out. Without it Sign out only ends RemoteHound's session and the proxy signs you straight back in."},
 	{Name: "RH_PROJECT_URL", Default: "https://github.com/jchirayath/remotehound", Help: "Where Overview's \"Learn more about RemoteHound\" link goes: the project site, or your own page about this install."},
 	{Name: "RH_IDP_LOGOUT_URL", Default: "", Help: "Optional: identity provider sign-out page offered on the signed-out screen (e.g. https://login.microsoftonline.com/common/oauth2/v2.0/logout), for shared computers."},
@@ -158,6 +161,7 @@ type Config struct {
 	ProxyEmailHeader    string
 	ProxyNameHeader     string
 	ProxyGroupsHeader   string
+	ProxySubjectHeader  string
 	TrustedProxies      []netip.Prefix
 	ProxySecret         string
 	ProxyLogoutURL      string
@@ -224,6 +228,7 @@ func Load(lookup func(string) (string, bool)) (*Config, error) {
 		ProxyEmailHeader:    get("RH_PROXY_EMAIL_HEADER"),
 		ProxyNameHeader:     get("RH_PROXY_NAME_HEADER"),
 		ProxyGroupsHeader:   get("RH_PROXY_GROUPS_HEADER"),
+		ProxySubjectHeader:  get("RH_PROXY_SUBJECT_HEADER"),
 		ProxySecret:         get("RH_PROXY_SECRET"),
 		ProxyLogoutURL:      get("RH_PROXY_LOGOUT_URL"),
 		IdPLogoutURL:        get("RH_IDP_LOGOUT_URL"),
@@ -276,6 +281,9 @@ func Load(lookup func(string) (string, bool)) (*Config, error) {
 	}
 	if u, err := parseHTTPURL(get("RH_PUBLIC_URL"), c.Development()); err != nil {
 		bad("RH_PUBLIC_URL", err.Error())
+	} else if !validate.PublicURL(get("RH_PUBLIC_URL"), c.Development()) {
+		// It seeds settings.public_url, which is substituted into the bootstrap scripts.
+		bad("RH_PUBLIC_URL", "use only letters, digits and . - / _ ~ (e.g. https://rh.example.com); no quotes, spaces, query or non-ASCII")
 	} else {
 		c.PublicURL = u
 	}
@@ -376,6 +384,9 @@ func Load(lookup func(string) (string, bool)) (*Config, error) {
 	case "proxy":
 		if get("RH_TRUSTED_PROXIES") == "" {
 			bad("RH_TRUSTED_PROXIES", "required when RH_AUTH_MODE=proxy (identity headers are only trusted from these networks)")
+		}
+		if c.ProxySecret == "" {
+			bad("RH_PROXY_SECRET", "required when RH_AUTH_MODE=proxy: configure the proxy to send it in X-RemoteHound-Proxy-Secret (generate with: remotehound gen-secret); a trusted network alone admits anything else on it")
 		}
 	case "dev":
 		if !c.Development() {

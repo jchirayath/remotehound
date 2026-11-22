@@ -291,6 +291,7 @@ var (
 	longB64      = regexp.MustCompile(`[A-Za-z0-9+/_-]{40,}={0,2}`)
 	privKey      = regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(-----END [A-Z ]*PRIVATE KEY-----|$)`)
 	guacData     = regexp.MustCompile(`([?&]data=)[^&#\s]+`)
+	enrolCode    = regexp.MustCompile(`((?:^|\s|//[^/\s]+)/e/)[A-Za-z0-9]{4,16}\b`) // /e/<code> at the start of a path
 	fingerprint  = regexp.MustCompile(`SHA256:[A-Za-z0-9+/]{43}`)
 	// key=value / key: value / "key":"value" pairs in third-party output
 	// (container logs on the Services screen, bundle logs).
@@ -324,6 +325,7 @@ func Redact(s string) string {
 	s = privKey.ReplaceAllString(s, redacted)
 	s = secretPair.ReplaceAllString(s, "${1}${2}"+redacted)
 	s = guacData.ReplaceAllString(s, "${1}"+redacted)
+	s = enrolCode.ReplaceAllString(s, "${1}"+redacted)
 	s = jwtPattern.ReplaceAllString(s, redacted)
 	s = bearer.ReplaceAllString(s, "$1 "+redacted)
 	s = longHex.ReplaceAllString(s, redacted)

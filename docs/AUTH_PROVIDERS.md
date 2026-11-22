@@ -92,4 +92,9 @@ tests in `internal/auth/auth_test.go` for its verification and rejection paths.
 
 ## Not using a provider
 `RH_AUTH_MODE=proxy` trusts identity headers from an authenticating proxy you already run (oauth2-proxy,
-Caddy `forward_auth`, Authelia, Cloudflare Access…) — only from `RH_TRUSTED_PROXIES`.
+Caddy `forward_auth`, Authelia, Cloudflare Access…) — only from `RH_TRUSTED_PROXIES`, and only when the
+request carries `X-RemoteHound-Proxy-Secret` equal to `RH_PROXY_SECRET`, which is **required** in proxy mode
+(RemoteHound refuses to start without it). By default the email header is the identity key; set
+`RH_PROXY_SUBJECT_HEADER` to the header carrying the IdP's stable subject (oauth2-proxy:
+`X-Auth-Request-User`) to key identities on it instead — existing users are converted on their next request.
+Make sure the proxy always overwrites (never passes through) that header.

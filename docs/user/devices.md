@@ -19,7 +19,7 @@ On the device page, each configured service has a **Connect** button: SSH, RDP o
 
 - On a computer the session opens in a new tab; on a phone it opens in the same tab.
 - A button is disabled when the device is offline, disabled, or not forwarding that service. The reason is shown on the button.
-- The connection link is valid for about a minute. If a tab shows an expired link, select **Connect** again.
+- The connection link is valid for about a minute and works only for you: it opens one remote session, and reloading that tab returns to the same session. Nobody else can use the link, even if you send it to them. If a tab shows an expired or used link, select **Connect** again.
 
 Viewers cannot connect; Operators and Admins can.
 

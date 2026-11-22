@@ -97,6 +97,42 @@ func (c *Collector) Hostname(p, v string) bool {
 	return false
 }
 
+// publicURLRe is the ONLY shape a public URL may have: it is substituted into
+// the bootstrap scripts (inside PowerShell and sh string literals) and into
+// the copy-paste one-liners, so it is a strict ASCII allow-list — no quotes
+// of any kind (PowerShell also treats ‘ ’ ‚ ‛ “ ” „ as quotes), no spaces,
+// no %, $, `, ?, #, @ or other non-ASCII.
+var publicURLRe = regexp.MustCompile(`^(https?)://[A-Za-z0-9.-]+(:([0-9]{1,5}))?(/[A-Za-z0-9._~/-]*)?$`)
+
+// PublicURL reports whether v is an acceptable public URL: https (http only
+// when allowHTTP, i.e. development), a plain host[:port] and an optional
+// path from the allow-list above.
+func PublicURL(v string, allowHTTP bool) bool {
+	m := publicURLRe.FindStringSubmatch(v)
+	if m == nil || len(v) > 2048 || (m[1] == "http" && !allowHTTP) {
+		return false
+	}
+	if m[3] != "" {
+		n := 0
+		for _, d := range m[3] {
+			n = n*10 + int(d-'0')
+		}
+		if n < 1 || n > 65535 {
+			return false
+		}
+	}
+	return true
+}
+
+// PublicURL records INVALID_URL when v is not an acceptable public URL.
+func (c *Collector) PublicURL(p, v string, allowHTTP bool) bool {
+	if PublicURL(v, allowHTTP) {
+		return true
+	}
+	c.Add(p, "INVALID_URL", "Use the https address people reach RemoteHound at, e.g. https://rh.example.com (letters, digits, . - / _ ~ only).")
+	return false
+}
+
 // Email checks an address (empty passes).
 func (c *Collector) Email(p, v string) bool {
 	if v == "" {

@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jchirayath/remotehound/internal/auth"
+	"github.com/jchirayath/remotehound/internal/guac"
 )
 
 // SPA serves files from ui (rooted at web/ui) under /ui/ and index.html for
@@ -105,10 +105,20 @@ func Docs(docs fs.FS) http.Handler {
 }
 
 // GuacProxy forwards /guacamole/* (HTTP and WebSocket) to the internal
-// Guacamole app. RemoteHound's own cookies are stripped so Guacamole never
-// sees the operator's session, and the relaxed CSP Guacamole's client needs is
-// scoped to this path only.
-func GuacProxy(target *url.URL) http.Handler {
+// Guacamole app. Guacamole never sees the operator's session or the sign-in
+// proxy's: every cookie except Tomcat's JSESSIONID, every X-Auth-Request-*
+// header, the usual X-Forwarded-* identity headers and identityHeaders (the
+// configured RH_PROXY_*_HEADER names) are dropped. Paths containing ";" are
+// refused (Tomcat path parameters: "..;" escapes the context path). The
+// relaxed CSP Guacamole's client needs is scoped to this path only.
+func GuacProxy(target *url.URL, identityHeaders ...string) http.Handler {
+	strip := []string{"X-RemoteHound-Proxy-Secret", "X-Forwarded-Email", "X-Forwarded-User", "X-Forwarded-Groups",
+		"X-Forwarded-Preferred-Username", "X-Forwarded-Access-Token", "X-CSRF-Token", "Authorization"}
+	for _, h := range identityHeaders {
+		if h != "" {
+			strip = append(strip, h)
+		}
+	}
 	rp := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(&url.URL{Scheme: target.Scheme, Host: target.Host})
@@ -117,8 +127,13 @@ func GuacProxy(target *url.URL) http.Handler {
 			pr.Out.Host = target.Host
 			pr.SetXForwarded()
 			stripCookies(pr.Out)
-			for _, h := range []string{"X-RemoteHound-Proxy-Secret", "X-Forwarded-Email", "X-Forwarded-User", "X-Forwarded-Groups", "X-CSRF-Token", "Authorization"} {
+			for _, h := range strip {
 				pr.Out.Header.Del(h)
+			}
+			for k := range pr.Out.Header {
+				if strings.HasPrefix(http.CanonicalHeaderKey(k), "X-Auth-Request-") {
+					pr.Out.Header.Del(k)
+				}
 			}
 		},
 		ModifyResponse: func(resp *http.Response) error {
@@ -138,6 +153,10 @@ func GuacProxy(target *url.URL) http.Handler {
 		FlushInterval: -1, // stream (the HTTP tunnel fallback is long-polling)
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, ";") || strings.Contains(strings.ToLower(r.URL.RawPath), "%3b") {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
 		if err := freshGuacLogin(r); err != nil {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
@@ -157,10 +176,10 @@ func GuacProxy(target *url.URL) http.Handler {
 // the stale token so Guacamole creates a fresh session for exactly that blob.
 // Earlier sessions keep running on their own tunnels and tokens.
 func freshGuacLogin(r *http.Request) error {
-	if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/api/tokens") {
+	if !guac.IsTokensLogin(r) { // the same test as api.guacGate
 		return nil
 	}
-	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
+	if guac.BodyKind(r) != guac.BodyForm { // the same classification as api.guacGate
 		return nil
 	}
 	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
@@ -193,13 +212,16 @@ var mimeByExt = map[string]string{
 	".ico": "image/x-icon", ".map": "application/json", ".txt": "text/plain; charset=utf-8",
 }
 
+// guacCookies are the only cookies Guacamole may receive (it keeps its own
+// auth token in the page, not in a cookie).
+var guacCookies = map[string]bool{"JSESSIONID": true}
+
 func stripCookies(r *http.Request) {
 	cs := r.Cookies()
 	r.Header.Del("Cookie")
 	for _, c := range cs {
-		if c.Name == auth.SessionCookie || c.Name == auth.CSRFCookie || strings.HasPrefix(c.Name, "rh_") {
-			continue
+		if guacCookies[c.Name] {
+			r.AddCookie(c)
 		}
-		r.AddCookie(c)
 	}
 }

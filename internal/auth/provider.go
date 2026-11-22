@@ -42,6 +42,10 @@ type Identity struct {
 	EmailVerified bool
 	Name          string
 	Groups        []string // values of the roles claim (OIDC) — mapped through Settings.roles_map
+	// MigrateFrom (proxy mode with a subject header): the request's verified
+	// email. If no user has this provider:subject yet, the user whose legacy
+	// "proxy" identity is keyed on exactly that email has it converted, once.
+	MigrateFrom string
 
 	emailFromFallback bool // Email came from preferred_username, not the email claim
 }

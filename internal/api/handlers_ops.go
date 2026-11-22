@@ -121,6 +121,9 @@ func (s *Server) unshareSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) joinSession(w http.ResponseWriter, r *http.Request) {
+	if !s.can(w, r, authz.SessionRead) {
+		return
+	}
 	out, err := s.Devices.Join(r.Context(), authz.ActorFrom(r.Context()), r.PathValue("id"))
 	if err != nil {
 		s.fail(w, r, err)

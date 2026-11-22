@@ -12,6 +12,10 @@ When only one method is enabled, RemoteHound sends you straight to it. Organisat
 
 Every sign-in, and everything you do while signed in, is recorded in the [audit log](/docs/audit) with your name, role and IP address.
 
+## Signing out
+
+**Sign out** ends your RemoteHound session everywhere and also closes any remote desktop or terminal tabs you have open: their Guacamole sessions are revoked and the browser forgets Guacamole's saved sign-in. Behind a sign-in proxy you are then sent to the proxy's own sign-out page.
+
 ## Linking more than one method
 
 You can link several providers to the same RemoteHound account on your [Profile](/docs/profile), so you can still sign in if one provider is unavailable.

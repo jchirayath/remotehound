@@ -105,7 +105,7 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("tunnel: %w", err)
 	}
 	devs.Tunnel = tun
-	enr := &enroll.Service{Store: st, Audit: aud, Secrets: sec, Devices: devs, Tunnel: tun}
+	enr := &enroll.Service{Store: st, Audit: aud, Secrets: sec, Devices: devs, Tunnel: tun, AllowHTTP: cfg.Development()}
 
 	internalHTTP := httpx.New(httpx.Options{Timeout: 8 * time.Second, AllowPrivate: []string{cfg.GuacURL.Hostname()}})
 	checker := &guac.Checker{GuacURL: cfg.GuacURL, GuacdAddr: cfg.GuacdAddr, Key: sec.GuacJSONKey.Bytes(), HTTP: internalHTTP,
@@ -119,7 +119,7 @@ func New(cfg *config.Config) (*App, error) {
 	sessions := &auth.Sessions{Key: sec.SessionKey.Bytes(), Secure: cfg.PublicURL.Scheme == "https"}
 	authn := &auth.Authenticator{Mode: cfg.AuthMode, Store: st, Audit: aud, Sessions: sessions, BootstrapAdmin: cfg.BootstrapAdmin,
 		TrustedProxies: cfg.TrustedProxies, ProxyEmail: cfg.ProxyEmailHeader, ProxyName: cfg.ProxyNameHeader,
-		ProxyGroups: cfg.ProxyGroupsHeader, ProxySecret: sec.ProxySecret.Bytes()}
+		ProxyGroups: cfg.ProxyGroupsHeader, ProxySubject: cfg.ProxySubjectHeader, ProxySecret: sec.ProxySecret.Bytes()}
 	switch cfg.AuthMode {
 	case "oauth":
 		var ps []auth.Provider
@@ -146,7 +146,8 @@ func New(cfg *config.Config) (*App, error) {
 	srv := &api.Server{Store: st, Audit: aud, Auth: authn, Devices: devs, Enroll: enr, Tunnel: tun, Guac: checker, Jobs: reg,
 		TrustedProxies: cfg.TrustedProxies, RecordingsDir: cfg.RecordingsDir, Version: version, Commit: Commit,
 		StartedAt: time.Now(), SSHListen: cfg.SSHAddr, Static: web.SPA(uiweb.UI()), Docs: web.Docs(docs.User),
-		GuacProxy: web.GuacProxy(cfg.GuacURL), GuacPath: cfg.GuacPublicPath, AllowHTTPPublicURL: cfg.Development()}
+		GuacProxy: web.GuacProxy(cfg.GuacURL, cfg.ProxyEmailHeader, cfg.ProxyNameHeader, cfg.ProxyGroupsHeader, cfg.ProxySubjectHeader), GuacPath: cfg.GuacPublicPath,
+		GuacSessions: &guac.Sessions{GuacURL: cfg.GuacURL, HTTP: internalHTTP, Key: sec.GuacJSONKey.Bytes()}, AllowHTTPPublicURL: cfg.Development()}
 	var ctl *control.Client
 	if cfg.ControlURL != "" {
 		u, _ := url.Parse(cfg.ControlURL) // validated by config.Load
@@ -174,6 +175,7 @@ func New(cfg *config.Config) (*App, error) {
 		GuacKey: sec.GuacJSONKey.Bytes(), TunnelHost: cfg.TunnelAdvertiseHost, RecordingOn: checker.RecordingEnabled,
 		RecordingPath: cfg.GuacRecordingPath, Logs: logx.GetRing().Query, Control: ctl,
 	}
+	authn.OnAccessChange = srv.EndUserAccess // IdP role-mapping changes end live sessions too
 	a.API = srv
 	a.Handler = srv.Routes()
 

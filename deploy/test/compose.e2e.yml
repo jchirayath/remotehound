@@ -16,6 +16,8 @@ services:
       RH_CONTROL_URL: http://rh-control:9091
       RH_CONTROL_TOKEN: e2e-test-control-token-not-a-secret-0000000000000000
       RH_PROXY_LOGOUT_URL: /signed-out
+      # Proxy mode requires the shared header value; fixed TEST value, sent by Caddyfile.e2e.
+      RH_PROXY_SECRET: e2e-test-proxy-value-not-a-secret
   rh-control:
     profiles: !reset []
     environment:

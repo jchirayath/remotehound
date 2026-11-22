@@ -15,7 +15,7 @@ func env(m map[string]string) func(string) (string, bool) {
 func base() map[string]string {
 	return map[string]string{
 		"RH_PUBLIC_URL": "https://rh.example.com", "RH_AUTH_MODE": "proxy", "RH_TRUSTED_PROXIES": "172.18.0.0/16",
-		"RH_SECRET_KEY": strings.Repeat("ab", 32), "RH_GUAC_JSON_SECRET": strings.Repeat("cd", 16),
+		"RH_PROXY_SECRET": "a-shared-proxy-value", "RH_SECRET_KEY": strings.Repeat("ab", 32), "RH_GUAC_JSON_SECRET": strings.Repeat("cd", 16),
 	}
 }
 
@@ -141,7 +141,7 @@ func TestTunnelBindAndEntraTenantGuards(t *testing.T) {
 // @feature:services
 func TestSignOutAndControlURLsValidated(t *testing.T) {
 	base := map[string]string{"RH_ENV": "development", "RH_AUTH_MODE": "proxy", "RH_TRUSTED_PROXIES": "10.0.0.2/32",
-		"RH_PUBLIC_URL": "https://rh.example.com"}
+		"RH_PUBLIC_URL": "https://rh.example.com", "RH_PROXY_SECRET": "a-shared-proxy-value"}
 	load := func(extra map[string]string) error {
 		m := map[string]string{}
 		for k, v := range base {
@@ -188,5 +188,40 @@ func TestLoadControlRequiresToken(t *testing.T) {
 	})
 	if err != nil || c.Listen != ":9091" || c.DockerSocket != "/var/run/docker.sock" {
 		t.Fatalf("defaults: %+v %v", c, err)
+	}
+}
+
+func TestPublicURLIsStrictASCII(t *testing.T) {
+	for _, u := range []string{"https://rh.example.com/’", "https://rh.example.com/“", "https://rh.example.com/„", "https://rh.example.com/‛",
+		"https://rh.exämple.com", "https://rh.example.com/a b", "https://rh.example.com/'x'", `https://rh.example.com/"`} {
+		m := base()
+		m["RH_PUBLIC_URL"] = u
+		if _, err := Load(env(m)); err == nil || !strings.Contains(err.Error(), "RH_PUBLIC_URL") {
+			t.Errorf("%q accepted: %v", u, err)
+		}
+	}
+}
+
+// S4: proxy mode refuses to start without the shared secret (a trusted CIDR
+// alone admits anything else on that network), in development too.
+func TestProxyModeRequiresSecret(t *testing.T) {
+	for _, envName := range []string{"production", "development"} {
+		m := base()
+		m["RH_ENV"] = envName
+		delete(m, "RH_PROXY_SECRET")
+		_, err := Load(env(m))
+		if err == nil || !strings.Contains(err.Error(), "RH_PROXY_SECRET") {
+			t.Fatalf("%s: want RH_PROXY_SECRET error, got %v", envName, err)
+		}
+	}
+	m := base()
+	m["RH_PROXY_SUBJECT_HEADER"] = "X-Auth-Request-User"
+	c, err := Load(env(m))
+	if err != nil || c.ProxySubjectHeader != "X-Auth-Request-User" {
+		t.Fatalf("subject header: %v %+v", err, c)
+	}
+	c, _ = Load(env(base()))
+	if c.ProxySubjectHeader != "" {
+		t.Fatal("subject header must default to empty (email is the identity key)")
 	}
 }

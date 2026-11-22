@@ -237,6 +237,7 @@ paths:
       responses: { "200": { description: list, content: { application/json: { schema: { $ref: "#/components/schemas/EnrollmentList" } } } } }
     post:
       tags: [enrollments]
+      summary: "Create a code (409 SETTINGS_PUBLIC_URL_INVALID when the stored public_url fails the allow-list: no command is built from it)"
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EnrollmentCreate" } } } }
       responses: { "201": { description: created (the only time `code` and the commands are returned), content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/EnrollmentCreated" } } } } } } }
   /api/v1/enrollments/{id}:
@@ -276,13 +277,13 @@ paths:
     post: { tags: [sessions], summary: "End a live session at the tunnel (owner or admin; audited)", responses: { "202": { description: accepted } } }
   /api/v1/sessions/{id}/shares:
     parameters: [ { $ref: "#/components/parameters/Id" } ]
-    post: { tags: [sessions], summary: "Owner invites a user to join (view or control) for ttl_minutes (5–480, default 60)", requestBody: { required: true, content: { application/json: { schema: { type: object, required: [user_id, mode], properties: { user_id: { type: string }, mode: { type: string, enum: [view, control] }, ttl_minutes: { type: integer, minimum: 5, maximum: 480 } } } } } }, responses: { "200": { description: session, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Session" } } } } } }, "403": { $ref: "#/components/responses/Problem" } } }
+    post: { tags: [sessions], summary: "Owner invites a user to join (view or control) for ttl_minutes (5–480, default 60). The recipient must be in the device's group or an admin (400 NO_ACCESS).", requestBody: { required: true, content: { application/json: { schema: { type: object, required: [user_id, mode], properties: { user_id: { type: string }, mode: { type: string, enum: [view, control] }, ttl_minutes: { type: integer, minimum: 5, maximum: 480 } } } } } }, responses: { "200": { description: session, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Session" } } } } } }, "403": { $ref: "#/components/responses/Problem" } } }
   /api/v1/sessions/{id}/shares/{user_id}:
     parameters: [ { $ref: "#/components/parameters/Id" }, { name: user_id, in: path, required: true, schema: { type: string } } ]
     delete: { tags: [sessions], summary: Remove a share (owner or admin), responses: { "200": { description: session, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Session" } } } } } } } }
   /api/v1/sessions/{id}/join:
     parameters: [ { $ref: "#/components/parameters/Id" } ]
-    post: { tags: [sessions], summary: "Join a live session: owner (rejoin) or a user with a live share only — no role bypasses this", responses: { "200": { description: join url, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/ConnectResult" } } } } } }, "403": { $ref: "#/components/responses/Problem" } } }
+    post: { tags: [sessions], summary: "Join a live session: the owner while they may still device.connect its device (rejoin), or a user with a live share only — no role bypasses this", responses: { "200": { description: join url, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/ConnectResult" } } } } } }, "403": { $ref: "#/components/responses/Problem" }, "404": { $ref: "#/components/responses/Problem" } } }
   /api/v1/recordings:
     get: { tags: [sessions], summary: List session recordings, responses: { "200": { description: list, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Recording" } } } } } } } } }
   /api/v1/recordings/{name}:
@@ -529,7 +530,7 @@ components:
     Settings:
       type: object
       properties:
-        public_url: { type: string }
+        public_url: { type: string, pattern: "^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~/-]*)?$", description: "https (http only in development); substituted into the bootstrap scripts, so a strict ASCII allow-list" }
         ssh_public_host: { type: string }
         ssh_public_port: { type: integer }
         enrollment_ttl_minutes: { type: integer, minimum: 5, maximum: 1440 }

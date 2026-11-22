@@ -1,12 +1,44 @@
 // Package ids generates opaque identifiers and secret codes from crypto/rand
-// (SEC-21). It is the only place random identifiers are made.
+// (SEC-21). It is the only place random identifiers are made. It also owns
+// ClientKey, the one definition of "the same client" every limiter uses.
 package ids
 
 import (
 	"crypto/rand"
 	"encoding/hex"
 	"math/big"
+	"net/netip"
 )
+
+// ClientKey identifies a client for rate and abuse limits: an IPv4 address
+// (IPv4-mapped IPv6 is unmapped, so both spellings are one client), an IPv6
+// address by its /64 (one customer allocation), so rotating addresses inside
+// a prefix does not multiply a budget. Used by the HTTP limiter, the tunnel's
+// pre-auth limiter and the enrolment miss limiter.
+func ClientKey(ip string) string { return prefixKey(ip, 64, ip) }
+
+// ClientNetKey is the wider IPv6 network a client sits in (its /48, a typical
+// site allocation), for caps above the per-client one; "" for IPv4 and
+// unparsable input.
+func ClientNetKey(ip string) string { return prefixKey(ip, 48, "") }
+
+func prefixKey(ip string, bits int, fallback string) string {
+	a, err := netip.ParseAddr(ip)
+	if err != nil {
+		return fallback
+	}
+	if a = a.Unmap(); a.Is4() {
+		if bits == 64 {
+			return a.String()
+		}
+		return ""
+	}
+	p, err := a.Prefix(bits)
+	if err != nil {
+		return fallback
+	}
+	return p.String()
+}
 
 // idAlphabet is lower-case base32-ish without look-alikes; IDs are opaque (API-6).
 const idAlphabet = "abcdefghjkmnpqrstuvwxyz23456789"

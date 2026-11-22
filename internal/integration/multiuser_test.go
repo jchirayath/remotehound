@@ -20,6 +20,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/jchirayath/remotehound/internal/guac"
+	"github.com/jchirayath/remotehound/internal/model"
 )
 
 // enrolOnline enrols a device into group and brings its SSH forward online.
@@ -313,8 +314,15 @@ func TestControlShareDowngradedForViewer(t *testing.T) {
 	}
 	h.do("GET", "/api/v1/users/"+u.Data.ID, nil, 200, &cur)
 	h.do("PATCH", "/api/v1/users/"+u.Data.ID, map[string]any{"role": "viewer"}, 200, nil, "If-Match", cur.Data.ETag)
-	// The demotion bumped the user's session generation to 1; sign in again as them.
+	// The demotion bumped the user's session generation to 1 and removed the
+	// shares they held (S1); sign in again as them: no rejoin.
 	v := h.asGen(u.Data.ID, 1)
+	v.do("POST", "/api/v1/sessions/"+sid+"/join", nil, 404, nil)
+	// Defence in depth: even a control share held by a viewer joins read-only.
+	h.app.Store.Update(func(st *model.State) error { //nolint:errcheck
+		st.Sessions[sid].Shares = []model.Share{{UserID: u.Data.ID, Mode: model.ShareControl, CreatedAt: time.Now(), ExpiresAt: time.Now().Add(time.Hour)}}
+		return nil
+	})
 	v.do("POST", "/api/v1/sessions/"+sid+"/join", nil, 200, &conn)
 	for _, c := range openBlob(t, h, conn.Data.URL).Connections {
 		if c.Parameters["read-only"] != "true" {

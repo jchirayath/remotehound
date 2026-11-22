@@ -61,8 +61,8 @@ func writeBody(w http.ResponseWriter, v any) {
 	encodeJSON(w, v)
 }
 
-// script serves the bootstrap for /e/{code}[.sh|.ps1]. Wrong-code floods
-// trip the global brake in enroll.Throttled.
+// script serves the bootstrap for /e/{code}[.sh|.ps1]. Wrong codes are
+// limited per client (and in total) by the enroll service.
 func (s *Server) script(w http.ResponseWriter, r *http.Request) {
 	code := r.PathValue("code")
 	ps := strings.Contains(r.UserAgent(), "PowerShell")
@@ -75,10 +75,10 @@ func (s *Server) script(w http.ResponseWriter, r *http.Request) {
 	code = strings.ToLower(code)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	_, state := s.Enroll.Lookup(code)
+	body, state := s.Enroll.Script(code, clientIP(r, s.TrustedProxies), ps)
 	logx.L().InfoContext(r.Context(), "Bootstrap script requested", logx.Event("enrollment.script"),
 		attrStr("app.enrollment.state", state), attrBool("app.powershell", ps))
-	_, _ = w.Write([]byte(s.Enroll.Script(code, ps)))
+	_, _ = w.Write([]byte(body))
 }
 
 func (s *Server) redeem(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +87,7 @@ func (s *Server) redeem(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	res, err := s.Enroll.Redeem(r.Context(), req)
+	res, err := s.Enroll.Redeem(r.Context(), clientIP(r, s.TrustedProxies), req)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -242,7 +242,13 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 		}
 		return nil
 	})
-	s.Audit.Record(r.Context(), "auth.logout", audit.Success, "", nil)
+	// Guacamole keeps its own token in the browser; without this a desktop
+	// (or its token) would outlive Sign out.
+	revoked := 0
+	if s.GuacSessions != nil {
+		revoked = s.GuacSessions.Revoke(r.Context(), a.UserID)
+	}
+	s.Audit.Record(r.Context(), "auth.logout", audit.Success, "", map[string]any{"guacamole_sessions": revoked})
 	s.Auth.Sessions.Clear(w)
 	// Behind a sign-in proxy our session is the proxy's: ending only ours
 	// would sign the user straight back in on the next request. Tell the
@@ -255,7 +261,8 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 // requireGuacSession gates the Guacamole proxy with our own session (any
-// role that may connect). The redeem itself is still Guacamole's check.
+// role that may connect); guacGate then ties Guacamole's tokens and connect
+// blobs to that user.
 func (s *Server) requireGuacSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		a := authz.ActorFrom(r.Context())
@@ -268,8 +275,8 @@ func (s *Server) requireGuacSession(next http.Handler) http.Handler {
 			return
 		}
 		// Any signed-in user may reach the proxy (a viewer joining a session shared
-		// with them needs it); what they can open is decided by the 60-second
-		// Guacamole token RemoteHound minted for them.
+		// with them needs it); what they can open is decided by the connect blob
+		// RemoteHound minted for THEM and the Guacamole token bound to them.
 		next.ServeHTTP(w, r)
 	})
 }

@@ -84,12 +84,17 @@ type Actor struct {
 // ownership and the owner's share — no role, including admin, can join
 // someone else's session. Admins may see every session and end any of them.
 
-// CanJoinSession: the owner, or a user with a live share.
-func CanJoinSession(a *Actor, s *model.Session, now time.Time) bool {
+// CanJoinSession: the owner while they may still connect to the session's
+// device (deviceGroupID; "" when the device is gone), or a user with a live
+// share. A demoted owner, or one removed from the device's group, cannot rejoin.
+func CanJoinSession(a *Actor, s *model.Session, deviceGroupID string, now time.Time) bool {
 	if a.Anonymous() || s == nil || !s.EndedAt.IsZero() {
 		return false
 	}
-	return s.UserID == a.UserID || s.ActiveShare(a.UserID, now) != nil
+	if s.UserID == a.UserID {
+		return Can(a, DeviceConnect, Resource{GroupID: deviceGroupID})
+	}
+	return s.ActiveShare(a.UserID, now) != nil
 }
 
 // CanSeeSession: owner, grantee, or anyone with session.read_all.

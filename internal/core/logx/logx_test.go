@@ -30,6 +30,19 @@ func TestRedactScrubsSecretsAndKeepsFingerprints(t *testing.T) {
 	}
 }
 
+// An enrolment code in a request path (/e/<code>) is a live credential until
+// it is used or expires: it must never reach a log line (THREAT_MODEL S5).
+func TestRedactEnrolmentCodesInPaths(t *testing.T) {
+	for _, in := range []string{"/e/k7q2mx", "GET /e/k7q2mx HTTP/1.1", "https://rh.example.com/e/K7Q2MX?x=1"} {
+		if out := Redact(in); strings.Contains(strings.ToLower(out), "k7q2mx") {
+			t.Errorf("Redact(%q) = %q still contains the code", in, out)
+		}
+	}
+	if out := Redact("/ui/e/app.js"); out != "/ui/e/app.js" {
+		t.Errorf("an asset path was mangled: %q", out)
+	}
+}
+
 func TestRedactStripsControlCharacters(t *testing.T) {
 	if out := Redact("line1\r\nfake INFO entry\x1b[31m"); strings.ContainsAny(out, "\r\n\x1b") {
 		t.Fatalf("control chars survived: %q", out)

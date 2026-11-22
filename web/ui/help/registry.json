@@ -973,6 +973,11 @@
       "fix": "Run the command on the machine the code was made for, or create a code for this machine's OS. The code was not used up.",
       "doc": "/docs/enroll"
     },
+    "SETTINGS_PUBLIC_URL_INVALID": {
+      "title": "The public address in Settings is not valid",
+      "fix": "An admin sets Settings → Public URL to the plain https address people use, e.g. https://rh.example.com (letters, digits, . - / _ ~ only). Then create the code again.",
+      "doc": "/docs/errors"
+    },
     "CREDENTIALS_REQUIRED": {
       "title": "This connection needs a login first",
       "fix": "Save the username and password with \"Use my own login\" on the device page, then connect. For a Mac, use your macOS account, which must be allowed under Sharing → Screen Sharing.",

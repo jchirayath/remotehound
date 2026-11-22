@@ -51,6 +51,7 @@ const (
 	CodeControlDenied    = "CONTROL_ACTION_NOT_ALLOWED"
 	CodeControlTarget    = "CONTROL_TARGET_NOT_FOUND"
 	CodeCredsRequired    = "CREDENTIALS_REQUIRED"
+	CodePublicURLInvalid = "SETTINGS_PUBLIC_URL_INVALID"
 )
 
 // FieldError points at one invalid input field (JSON Pointer).

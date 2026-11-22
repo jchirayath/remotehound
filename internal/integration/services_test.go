@@ -190,7 +190,7 @@ func TestServicesWithoutControlAreStatusOnly(t *testing.T) {
 func TestProxyModeNoIdentityAndSignOut(t *testing.T) {
 	dir := t.TempDir()
 	env := map[string]string{
-		"RH_ENV": "development", "RH_AUTH_MODE": "proxy", "RH_TRUSTED_PROXIES": "127.0.0.1/32",
+		"RH_ENV": "development", "RH_AUTH_MODE": "proxy", "RH_TRUSTED_PROXIES": "127.0.0.1/32", "RH_PROXY_SECRET": testProxySecret,
 		"RH_PROXY_EMAIL_HEADER": "X-Auth-Request-Email", "RH_BOOTSTRAP_ADMIN": "boss@example.com",
 		"RH_PROXY_NAME_HEADER": "X-Auth-Request-User",
 		"RH_PROXY_LOGOUT_URL":  "https://sso.example.com/oauth2/sign_out?rd=https%3A%2F%2Frh.example.com%2Fsigned-out",
@@ -211,7 +211,7 @@ func TestProxyModeNoIdentityAndSignOut(t *testing.T) {
 	t.Cleanup(func() { a.Audit.Close() })
 	srv := httptest.NewServer(a.Handler)
 	t.Cleanup(srv.Close)
-	noFollow := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	noFollow := &http.Client{Transport: proxyTransport{}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	get := func(path string, hdr ...string) *http.Response {
 		req, _ := http.NewRequestWithContext(context.Background(), "GET", srv.URL+path, nil)
 		for i := 0; i+1 < len(hdr); i += 2 {

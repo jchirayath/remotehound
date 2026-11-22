@@ -2,7 +2,6 @@ package api
 
 import (
 	"net/http"
-	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -526,7 +525,9 @@ func (s *Server) patchUser(w http.ResponseWriter, r *http.Request) {
 	me := authz.ActorFrom(r.Context())
 	id := r.PathValue("id")
 	var out userView
+	privChange := false
 	err = s.Store.Update(func(st *model.State) error {
+		privChange = false
 		u, ok := st.Users[id]
 		if !ok {
 			return apierr.NotFound(apierr.CodeUserNotFound, "No user with that ID.")
@@ -550,7 +551,6 @@ func (s *Server) patchUser(w http.ResponseWriter, r *http.Request) {
 		if in.DisplayName != nil {
 			u.DisplayName = *in.DisplayName
 		}
-		privChange := false
 		if in.Role != nil && *in.Role != u.Role {
 			u.Role, privChange = *in.Role, true
 		}
@@ -582,6 +582,9 @@ func (s *Server) patchUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Audit.Record(r.Context(), "user.update", audit.Success, "user:"+id, map[string]any{"role": out.Role, "disabled": out.Disabled})
+	if privChange {
+		s.EndUserAccess(r.Context(), id, "user_updated")
+	}
 	writeJSON(w, http.StatusOK, out, nil)
 }
 
@@ -625,6 +628,7 @@ func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Audit.Record(r.Context(), "user.delete", audit.Success, "user:"+id, nil)
+	s.EndUserAccess(r.Context(), id, "user_deleted")
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -674,10 +678,7 @@ type settingsPatch struct {
 func (p settingsPatch) validate(allowHTTP bool) error {
 	var v validate.Collector
 	if p.PublicURL != nil {
-		u, err := url.Parse(*p.PublicURL)
-		if err != nil || u.Host == "" || (u.Scheme != "https" && !(allowHTTP && u.Scheme == "http")) || u.RawQuery != "" || u.Fragment != "" || strings.ContainsAny(*p.PublicURL, " '\"`$\\") {
-			v.Add("/public_url", "INVALID_URL", "Use the https address people reach RemoteHound at, e.g. https://rh.example.com.")
-		}
+		v.PublicURL("/public_url", *p.PublicURL, allowHTTP) // substituted into bootstrap scripts: strict allow-list
 	}
 	if p.SSHPublicHost != nil {
 		v.Required("/ssh_public_host", *p.SSHPublicHost)

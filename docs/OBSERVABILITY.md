@@ -6,12 +6,12 @@ hash-chained `audit.jsonl`), one metrics registry (`/metrics` on the internal li
 | Producer | Log events | Audit events | Metrics |
 |---|---|---|---|
 | HTTP layer | `http.request` (one per request), `http.error`, `http.denied`, `http.panic` | `auth.csrf`, `authz.denied` | `http_server_request_duration_seconds` |
-| Auth | `auth.providers` | `auth.login` (attr provider), `auth.logout`, `auth.identity_link`, `auth.identity_unlink` | — |
-| Enrolment | `enrollment.script` | `enrollment.create`, `enrollment.redeem`, `enrollment.revoke` | — |
-| Tunnel server | `tunnel.open/close/replace/auth/forward/exec/keepalive_lost/port_busy` | `device.connect_tunnel` | `remotehound_tunnel_*`, `remotehound_tunnels_online` |
+| Auth | `auth.providers` | `auth.login` (attr provider), `auth.logout` (attr guacamole_sessions revoked), `auth.identity_link`, `auth.identity_unlink` | — |
+| Enrolment | `enrollment.script` | `enrollment.create`, `enrollment.redeem`, `enrollment.revoke` | `remotehound_enroll_throttled_total{scope=client\|global}` (wrong-code pauses; `global` rising = guessing flood, everyone sees "busy") |
+| Tunnel server | `tunnel.open/close/replace/auth/forward/exec/keepalive_lost/port_busy` | `device.connect_tunnel` | `remotehound_tunnel_*` (incl. `remotehound_tunnel_preauth_refused_total`, `remotehound_tunnel_preauth_evicted_total`: a rising rate means a handshake flood), `remotehound_tunnels_online` |
 | Devices | `device.presence`, `session.start/end` | `device.update/delete/enable/disable/probe/reconnect`, `device.service.*`, `session.open` (attr credentials: personal/shared/prompt), `session.share`, `session.unshare`, `session.join`, `session.terminate` (attr by_admin), `credential.save/delete`, `recording.download` | — |
-| Groups / users / settings | — | `group.*`, `user.*`, `settings.update` | — |
-| Guacamole integration | `integration.state` | `integration.test` | `remotehound_guacamole_up` |
+| Groups / users / settings | — | `group.*`, `user.*`, `user.sessions_ended` (attrs reason, sessions; when a role/group/disabled change, deletion or IdP role change closes the user's live sessions), `settings.update` | — |
+| Guacamole integration | `integration.state`, `guacamole.revoke_failed` | `integration.test`, `session.guacamole_denied` (outcome denied; attr reason: a connect link used by another user or after revocation, or a Guacamole token presented by someone it was not issued to) | `remotehound_guacamole_up` |
 | Jobs | `job.<name>.finish`, `job.panic`, `store.snapshot`, `audit.verify`, `retention.run` | `audit.retention` | `remotehound_jobs_failing` |
 | Debug | `debug.pprof` | `debug.log_level`, `debug.bundle`, `job.run` | — |
 | Devices (client logs) | ring only, `source=client` | — | — |

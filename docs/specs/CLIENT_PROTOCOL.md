@@ -8,12 +8,18 @@ v1 working (API-2).
 
 - `GET /e/{code}` → the server reads `client/bootstrap.sh` or `client/bootstrap.ps1` (embedded), and
   replaces exactly two placeholders:
-  - `__RH_BASE_URL__` → the public base URL from settings, e.g. `https://rh.example.com` (no trailing slash)
+  - `__RH_BASE_URL__` → the public base URL from settings, e.g. `https://rh.example.com` (no trailing slash),
+    re-checked at render against `^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~/-]*)?$` (https
+    outside development). If the stored value fails, the server sends a tiny script that says the
+    server's public address is not set up correctly and exits 1 — it never substitutes it.
   - `__RH_CODE__` → the code (already validated against `^[a-hjkmnp-z2-9]{6}$`)
 - PowerShell is chosen when the User-Agent contains `PowerShell` (Windows PowerShell 5.1 and pwsh both
   send it), or the path ends `.ps1`. Otherwise sh.
 - Unknown or expired code → a tiny script that prints `RemoteHound: this code is not valid or has
   expired. Ask for a new one.` and exits 1. The code is **not** consumed by this GET.
+- Too many wrong codes from this client (IPv4 address / IPv6 /64: 10 a minute) or from everyone (300 a
+  minute) → a tiny script that prints `RemoteHound is busy: … try again in a minute.` and exits 1; the
+  code was not checked. `POST /api/v1/enroll` answers `RATE_LIMITED` (429) with the same `detail`.
 
 ## 2. Redeem
 
@@ -64,7 +70,8 @@ OpenSSH refuses keys readable by others), `known_hosts` (the pinned line), `devi
 ```
 - Username = device id. Auth = public key only.
 - **stdin** = the last 50 lines of `tunnel.log` (then EOF). The server stores them as the device's client
-  log tail (max 200 lines, each truncated to 500 chars, control chars stripped).
+  log tail (max 200 lines, each truncated to 500 bytes; invalid UTF-8, control characters other than
+  tab, Unicode format characters (bidi, zero-width, BOM, tags) and line/paragraph separators are stripped).
 - **stdout** = control lines from the server, one per line, appended to `tunnel.log`:
   - `ok <device_id>` — accepted; forwards bound.
   - `ping` — informational heartbeat (every 60 s).

@@ -63,20 +63,24 @@ func TestPermissionsListMatchesGrants(t *testing.T) {
 // @feature:sessions — joining is ownership + share only; admins see and end, never join.
 func TestSessionRules(t *testing.T) {
 	now := time.Now()
-	owner := &Actor{UserID: "usr_owner", Role: model.RoleOperator}
+	owner := &Actor{UserID: "usr_owner", Role: model.RoleOperator, GroupIDs: []string{"grp_a"}}
 	guest := &Actor{UserID: "usr_guest", Role: model.RoleViewer}
 	other := &Actor{UserID: "usr_other", Role: model.RoleOperator}
 	admin := &Actor{UserID: "usr_admin", Role: model.RoleAdmin}
 	s := &model.Session{UserID: "usr_owner"}
-	if !CanJoinSession(owner, s, now) || CanJoinSession(guest, s, now) || CanJoinSession(admin, s, now) || CanJoinSession(other, s, now) {
+	if !CanJoinSession(owner, s, "grp_a", now) || CanJoinSession(guest, s, "grp_a", now) || CanJoinSession(admin, s, "grp_a", now) || CanJoinSession(other, s, "grp_a", now) {
 		t.Fatal("join rules wrong before sharing")
 	}
 	s.Shares = []model.Share{{UserID: "usr_guest", Mode: model.ShareView, ExpiresAt: now.Add(time.Hour)}}
-	if !CanJoinSession(guest, s, now) || CanJoinSession(admin, s, now) {
+	if !CanJoinSession(guest, s, "grp_a", now) || CanJoinSession(admin, s, "grp_a", now) {
 		t.Fatal("join rules wrong after sharing")
 	}
-	if CanJoinSession(guest, s, now.Add(2*time.Hour)) {
+	if CanJoinSession(guest, s, "grp_a", now.Add(2*time.Hour)) {
 		t.Fatal("expired share still joins")
+	}
+	demoted := &Actor{UserID: "usr_owner", Role: model.RoleViewer, GroupIDs: []string{"grp_a"}}
+	if CanJoinSession(demoted, s, "grp_a", now) || CanJoinSession(owner, s, "grp_b", now) || CanJoinSession(owner, s, "", now) {
+		t.Fatal("owner rejoins without device.connect on the device")
 	}
 	if !CanSeeSession(admin, s, now) || CanSeeSession(other, s, now) {
 		t.Fatal("visibility wrong")
@@ -88,7 +92,7 @@ func TestSessionRules(t *testing.T) {
 		t.Fatal("only the owner shares")
 	}
 	s.EndedAt = now
-	if CanJoinSession(owner, s, now) || CanShareSession(owner, s) {
+	if CanJoinSession(owner, s, "grp_a", now) || CanShareSession(owner, s) {
 		t.Fatal("ended session joinable/shareable")
 	}
 }

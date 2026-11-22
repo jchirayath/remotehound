@@ -55,10 +55,14 @@ type SessionFilter struct {
 }
 
 func toSessionView(a *authz.Actor, ss *model.Session, st *model.State, now time.Time) SessionView {
+	devGroup := ""
+	if d := st.Devices[ss.DeviceID]; d != nil {
+		devGroup = d.GroupID
+	}
 	v := SessionView{ID: ss.ID, DeviceID: ss.DeviceID, DeviceName: "(deleted device)", Service: ss.Service, UserID: ss.UserID,
 		StartedAt: ss.StartedAt, Active: ss.EndedAt.IsZero(), BytesIn: ss.BytesIn, BytesOut: ss.BytesOut, Recording: ss.Recording,
 		Mine: ss.UserID == a.UserID, Shares: []ShareView{},
-		CanJoin: authz.CanJoinSession(a, ss, now) && ss.GuacConnID != "", CanShare: authz.CanShareSession(a, ss), CanTerminate: authz.CanEndSession(a, ss) && ss.EndedAt.IsZero()}
+		CanJoin: authz.CanJoinSession(a, ss, devGroup, now) && ss.GuacConnID != "", CanShare: authz.CanShareSession(a, ss), CanTerminate: authz.CanEndSession(a, ss) && ss.EndedAt.IsZero()}
 	if d := st.Devices[ss.DeviceID]; d != nil {
 		v.DeviceName = d.Name
 	} else {
@@ -162,6 +166,16 @@ func (s *Service) Share(ctx context.Context, a *authz.Actor, sessionID, userID, 
 		if !ok || u.Disabled {
 			return apierr.Validation([]apierr.FieldError{{Pointer: "/user_id", Code: "NOT_FOUND", Detail: "Pick an active user."}})
 		}
+		// Only someone who may see the device: a member of its group, or an
+		// admin. (A non-admin owner's devices are in their own groups, so this
+		// is at least as strict as "shares a group with the owner".)
+		groupID := ""
+		if d := st.Devices[ss.DeviceID]; d != nil {
+			groupID = d.GroupID
+		}
+		if !authz.SeesGroup(&authz.Actor{UserID: u.ID, Role: u.Role, GroupIDs: u.GroupIDs}, groupID) {
+			return apierr.Validation([]apierr.FieldError{{Pointer: "/user_id", Code: "NO_ACCESS", Detail: "Pick someone in this device's group (or an admin)."}})
+		}
 		if mode == model.ShareControl && u.Role == model.RoleViewer {
 			return apierr.Validation([]apierr.FieldError{{Pointer: "/mode", Code: "ROLE", Detail: "Viewers can only be given view access."}})
 		}
@@ -219,7 +233,7 @@ func (s *Service) Unshare(ctx context.Context, a *authz.Actor, sessionID, userID
 func (s *Service) Join(ctx context.Context, a *authz.Actor, sessionID string) (ConnectResult, error) {
 	now := time.Now().UTC()
 	var ss model.Session
-	var devName string
+	var devName, devGroup string
 	var ttlSec int
 	found := false
 	s.Store.View(func(st *model.State) {
@@ -227,7 +241,7 @@ func (s *Service) Join(ctx context.Context, a *authz.Actor, sessionID string) (C
 			ss, found = *x, true
 			ss.Shares = append([]model.Share{}, x.Shares...)
 			if d := st.Devices[x.DeviceID]; d != nil {
-				devName = d.Name
+				devName, devGroup = d.Name, d.GroupID
 			}
 		}
 		ttlSec = st.Settings.ConnectTokenTTLSeconds
@@ -235,7 +249,16 @@ func (s *Service) Join(ctx context.Context, a *authz.Actor, sessionID string) (C
 	if !found {
 		return ConnectResult{}, s.sessionNotFound()
 	}
-	if !authz.CanJoinSession(a, &ss, now) {
+	if ss.UserID == a.UserID && !authz.Can(a, authz.DeviceConnect, authz.Resource{GroupID: devGroup}) {
+		// The owner's rights changed since they opened it (demoted, removed from
+		// the device's group, device deleted): rejoining would restore control.
+		s.Audit.Record(ctx, "session.join", audit.Denied, "session:"+sessionID, map[string]any{"reason": "no_device_access"})
+		if !authz.Can(a, authz.DeviceRead, authz.Resource{GroupID: devGroup}) {
+			return ConnectResult{}, s.sessionNotFound()
+		}
+		return ConnectResult{}, apierr.Forbidden("Your role no longer lets you connect to this device, so you cannot rejoin this session.")
+	}
+	if !authz.CanJoinSession(a, &ss, devGroup, now) {
 		s.Audit.Record(ctx, "session.join", audit.Denied, "session:"+sessionID, nil)
 		return ConnectResult{}, apierr.Forbidden("Only the session owner, or someone they shared it with, can join it.")
 	}

@@ -45,6 +45,7 @@ Used and expired codes cannot be edited; create a new code instead.
 > Codes use letters and digits that cannot be confused: there is no 0, o, 1, l or i.
 
 - **"This code is not valid or has expired."** The code was mistyped, already used, revoked or expired. Create a new one.
+- **"RemoteHound is busy … try again in a minute."** Too many wrong codes were tried recently from this network (or, during an attack, from everywhere). Your code was not checked and is still good: wait a minute and run the same command again.
 - **Waiting never finishes.** The device must reach the SSH tunnel port (2222 by default). Look at the last lines the script printed, then at the device's **Client logs**.
 - **macOS asks for Full Disk Access.** Turning on Remote Login from a script needs it for Terminal. The script prints where to grant it.
 - **"This code is for a … machine, but this one reports …"** (`ENROLL_WRONG_OS`). The code was made for another kind of machine. Run it on the right one, or create a code for this OS. The code was not used up.

@@ -6,9 +6,10 @@ A session is one remote connection from a browser to a device. RemoteHound recor
 
 Your live sessions, refreshing every five seconds (turn **Live** off to stop). For each you see the device, protocol, start time, duration, traffic and who you shared it with.
 
-- **Share** invites one person at a time. Pick them from the list of RemoteHound users, choose **View only** (they watch) or **Control** (they can also type and use the mouse), and how long the invitation lasts — 15 minutes to 8 hours. People with the Viewer role can only be given view-only access.
+- **Share** invites one person at a time. Pick them from the list of RemoteHound users, choose **View only** (they watch) or **Control** (they can also type and use the mouse), and how long the invitation lasts — 15 minutes to 8 hours. People with the Viewer role can only be given view-only access. You can share only with people in the device's group, or with an admin.
 - The drawer also lists who the session is currently shared with; select the remove button next to a person to stop sharing with them. Shares also end by themselves when their time runs out.
 - **End** closes the session for you and everyone joined to it.
+- **Join** on your own live session reopens it, as long as you may still connect to that device. If an admin changed your role or groups, your open sessions were closed and cannot be rejoined.
 
 ## Shared with me
 

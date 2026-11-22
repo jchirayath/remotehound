@@ -16,7 +16,7 @@
 import { h, replace } from './lib/dom.js'
 import { icon } from './lib/icons.js'
 import { api, apiEvents, setCsrfToken } from './lib/api.js'
-import { session, can } from './lib/session.js'
+import { session, can, forgetGuacamole } from './lib/session.js'
 import { loadHelp, openHelp, setCurrentHelp, screenHelp } from './lib/help.js'
 import { initTheme, applyTheme, setTheme, currentTheme, MODES } from './lib/theme.js'
 import { createRouter, match } from './lib/router.js'
@@ -113,6 +113,7 @@ async function signOut() {
   } catch (err) {
     log.warn('logout.failed', { code: err?.code })
   }
+  forgetGuacamole()
   unmountCurrent()
   // Behind a sign-in proxy the server returns the proxy's sign-out URL: going
   // there ends the proxy's session too (otherwise it signs you straight back in).

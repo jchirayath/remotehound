@@ -13,7 +13,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"net/url"
 	"regexp"
 	"slices"
 	"sort"
@@ -27,8 +26,10 @@ import (
 	"github.com/jchirayath/remotehound/internal/core/audit"
 	"github.com/jchirayath/remotehound/internal/core/authz"
 	"github.com/jchirayath/remotehound/internal/core/ids"
+	"github.com/jchirayath/remotehound/internal/core/metrics"
 	"github.com/jchirayath/remotehound/internal/core/secrets"
 	"github.com/jchirayath/remotehound/internal/core/store"
+	"github.com/jchirayath/remotehound/internal/core/validate"
 	"github.com/jchirayath/remotehound/internal/device"
 	"github.com/jchirayath/remotehound/internal/model"
 	"github.com/jchirayath/remotehound/internal/tunnel"
@@ -41,6 +42,11 @@ type Service struct {
 	Secrets *secrets.Set
 	Devices *device.Service
 	Tunnel  *tunnel.Server
+	// AllowHTTP permits an http public_url (development only), as the
+	// settings validator does.
+	AllowHTTP bool
+
+	misses missLimiter
 }
 
 func (s *Service) hash(code string) string {
@@ -118,22 +124,21 @@ func toView(e *model.Enrollment, now time.Time, viewer string, devices map[strin
 	return v
 }
 
-// Commands returns the two one-liners for a code.
-func Commands(publicURL, code string) (unix, windows string) {
-	u, _ := url.Parse(publicURL)
-	host := publicURL
-	if u != nil && u.Host != "" {
-		host = u.Host + strings.TrimRight(u.Path, "/")
-		if u.Scheme != "https" {
-			host = u.Scheme + "://" + host
-		}
+// Commands returns the two one-liners for a code, or "", "" when publicURL or
+// code fails its allow-list: both are pasted into a shell, so this fails closed.
+func Commands(publicURL, code string, allowHTTP bool) (unix, windows string) {
+	if !validate.PublicURL(publicURL, allowHTTP) || !ids.ValidCode(code) {
+		return "", ""
 	}
-	// curl's default scheme is http; always spell https so the TLS check applies.
-	if !strings.Contains(host, "://") {
-		host = "https://" + host
-	}
+	// The scheme is always spelled out (curl's default is http).
+	host := strings.TrimRight(publicURL, "/")
 	return "curl -fsSL " + host + "/e/" + code + " | sh", "irm " + host + "/e/" + code + " | iex"
 }
+
+// errPublicURL: settings.public_url fails the allow-list (e.g. stored by an
+// older release); nothing that embeds it may be produced until it is fixed.
+var errPublicURL = apierr.Conflict(apierr.CodePublicURLInvalid,
+	"The public address in Settings is not valid, so no enrolment command can be made. An admin fixes it under Settings → Public URL.")
 
 // Create issues a new code.
 func (s *Service) Create(ctx context.Context, a *authz.Actor, name, groupID, expectedOS string, ttlMinutes int) (Created, error) {
@@ -143,6 +148,9 @@ func (s *Service) Create(ctx context.Context, a *authz.Actor, name, groupID, exp
 	var out *model.Enrollment
 	err := s.Store.Update(func(x *model.State) error {
 		st = x.Settings
+		if !validate.PublicURL(st.PublicURL, s.AllowHTTP) {
+			return errPublicURL
+		}
 		if groupID == "" {
 			groupID = st.DefaultGroupID
 		}
@@ -169,7 +177,7 @@ func (s *Service) Create(ctx context.Context, a *authz.Actor, name, groupID, exp
 		return Created{}, err
 	}
 	s.Audit.Record(ctx, "enrollment.create", audit.Success, "enrollment:"+out.ID, map[string]any{"group_id": groupID, "ttl_minutes": ttlMinutes})
-	unix, win := Commands(st.PublicURL, code)
+	unix, win := Commands(st.PublicURL, code, s.AllowHTTP)
 	return Created{View: toView(out, now, a.UserID, nil), Code: code, CommandUnix: unix,
 		CommandUnixSystem: strings.TrimSuffix(unix, "| sh") + "| sudo sh", CommandWindows: win}, nil
 }
@@ -321,39 +329,89 @@ func (s *Service) Update(ctx context.Context, a *authz.Actor, id string, name, g
 	return out, err
 }
 
-// failures is a GLOBAL brake on wrong codes (complements per-IP limits that a
-// botnet or IPv6 rotation can sidestep): more than 120 misses in a minute
-// suspends every lookup/redeem for the rest of that minute.
-var failures struct {
-	sync.Mutex
+// Wrong-code limits, per fixed one-minute window. A client (ids.ClientKey:
+// IPv4 address, IPv6 /64) that misses MissesPerClient times is paused — every
+// lookup and redeem, so it gets no oracle. MissCeiling misses from everyone
+// together pause all lookups: the backstop against a botnet guessing from
+// many prefixes (docs/THREAT_MODEL.md S5 has the arithmetic).
+// Paused callers are told the server is busy, never that their code is wrong.
+const (
+	MissesPerClient = 10
+	MissCeiling     = 300
+)
+
+type missLimiter struct {
+	mu     sync.Mutex
 	window time.Time
-	n      int
+	total  int
+	// byClient holds only non-zero counts (a refund to zero deletes), so at
+	// most MissCeiling entries: nothing is added once the ceiling is reached.
+	byClient map[string]int
 }
 
-// Throttled reports whether wrong-code lookups are currently suspended.
-func Throttled() bool {
-	failures.Lock()
-	defer failures.Unlock()
-	return time.Since(failures.window) < time.Minute && failures.n > 120
+// missToken is a reserved miss, refunded if the code turns out to exist.
+type missToken struct {
+	key    string
+	window time.Time
 }
 
-func noteFailure() {
-	failures.Lock()
-	defer failures.Unlock()
-	if time.Since(failures.window) >= time.Minute {
-		failures.window, failures.n = time.Now(), 0
+func (m *missLimiter) rollLocked() {
+	if now := time.Now(); now.Sub(m.window) >= time.Minute {
+		m.window, m.total, m.byClient = now, 0, map[string]int{}
 	}
-	failures.n++
 }
 
-// Lookup finds an open enrolment for code (for script rendering). It does not consume it.
-func (s *Service) Lookup(code string) (*model.Enrollment, string) {
-	if Throttled() {
+// reserve atomically checks the limits for ip and, if not paused, counts a
+// miss in advance (so concurrent wrong codes cannot overshoot the limit). The
+// caller refunds it when the code matches an enrolment.
+func (m *missLimiter) reserve(ip string) (missToken, bool) {
+	key := ids.ClientKey(ip)
+	m.mu.Lock()
+	m.rollLocked()
+	scope := ""
+	switch {
+	case m.total >= MissCeiling:
+		scope = "global"
+	case m.byClient[key] >= MissesPerClient:
+		scope = "client"
+	default:
+		m.total++
+		m.byClient[key]++
+	}
+	tok := missToken{key: key, window: m.window}
+	m.mu.Unlock()
+	if scope != "" {
+		metrics.Default.Inc("remotehound_enroll_throttled_total", "Enrolment lookups and redeems paused by the wrong-code limits.", "scope", scope)
+		return missToken{}, false
+	}
+	return tok, true
+}
+
+// refund returns a reserved miss (no-op if the window has rolled since).
+func (m *missLimiter) refund(t missToken) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if !m.window.Equal(t.window) {
+		return
+	}
+	m.total--
+	if m.byClient[t.key]--; m.byClient[t.key] <= 0 {
+		delete(m.byClient, t.key)
+	}
+}
+
+const busyDetail = "RemoteHound is busy: too many wrong codes were tried recently. Your code was not checked; try again in a minute."
+
+// Lookup finds the enrolment for code (for script rendering) on behalf of the
+// client at ip, counting a miss against it. It does not consume the code.
+// The state is open | used | expired | invalid | throttled.
+func (s *Service) Lookup(code, ip string) (*model.Enrollment, string) {
+	tok, ok := s.misses.reserve(ip)
+	if !ok {
 		return nil, "throttled"
 	}
 	if !ids.ValidCode(code) {
-		noteFailure()
-		return nil, "invalid"
+		return nil, "invalid" // the reserved miss stands
 	}
 	h := s.hash(code)
 	now := time.Now().UTC()
@@ -368,30 +426,46 @@ func (s *Service) Lookup(code string) (*model.Enrollment, string) {
 		}
 	})
 	if found == nil {
-		noteFailure()
 		return nil, "invalid"
 	}
+	s.misses.refund(tok)
 	return found, found.State(now)
 }
 
-// Script renders the bootstrap for code; ps selects PowerShell. Invalid codes
-// get a script that explains and exits non-zero.
-func (s *Service) Script(code string, ps bool) string {
-	_, state := s.Lookup(code)
-	if state != "open" {
-		if ps {
-			return "Write-Host 'RemoteHound: this code is not valid or has expired. Ask for a new one.' -ForegroundColor Red\n"
-		}
-		return "#!/bin/sh\necho 'RemoteHound: this code is not valid or has expired. Ask for a new one.' >&2\nexit 1\n"
+// failScript is a script that prints msg (a constant without quotes) and exits.
+func failScript(msg string, ps bool) string {
+	if ps {
+		return "Write-Host '" + msg + "' -ForegroundColor Red\n"
+	}
+	return "#!/bin/sh\necho '" + msg + "' >&2\nexit 1\n"
+}
+
+// Script renders the bootstrap for code for the client at ip (one Lookup, so
+// one miss at most); ps selects PowerShell. It also returns the lookup state.
+// Wrong codes and a paused client get a script that explains and exits non-zero.
+func (s *Service) Script(code, ip string, ps bool) (string, string) {
+	_, state := s.Lookup(code, ip)
+	switch state {
+	case "open":
+	case "throttled":
+		return failScript(busyDetail, ps), state
+	default:
+		return failScript("RemoteHound: this code is not valid or has expired. Ask for a new one.", ps), state
 	}
 	var base string
-	s.Store.View(func(x *model.State) { base = strings.TrimRight(x.Settings.PublicURL, "/") })
+	s.Store.View(func(x *model.State) { base = x.Settings.PublicURL })
+	// Re-checked here, failing closed: these are the only two values substituted
+	// into the script, inside string literals, and a stored value may predate
+	// the current validator.
+	if !validate.PublicURL(base, s.AllowHTTP) || !ids.ValidCode(code) {
+		return failScript("RemoteHound: the server's public address is not set up correctly, so this command cannot run. Ask your admin to fix the Public URL in Settings.", ps), state
+	}
+	base = strings.TrimRight(base, "/")
 	tpl := client.BootstrapSH
 	if ps {
 		tpl = client.BootstrapPS1
 	}
-	// Both values are validated: code by ValidCode, base by the settings validator (https URL).
-	return strings.NewReplacer("__RH_BASE_URL__", base, "__RH_CODE__", code).Replace(tpl)
+	return strings.NewReplacer("__RH_BASE_URL__", base, "__RH_CODE__", code).Replace(tpl), state
 }
 
 // RedeemRequest is the POST /api/v1/enroll body.
@@ -427,14 +501,14 @@ var hostRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
 // spaces, DOMAIN\ is stripped by the script).
 var userRe = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._ -]{0,63}$`)
 
-// Redeem consumes code and creates the device.
-func (s *Service) Redeem(ctx context.Context, req RedeemRequest) (RedeemResult, error) {
-	if Throttled() {
-		return RedeemResult{}, apierr.New(429, apierr.CodeRateLimited, "Too many wrong codes were tried recently. Wait a minute and try again.")
+// Redeem consumes code and creates the device, for the client at ip.
+func (s *Service) Redeem(ctx context.Context, ip string, req RedeemRequest) (RedeemResult, error) {
+	tok, ok := s.misses.reserve(ip)
+	if !ok {
+		return RedeemResult{}, apierr.New(429, apierr.CodeRateLimited, busyDetail)
 	}
 	code := strings.ToLower(strings.TrimSpace(req.Code))
 	if !ids.ValidCode(code) {
-		noteFailure()
 		return RedeemResult{}, apierr.NotFound(apierr.CodeEnrollInvalid, "This enrolment code is not valid. Ask for a new one.")
 	}
 	if !hostRe.MatchString(req.Hostname) {
@@ -480,6 +554,7 @@ func (s *Service) Redeem(ctx context.Context, req RedeemRequest) (RedeemResult, 
 	var dev *model.Device
 	var wrongOS bool
 	var warnings []string
+	var hit bool // the code exists: refund the reserved miss
 	err := s.Store.Update(func(x *model.State) error {
 		var e *model.Enrollment
 		for _, cand := range x.Enrollments {
@@ -489,9 +564,9 @@ func (s *Service) Redeem(ctx context.Context, req RedeemRequest) (RedeemResult, 
 			}
 		}
 		if e == nil {
-			noteFailure()
 			return apierr.NotFound(apierr.CodeEnrollInvalid, "This enrolment code is not valid. Ask for a new one.")
 		}
+		hit = true
 		switch e.State(now) {
 		case "used":
 			return apierr.New(410, apierr.CodeEnrollUsed, "This code was already used. Ask for a new one.")
@@ -533,6 +608,9 @@ func (s *Service) Redeem(ctx context.Context, req RedeemRequest) (RedeemResult, 
 		}
 		return nil
 	})
+	if hit {
+		s.misses.refund(tok)
+	}
 	if err != nil {
 		detail := map[string]any{"reason": apierr.As(err).Code}
 		if wrongOS {

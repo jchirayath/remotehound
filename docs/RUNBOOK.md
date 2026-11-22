@@ -64,7 +64,7 @@ it: `docker compose restart guacamole` (or `guacd`, `remotehound`). Every UI act
 the proxy authenticated the user but RemoteHound got no identity. Check, in order: the proxy sets the
 header named by `RH_PROXY_EMAIL_HEADER`; it sends `X-RemoteHound-Proxy-Secret` matching `RH_PROXY_SECRET`
 (a mismatch logs `auth.proxy_rejected` reason `secret_mismatch` at WARN); its address is inside
-`RH_TRUSTED_PROXIES`. **Caddy:** `request_header` runs *after* `forward_auth` unless wrapped in a
+`RH_TRUSTED_PROXIES`; with `RH_PROXY_SUBJECT_HEADER` set, that header is present (reason `no_subject`). **Caddy:** `request_header` runs *after* `forward_auth` unless wrapped in a
 `route { }` block, so header strips placed before the gate silently delete the identity the gate just
 copied — wrap strip → gate → proxy in `route`.
 
