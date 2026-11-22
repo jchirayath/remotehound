@@ -5,7 +5,16 @@ Security fixes are disclosed here once users can update (VULN-7).
 
 ## [Unreleased]
 
+### Added
+- Script-free enrolment for machines where security software blocks the install script ([ADR-0005](docs/adr/0005-scriptless-enrolment.md)). The person types one `ssh` command; the enrolment code is the SSH username and nothing is downloaded or run. **One-time** codes (new **Connection type** on Enroll) need no key and nothing is installed: the session lasts while the window is open. **Install** codes gain a **No script (ssh)** tab: ssh makes a key, and the window prints a command to reconnect without a new code. The server key is pinned (no trust-on-first-use prompt). Works with the OpenSSH built into Windows 10 1809+ / Server 2019+, macOS and Linux; tested with OpenSSH 7.6–10.3 and Windows' 7.7 and 9.5. API: `mode` on enrolment codes, `ssh` commands on a created code, `connection_code` and the `ssh-manual` / `ssh-attended` transports on devices; `ENROLL_WRONG_METHOD` when a one-time code is used with a script.
+- Each live typed session shows a 4-character **connection code** in the person's window and on the device page, to confirm you are on the right machine.
+- `e2e/azure/run.sh`: unattended end-to-end test on real Windows and Linux machines in Azure (creates and deletes its own resource group).
+
 ### Fixed
+- **Run probe** on a device's Diagnostics tab showed its results below the visible area, so the click looked like it did nothing. Results now scroll into view, are announced to screen readers, and a toast summarises them.
+- Long commands in code blocks can be scrolled with the keyboard.
+- A finished one-time session no longer flags the same machine's next session as **enrolled twice**.
+- `GET /api/v1/enroll/status` refuses an empty fingerprint.
 - A Guacamole tab left open across a RemoteHound restart or Sign out no longer adds a `session.guacamole_denied` entry to the audit log every few minutes. Its stale token is removed before the request reaches Guacamole, which answers as for an expired session (logged as `guacamole.stale_token`). Another user's token is still refused and audited. Every `Guacamole-Token` header value is now checked, not only the first.
 
 ## [0.1.0] — 2026-11-22
