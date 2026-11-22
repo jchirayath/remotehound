@@ -14,6 +14,9 @@ Security fixes are disclosed here once users can update (VULN-7).
 - The macOS / Linux bootstrap script passes ShellCheck (SC2209) in CI; no change in behaviour.
 - Two data races found by `go test -race`: the tunnel server's listener address and the process logger were read while another goroutine set them. Both are now atomic. CI's UI job runs the test files explicitly (Node 22 does not accept a folder).
 
+### Security
+- `go.mod` requires Go 1.26.11, so every build — CI, local and the image — has the standard-library fixes up to that release (govulncheck reported 20 reachable ones in Go 1.26.0, which CI used). Release images were already built with 1.26.11.
+
 ## [0.1.0] — 2026-11-21
 
 First public release.
