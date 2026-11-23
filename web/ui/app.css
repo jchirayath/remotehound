@@ -20,7 +20,7 @@
   --shadow-1: 0 calc(var(--elevation-level1) * 1px) calc(var(--elevation-level1) * 3px) var(--color-domain-shadow);
   --shadow-2: 0 calc(var(--elevation-level2) * 1px) calc(var(--elevation-level2) * 4px) var(--color-domain-shadow);
   --shadow-3: 0 calc(var(--elevation-level3) * 2px) calc(var(--elevation-level3) * 6px) var(--color-domain-shadow);
-  --sidebar-w: calc(var(--space-xxxl) * 5.25);
+  --sidebar-w: calc(var(--space-xxxl) * 5.5);                  /* room for the brand name beside the 44 px collapse button */
   --sidebar-w-collapsed: calc(var(--space-xxxl) + var(--space-xl));
   --content-max: var(--breakpoint-large);
   --hairline: 1px solid var(--color-border-default);

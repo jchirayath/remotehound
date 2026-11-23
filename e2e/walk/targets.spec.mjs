@@ -62,6 +62,15 @@ test('@feature:help @feature:groups drawers, confirm dialogs and the help panel 
   expect(await smallTargets(page)).toEqual([])
 })
 
+test('@feature:help the full product name fits beside the full-size sidebar buttons', async ({ page }) => {
+  // Found in Chrome on the live portal: "RemoteHou…" once the collapse button became 44 px.
+  await open(page, '/')
+  const name = page.locator('.sidebar .brand__name')
+  if (await name.count()) { // the phone layout has a top bar instead of the sidebar
+    expect(await name.evaluate(el => el.scrollWidth <= el.clientWidth + 0.5), 'brand name is cut off').toBe(true)
+  }
+})
+
 test('@feature:help a wide system font shortens names, never buttons', async ({ page }) => {
   // CI's Linux fonts are wider than macOS's: the brand squeezed "Collapse sidebar" to 23 px there.
   await open(page, '/')
