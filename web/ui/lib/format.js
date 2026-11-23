@@ -140,6 +140,37 @@ export function osLabel(os) {
   return { linux: 'Linux', macos: 'macOS', windows: 'Windows' }[os] || 'Unknown'
 }
 
+/**
+ * Labels that tell devices apart in pickers and lists. A unique name is shown as it is. When
+ * several devices share a name (one machine enrolled twice, or two machines named alike), the
+ * label adds the hostname, then a short device ID if that still collides, then online/offline
+ * when known — so a person can pick the right one.
+ * @param {{id:string, name?:string, hostname?:string, online?:boolean}[]} devices  repeats of one id are fine
+ * @returns {Map<string,string>} device id → label
+ */
+export function deviceLabels(devices) {
+  const byId = new Map()
+  for (const d of devices || []) if (d?.id && !byId.has(d.id)) byId.set(d.id, d)
+  const tally = (key) => {
+    const n = new Map()
+    for (const d of byId.values()) n.set(key(d), (n.get(key(d)) || 0) + 1)
+    return n
+  }
+  const names = tally(d => d.name || d.id)
+  const hosts = tally(d => `${d.name || d.id}\u0000${d.hostname || ''}`)
+  const out = new Map()
+  for (const d of byId.values()) {
+    const name = d.name || d.id
+    if (names.get(name) < 2) { out.set(d.id, name); continue }
+    const parts = [name]
+    if (d.hostname && d.hostname !== name) parts.push(d.hostname)
+    if (!d.hostname || hosts.get(`${name}\u0000${d.hostname}`) > 1) parts.push(String(d.id).replace(/^dev_/, '').slice(0, 6))
+    if (typeof d.online === 'boolean') parts.push(d.online ? 'online' : 'offline')
+    out.set(d.id, parts.join(' · '))
+  }
+  return out
+}
+
 /** Human label for a service kind. */
 export function serviceLabel(kind) {
   return { ssh: 'SSH', rdp: 'RDP', vnc: 'VNC' }[kind] || String(kind || '').toUpperCase()

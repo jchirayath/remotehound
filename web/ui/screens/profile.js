@@ -13,7 +13,7 @@ import { session, can } from '../lib/session.js'
 import { fieldHelp } from '../lib/help.js'
 import { setTheme, currentTheme, MODES } from '../lib/theme.js'
 import { page, segmented, grid, button, linkButton, badge, relTime, confirmDialog, toast, toastError, skeleton, errorState, emptyState, banner, deviceLink } from '../lib/ui.js'
-import { serviceLabel } from '../lib/format.js'
+import { serviceLabel, deviceLabels } from '../lib/format.js'
 import { openCredentialForm } from './credential-form.js'
 import { providerMark } from './login.js'
 
@@ -88,6 +88,9 @@ export default function render(ctx) {
     h('div', { class: 'section-head' },
       h('div', null, h('h2', { id: 'pf-creds', class: 'section__title' }, 'My saved logins'), h('p', { class: 'muted' }, fieldHelp('profile.credentials'))),
       can('device.connect') ? button({ label: 'Save a login', icon: 'action.add', variant: 'primary', onClick: () => openCredentialForm({ onSaved: () => creds.reload() }) }) : null))
+  // Logins for two devices with the same name get labels that tell them apart (deviceLabels).
+  let credLabels = new Map()
+  const labelled = (c) => ({ ...c, device_name: credLabels.get(c.device_id) || c.device_name })
   const creds = grid({
     label: 'My saved logins',
     helpScreen: 'profile',
@@ -95,14 +98,18 @@ export default function render(ctx) {
     searchable: false,
     rowKey: (c) => `${c.device_id}/${c.service}`,
     initialSort: { id: 'device_name', dir: 'asc' },
-    onRowClick: (c) => openCredentialForm({ existing: c, onSaved: () => creds.reload() }),
-    load: ({ signal }) => api.get('/api/v1/me/credentials', null, { signal }),
+    onRowClick: (c) => openCredentialForm({ existing: labelled(c), onSaved: () => creds.reload() }),
+    load: async ({ signal }) => {
+      const r = await api.get('/api/v1/me/credentials', null, { signal })
+      credLabels = deviceLabels((r.data || []).map(c => ({ id: c.device_id, name: c.device_name })))
+      return r
+    },
     columns: [
-      { id: 'device_name', label: 'Device', primary: true, render: (c) => deviceLink(c) },
+      { id: 'device_name', label: 'Device', primary: true, value: (c) => labelled(c).device_name, render: (c) => deviceLink(labelled(c)) },
       { id: 'service', label: 'Service', value: (c) => serviceLabel(c.service), render: (c) => h('span', { class: 'os' }, icon(`domain.service.${['ssh', 'rdp', 'vnc'].includes(c.service) ? c.service : 'ssh'}`, { size: 'sm' }), serviceLabel(c.service)) },
       { id: 'username', label: 'Username', className: 'mono' },
       { id: 'updated_at', label: 'Saved', render: (c) => relTime(c.updated_at) },
-      { id: 'actions', label: 'Actions', sortable: false, exportable: false, help: false, render: (c) => button({ label: 'Edit', icon: 'action.edit', variant: 'ghost', size: 'sm', onClick: () => openCredentialForm({ existing: c, onSaved: () => creds.reload() }) }) },
+      { id: 'actions', label: 'Actions', sortable: false, exportable: false, help: false, render: (c) => button({ label: 'Edit', icon: 'action.edit', variant: 'ghost', size: 'sm', onClick: () => openCredentialForm({ existing: labelled(c), onSaved: () => creds.reload() }) }) },
     ],
   })
   credsCard.append(creds.el)

@@ -12,7 +12,7 @@ Combine **Search** (text in the message or event name), **Source**, **Level**, *
 
 Every error message in RemoteHound shows a **request ID**. Paste it into **Request ID** to see every record written while handling that request, across components.
 
-Expand a row to see all its attributes as JSON. **Show this request only** filters to that record's request.
+Expand a row to see all its attributes as JSON. **Show this request only** shows every record of that request: it clears your other filters (search, level, source, device) so nothing from the request is hidden.
 
 ## Live tail
 

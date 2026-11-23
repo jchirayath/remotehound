@@ -185,6 +185,25 @@ test('@feature:help save, edit and delete my own login for a device', async ({ p
   expect((await auditFor(request, 'credential.delete', `device:${dev.id}`)).length).toBeGreaterThanOrEqual(1)
 })
 
+test('@feature:help @feature:devices devices that share a name can be told apart when saving a login', async ({ page, request }) => {
+  // One machine enrolled twice shows up as two devices with the same name.
+  const name = `twin-${Date.now().toString(36)}`
+  const a = await enrolDevice(request, { name })
+  const b = await enrolDevice(request, { name })
+  await open(page, '/profile')
+  await page.getByRole('button', { name: 'Save a login' }).click()
+  const select = page.getByRole('dialog', { name: 'Save my own login' }).getByLabel('Device')
+  await expect(select.locator(`option[value="${a}"]`)).toHaveCount(1)
+  const labelA = await select.locator(`option[value="${a}"]`).textContent()
+  const labelB = await select.locator(`option[value="${b}"]`).textContent()
+  expect(labelA).toMatch(new RegExp(`^${name} · .+ · offline$`))
+  expect(labelB).toMatch(new RegExp(`^${name} · .+ · offline$`))
+  expect(labelA).not.toBe(labelB)
+  // A device whose name is unique keeps its plain name.
+  await expect(select.locator('option', { hasText: new RegExp(`^${SEED_DEVICE}$`) })).toHaveCount(1)
+  for (const id of [a, b]) expect((await api(request, ADMIN, 'DELETE', `/api/v1/devices/${id}`)).status).toBe(204)
+})
+
 test('@feature:sessions session tabs reflect ownership rules', async ({ page }) => {
   await open(page, '/sessions')
   await expect(page.getByRole('tab', { name: /mine/i })).toBeVisible()
@@ -218,6 +237,16 @@ test('@feature:logs logs are searchable, filter by level and follow one request 
   await expect(page).toHaveURL(/q=authz\.denied/)
   await expect(records.filter({ hasText: 'authz.denied' }).first()).toBeVisible()
   await expect(records.filter({ hasNotText: 'authz.denied' })).toHaveCount(0)
+
+  // "Show this request only" shows the whole request: the search and level filters are dropped,
+  // so the request's other records (http.denied, http.request) appear next to authz.denied.
+  await records.filter({ hasText: 'authz.denied' }).first().getByRole('button', { name: 'Show details' }).click()
+  await page.getByRole('button', { name: 'Show this request only' }).click()
+  await expect(page).toHaveURL(/request_id=/)
+  await expect(page).not.toHaveURL(/[?&](q|level)=/)
+  await expect(page.getByRole('searchbox', { name: 'Search' })).toHaveValue('')
+  await expect(page.getByRole('combobox', { name: 'Level' })).toHaveValue('')
+  await expect(records.filter({ hasText: 'http.denied' }).first()).toBeVisible()
 
   // Request ID: every record of the denied request, and nothing else.
   await page.goto(`/logs?request_id=${rid}`)

@@ -10,7 +10,7 @@ import { icon } from '../lib/icons.js'
 import { api } from '../lib/api.js'
 import { can } from '../lib/session.js'
 import { page, grid, filterSelect, badge, button, toggle, iconButton, banner } from '../lib/ui.js'
-import { absoluteTime, timeOfDay } from '../lib/format.js'
+import { absoluteTime, timeOfDay, deviceLabels } from '../lib/format.js'
 
 const LEVEL_TONE = { DEBUG: 'neutral', INFO: 'info', WARN: 'warning', ERROR: 'danger' }
 const MAX = 1000
@@ -102,17 +102,20 @@ export default function render(ctx) {
   if (can('device.read')) {
     api.get('/api/v1/devices', { page_size: 200, order_by: 'name' }).then(r => {
       const sel = deviceFilter.querySelector('select')
-      for (const d of r.data || []) sel.append(h('option', { value: d.id }, d.name))
+      const labels = deviceLabels(r.data)
+      for (const d of r.data || []) sel.append(h('option', { value: d.id }, labels.get(d.id)))
       sel.value = filters.device_id
     }).catch(() => deviceFilter.classList.add('is-unavailable'))
   }
 
+  const requestFilter = text('request_id', 'Request ID', 'Paste a request ID', 64)
+  const requestInput = requestFilter.querySelector('input')
   const toolbar = h('div', { class: 'filters' },
     text('q', 'Search', 'Text in message or event', 200),
     filterSelect({ label: 'Source', value: filters.source, options: [{ value: 'server', label: 'Server' }, { value: 'client', label: 'Devices' }, { value: 'bundle', label: 'Guacamole bundle' }], onChange: (v) => { filters.source = v; apply() } }),
     filterSelect({ label: 'Level', value: filters.level, options: ['DEBUG', 'INFO', 'WARN', 'ERROR'].map(l => ({ value: l, label: l })), onChange: (v) => { filters.level = v; apply() } }),
     can('device.read') ? deviceFilter : null,
-    text('request_id', 'Request ID', 'Paste a request ID', 64))
+    requestFilter)
 
   const g = grid({
     label: 'Log records',
@@ -139,8 +142,11 @@ export default function render(ctx) {
       r.body ? h('pre', { class: 'logdetail__body' }, r.body) : null,
       h('pre', { class: 'logdetail__json', tabindex: '0', 'aria-label': 'Attributes as JSON' }, JSON.stringify(r.attributes || {}, null, 2)),
       r.attributes?.['app.request.id'] ? button({ label: 'Show this request only', icon: 'action.filter', variant: 'ghost', size: 'sm', onClick: () => {
+        // Every record of the request, whatever its level, source or text: drop the other filters.
+        for (const k of Object.keys(filters)) filters[k] = ''
         filters.request_id = r.attributes['app.request.id']
-        toolbar.querySelectorAll('input')[1].value = filters.request_id
+        for (const i of toolbar.querySelectorAll('input, select')) i.value = ''
+        requestInput.value = filters.request_id
         apply()
       } }) : null),
     columns: [

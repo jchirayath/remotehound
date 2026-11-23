@@ -1,7 +1,7 @@
 // Unit tests for lib/format.js (UX-6). Run: node --test web/ui/tests/
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { SHARE_DURATIONS, shareDuration, shareModeLabel, timeOfDay, relativeTime, bytes, duration, durationMs, countdown, plural, toDate, between, csvCell, eventLabel, osLabel, serviceLabel } from '../lib/format.js'
+import { SHARE_DURATIONS, shareDuration, shareModeLabel, timeOfDay, relativeTime, bytes, duration, durationMs, countdown, plural, toDate, between, csvCell, eventLabel, osLabel, serviceLabel, deviceLabels } from '../lib/format.js'
 
 const NOW = Date.parse('2026-11-20T12:00:00Z')
 
@@ -83,4 +83,27 @@ test('@feature:sessions share durations and modes', () => {
   assert.equal(shareModeLabel('control'), 'Control')
   assert.equal(shareModeLabel('view'), 'View only')
   assert.equal(shareModeLabel(undefined), 'View only', 'unknown modes never claim control')
+})
+
+test('@feature:devices @feature:help deviceLabels tells devices with the same name apart', () => {
+  const labels = deviceLabels([
+    { id: 'dev_unique1', name: 'kiosk', hostname: 'kiosk', online: true },
+    { id: 'dev_aaaaaa11', name: 'live-box', hostname: 'host-a', online: true },
+    { id: 'dev_bbbbbb22', name: 'live-box', hostname: 'host-b', online: false },
+    { id: 'dev_cccccc33', name: 'twin', hostname: 'same', online: false },
+    { id: 'dev_dddddd44', name: 'twin', hostname: 'same', online: true },
+    { id: 'dev_eeeeee55', name: 'nohost' },
+    { id: 'dev_ffffff66', name: 'nohost' },
+  ])
+  assert.equal(labels.get('dev_unique1'), 'kiosk', 'a unique name stays exactly as it is')
+  assert.equal(labels.get('dev_aaaaaa11'), 'live-box · host-a · online')
+  assert.equal(labels.get('dev_bbbbbb22'), 'live-box · host-b · offline')
+  assert.equal(labels.get('dev_cccccc33'), 'twin · same · cccccc · offline', 'same hostname too: the short ID decides')
+  assert.equal(labels.get('dev_dddddd44'), 'twin · same · dddddd · online')
+  assert.equal(labels.get('dev_eeeeee55'), 'nohost · eeeeee', 'unknown presence is not claimed')
+  assert.notEqual(labels.get('dev_eeeeee55'), labels.get('dev_ffffff66'))
+  // Two rows for one device (e.g. its SSH and RDP logins) are not a collision.
+  const one = deviceLabels([{ id: 'dev_x', name: 'pc' }, { id: 'dev_x', name: 'pc' }])
+  assert.equal(one.get('dev_x'), 'pc')
+  assert.equal(deviceLabels([]).size, 0)
 })

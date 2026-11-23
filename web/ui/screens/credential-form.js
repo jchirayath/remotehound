@@ -10,7 +10,7 @@
 import { h, replace } from '../lib/dom.js'
 import { api } from '../lib/api.js'
 import { drawer, field, button, toast, toastError, applyFieldErrors, formError, banner, confirmDialog } from '../lib/ui.js'
-import { serviceLabel } from '../lib/format.js'
+import { serviceLabel, deviceLabels } from '../lib/format.js'
 
 const credPath = (deviceId, service) => `/api/v1/me/credentials/${encodeURIComponent(deviceId)}/${encodeURIComponent(service)}`
 
@@ -75,8 +75,9 @@ export function openCredentialForm(o = {}) {
   if (!o.existing) {
     api.get('/api/v1/devices', { page_size: 200, order_by: 'name' }).then(r => {
       devices = (r.data || []).filter(dv => (dv.services || []).length)
+      const labels = deviceLabels(devices)
       replace(f.device_id.input, devices.length
-        ? [h('option', { value: '' }, 'Choose a device'), devices.map(dv => h('option', { value: dv.id }, dv.name))]
+        ? [h('option', { value: '' }, 'Choose a device'), devices.map(dv => h('option', { value: dv.id }, labels.get(dv.id)))]
         : h('option', { value: '' }, 'No devices with services'))
       if (o.deviceId) f.device_id.set(o.deviceId)
       fillServices(servicesFor(f.device_id.get()))

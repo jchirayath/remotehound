@@ -14,6 +14,8 @@ Security fixes are disclosed here once users can update (VULN-7).
 - CI runs the browser tests (`e2e/`) against the bundle built from each commit. They now edit, block and delete through the UI and check for exactly one audit event per change, and cover each list screen's empty and error states (with request ID). Integration tests cover group and user CRUD, theme preference, job runs, log level and recording download confinement. `deploy/test/make-env.sh` writes the test bundle's env file.
 
 ### Fixed
+- Devices that share a name (for example one machine enrolled twice) can be told apart in the **Save a login** picker, the **My saved logins** table and the Logs **Device** filter: the label adds the hostname, a short device ID when that still matches, and online/offline. Unique names are unchanged.
+- **Show this request only** on the Logs screen now shows every record of that request: it clears the search, level, source and device filters instead of keeping them.
 - **Run probe** on a device's Diagnostics tab showed its results below the visible area, so the click looked like it did nothing. Results now scroll into view, are announced to screen readers, and a toast summarises them.
 - Long commands in code blocks can be scrolled with the keyboard.
 - A finished one-time session no longer flags the same machine's next session as **enrolled twice**.
