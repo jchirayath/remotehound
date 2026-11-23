@@ -297,7 +297,7 @@ test('@feature:help help opens from the ? button and links the full guide', asyn
   await expect(page.getByRole('dialog').getByText(/devices/i).first()).toBeVisible()
 })
 
-test('@feature:services see every service, read guacd logs, restart guacd and watch it come back', async ({ page }) => {
+test('@feature:services see every service, read guacd logs, restart guacd and watch it come back', async ({ page, request }) => {
   test.setTimeout(90_000)
   // On a Linux host (CI) the browser shares the machine with Docker: restarting guacd removes its
   // network interface, and Chrome drops the in-flight request as ERR_NETWORK_CHANGED. The restart
@@ -317,10 +317,17 @@ test('@feature:services see every service, read guacd logs, restart guacd and wa
   const drawer = page.getByRole('dialog', { name: /guacd logs/i })
   await expect(drawer.getByRole('log')).toContainText(/guacd/i)
   await drawer.getByRole('button', { name: 'Close' }).click()
-  // Restart for real; the card comes back as running.
+  // Restart for real: the audit gains exactly one successful restart and the card comes back as
+  // running. (Not the "guacd: running" toast — on a Linux host the browser may lose that reply, above.)
+  const outcomes = async (ok) => (await auditFor(request, 'service.action', 'service:guacd')).filter(e => (e.outcome === 'success') === ok).length
+  const [okBefore, badBefore] = [await outcomes(true), await outcomes(false)]
   await guacd.getByRole('button', { name: 'Restart' }).click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Restart' }).click()
-  await expect(page.getByText(/guacd: running/i)).toBeVisible({ timeout: 60_000 })
+  await expect.poll(() => outcomes(true), { timeout: 60_000 }).toBe(okBefore + 1)
+  expect(await outcomes(false), 'the restart was audited as a failure').toBe(badBefore)
+  await page.reload()
+  // The container state chip (the card's own badge may read "Degraded" while guacd's health check warms up).
+  await expect(card('guacd').getByText('running', { exact: true }).first()).toBeVisible({ timeout: 60_000 })
   // RemoteHound offers restart only — never stop.
   const rh = card('RemoteHound')
   await expect(rh.getByRole('button', { name: 'Restart' })).toBeVisible()

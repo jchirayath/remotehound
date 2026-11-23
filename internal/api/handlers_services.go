@@ -128,18 +128,22 @@ func (s *Server) serviceAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actx, done := context.WithTimeout(r.Context(), 70*time.Second)
+	// Once asked, the action runs to the end even if the browser goes away (tab
+	// closed, network change): cancelling halfway would leave the container in an
+	// unknown state and the audit log claiming a failure for an action that ran.
+	// The request's values (actor, request ID) are kept; only its cancellation is not.
+	actx, done := context.WithTimeout(context.WithoutCancel(r.Context()), 70*time.Second)
 	defer done()
 	start := time.Now()
 	c, err := s.Control.Act(actx, id, action)
 	if err != nil {
-		s.Audit.Record(r.Context(), "service.action", audit.Failure, resource, map[string]any{"action": action, "error": err.Error()})
+		s.Audit.Record(actx, "service.action", audit.Failure, resource, map[string]any{"action": action, "error": err.Error()})
 		s.fail(w, r, controlErr(err))
 		return
 	}
-	logx.L().InfoContext(r.Context(), "Service action done", logx.Event("service.action"), slog.String("app.service", id),
+	logx.L().InfoContext(actx, "Service action done", logx.Event("service.action"), slog.String("app.service", id),
 		slog.String("app.action", action), slog.Int64("app.duration_ms", time.Since(start).Milliseconds()))
-	s.Audit.Record(r.Context(), "service.action", audit.Success, resource, map[string]any{"action": action, "container": c.Name, "state": c.State})
+	s.Audit.Record(actx, "service.action", audit.Success, resource, map[string]any{"action": action, "container": c.Name, "state": c.State})
 	writeJSON(w, http.StatusOK, map[string]any{"service": id, "action": action, "state": c.State, "container": c}, nil)
 }
 

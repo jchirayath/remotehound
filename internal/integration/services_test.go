@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jchirayath/remotehound/internal/app"
 	"github.com/jchirayath/remotehound/internal/control"
@@ -155,6 +156,52 @@ func TestServiceActionsAuditedAndLimited(t *testing.T) {
 	op.do("GET", "/api/v1/services", nil, 403, nil)
 	op.do("POST", "/api/v1/services/guacamole/actions/restart", nil, 403, nil)
 	op.do("GET", "/api/v1/services/guacamole/logs", nil, 403, nil)
+}
+
+// A browser that goes away mid-action (tab closed, network change) must not
+// cancel an action rh-control is already performing, nor make the audit log say
+// it failed when it happened. Found by CI: the guacd restart succeeded while the
+// audit recorded "service.action failure … context canceled".
+func TestServiceActionFinishesWhenTheBrowserGoesAway(t *testing.T) {
+	h, eng := startWithControl(t)
+	eng.SlowActions(700 * time.Millisecond)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, "POST", h.srv.URL+"/api/v1/services/guacd/actions/restart", nil)
+	req.Header.Set("X-CSRF-Token", h.csrf)
+	if resp, err := h.client.Do(req); err == nil {
+		resp.Body.Close()
+		t.Fatalf("expected the client to give up before the answer, got %d", resp.StatusCode)
+	}
+
+	// The action still completes and is audited once, as a success.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var aud struct {
+			Data []struct{ Outcome, Resource string }
+		}
+		h.do("GET", "/api/v1/audit?event=service.action", nil, 200, &aud)
+		var got []string
+		for _, e := range aud.Data {
+			if e.Resource == "service:guacd" {
+				got = append(got, e.Outcome)
+			}
+		}
+		if len(got) > 0 {
+			if len(got) != 1 || got[0] != "success" {
+				t.Fatalf("audit for the abandoned restart = %v, want exactly [success]", got)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("no audit record for the abandoned restart")
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !contains(eng.CallsSnapshot(), "restart c-guacd") {
+		t.Fatalf("restart never reached the engine: %v", eng.CallsSnapshot())
+	}
 }
 
 func TestServiceLogsAreRedacted(t *testing.T) {

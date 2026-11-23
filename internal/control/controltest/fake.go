@@ -11,8 +11,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -33,7 +35,19 @@ type Engine struct {
 
 	mu         sync.Mutex
 	containers map[string]*Container
-	Calls      []string // "start c1", "restart c2", …
+	Calls      []string     // "start c1", "restart c2", …
+	slow       atomic.Int64 // nanoseconds each start/stop/restart takes (SlowActions)
+}
+
+// SlowActions makes every start/stop/restart take d, like a real container
+// that needs time to stop — long enough for a caller to give up mid-action.
+func (e *Engine) SlowActions(d time.Duration) { e.slow.Store(int64(d)) }
+
+// CallsSnapshot returns the calls so far, safe to read while requests run.
+func (e *Engine) CallsSnapshot() []string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return slices.Clone(e.Calls)
 }
 
 // Start serves a fake engine with the given containers until the test ends.
@@ -67,6 +81,9 @@ func (e *Engine) State(id string) string {
 }
 
 func (e *Engine) serve(w http.ResponseWriter, r *http.Request) {
+	if d := time.Duration(e.slow.Load()); d > 0 && r.Method == http.MethodPost {
+		time.Sleep(d)
+	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	path := r.URL.Path
