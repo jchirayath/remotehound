@@ -125,7 +125,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .sidebar-collapsed .sidebar__user { flex-direction: column; }
 .sidebar-collapsed .sidebar__foot .segmented { flex-direction: column; }
 
-.brand { display: inline-flex; align-items: center; gap: var(--space-sm); text-decoration: none; color: var(--color-text-primary); font-weight: var(--font-weight-bold); font-size: var(--font-size-lg); letter-spacing: -0.02em; min-height: var(--touch); }
+.brand { display: inline-flex; align-items: center; gap: var(--space-sm); text-decoration: none; color: var(--color-text-primary); font-weight: var(--font-weight-bold); font-size: var(--font-size-lg); letter-spacing: -0.02em; min-height: var(--touch); min-width: 0; }
+.brand__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } /* a wide fallback font shortens the name, never the buttons beside it */
 .brand__mark { display: block; flex: none; width: calc(var(--space-xxl) + var(--space-sm)); height: calc(var(--space-xxl) + var(--space-sm)); background: var(--brand-mark) center / contain no-repeat; }
 
 /* the mascot (docs/BRAND.md): one file, states by CSS — "waiting" tilts its head, "lost" holds the tilt */
@@ -187,7 +188,7 @@ a.user.is-active { background: var(--color-brand-primary-container); }
 .btn--danger:hover:not(:disabled) { background: color-mix(in srgb, var(--color-action-destructive) 88%, var(--color-text-primary)); }
 .btn--sm { min-height: var(--touch); padding: 0 var(--space-md); font-size: var(--font-size-xs); }
 .btn--lg { min-height: calc(var(--touch) + var(--space-sm)); padding: 0 var(--space-xl); font-size: var(--font-size-md); }
-.btn--icon { width: var(--touch); padding: 0; }
+.btn--icon { width: var(--touch); min-width: var(--touch); flex: none; padding: 0; } /* never squeezed by a crowded flex row (wide fallback fonts) */
 .btn--icon.btn--sm { width: var(--touch); }
 .btn-row { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
 .btn-row--tight { gap: var(--space-xxs); flex-wrap: nowrap; }

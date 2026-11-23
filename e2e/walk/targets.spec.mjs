@@ -62,6 +62,13 @@ test('@feature:help @feature:groups drawers, confirm dialogs and the help panel 
   expect(await smallTargets(page)).toEqual([])
 })
 
+test('@feature:help a wide system font shortens names, never buttons', async ({ page }) => {
+  // CI's Linux fonts are wider than macOS's: the brand squeezed "Collapse sidebar" to 23 px there.
+  await open(page, '/')
+  await page.evaluate(() => { document.body.style.letterSpacing = '0.12em' }) // CSSOM: allowed by the page's CSP
+  expect(await smallTargets(page)).toEqual([])
+})
+
 test('@feature:help the skip link is a full-size target when focused', async ({ page }) => {
   await open(page, '/')
   const skip = page.locator('.skip-link')
