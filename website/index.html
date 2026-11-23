@@ -58,6 +58,8 @@
   h1 em { font-style: normal; color: var(--brand); }
   .lede { font-size: 20px; color: var(--muted); max-width: 36ch; margin: 0 0 28px; }
   .ctas { display: flex; flex-wrap: wrap; gap: 12px; }
+  .selfhost-note { margin: 20px 0 0; max-width: 46ch; padding: 12px 16px; border-left: 3px solid var(--accent); border-radius: 8px; background: var(--accent-soft); color: var(--muted); font-size: 15px; }
+  .selfhost-note strong { color: var(--text); }
   .hero-art { justify-self: center; width: min(320px, 70vw); filter: drop-shadow(0 18px 30px rgb(36 71 138 / 22%)); }
   @media (max-width: 860px) { .hero .wrap { grid-template-columns: 1fr; } .hero-art { grid-row: 1; width: 180px; } .hero { padding-top: 40px; } }
 
@@ -100,7 +102,7 @@
   .note { margin-top: 24px; padding: 16px 20px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg); color: var(--muted); font-size: 15.5px; }
   .note strong { color: var(--text); }
 
-  .links-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .links-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
   .links-row a.card { text-decoration: none; transition: border-color .15s; } .links-row a.card:hover { border-color: var(--brand); }
   .links-row .host { font: 13px var(--mono); color: var(--brand); margin-top: 10px; display: block; }
   @media (max-width: 860px) { .links-row { grid-template-columns: 1fr; } }
@@ -170,9 +172,11 @@
       <a href="#how">How it works</a>
       <a href="#features">Features</a>
       <a href="#screenshots">Screenshots</a>
+      <a href="#self-host">Run your own</a>
       <a href="#why">Why we built it</a>
+      <a href="https://github.com/jchirayath/remotehound">GitHub</a>
     </nav>
-    <a class="btn btn--primary btn--sm" href="{{CONSOLE_URL}}/">Open the console</a>
+    <a class="btn btn--primary btn--sm" href="#self-host">Run your own</a>
   </div>
 </header>
 
@@ -184,9 +188,10 @@
       <h1>Reach your machines <em>from a browser.</em></h1>
       <p class="lede">SSH, Remote Desktop and VNC to your Linux, macOS and Windows machines. Nothing to install on them, nobody to approve each session, no inbound ports.</p>
       <div class="ctas">
-        <a class="btn btn--primary" href="{{CONSOLE_URL}}/">Open the console</a>
-        <a class="btn btn--ghost" href="#how">See how it works</a>
+        <a class="btn btn--primary" href="#self-host">Run your own</a>
+        <a class="btn btn--ghost" href="#screenshots">See the console</a>
       </div>
+      <p class="selfhost-note"><strong>Self-hosted:</strong> there is no shared service to sign up for. You run RemoteHound on your own server or any Docker host, and only the people you add can sign in.</p>
     </div>
     <picture class="hero-art">
       <source srcset="img/mascot-dark.svg" media="(prefers-color-scheme: dark)">
@@ -207,9 +212,9 @@
           <li><strong>Create a code.</strong> In the console, choose Enroll and name the machine. You get a single-use code that expires in minutes.</li>
           <li><strong>Type one command on the machine.</strong> In Terminal, or PowerShell opened with <em>Run as administrator</em>. No installer, no agent.
             <pre class="cmd"><b>macOS / Linux</b>
-curl -fsSL {{CONSOLE_URL}}/e/CODE | sudo sh
+curl -fsSL https://your-server/e/CODE | sudo sh
 <b>Windows PowerShell (as administrator)</b>
-irm {{CONSOLE_URL}}/e/CODE | iex</pre></li>
+irm https://your-server/e/CODE | iex</pre></li>
           <li><strong>The machine dials out.</strong> The script gives the machine its own SSH key and opens an outbound <code>ssh -R</code> tunnel to RemoteHound with the SSH client the system already has. systemd, launchd or a Scheduled Task starts it at boot and brings it back after network drops. No admin rights? Choose <em>Temporary</em> on the Enroll page: the same command without <code>sudo</code> (or in an ordinary PowerShell) runs the tunnel only while you are logged in. The console shows which kind each device has.</li>
           <li><strong>It shows up online.</strong> The machine appears under Devices with the services it offers: SSH, Remote Desktop or Screen Sharing.</li>
         </ol>
@@ -270,7 +275,7 @@ irm {{CONSOLE_URL}}/e/CODE | iex</pre></li>
 <section id="screenshots" class="alt">
   <div class="wrap">
     <h2>Screenshots</h2>
-    <p class="sub">Real sessions in a browser tab, each through a tunnel the machine opened itself, and the console that runs them.</p>
+    <p class="sub">Real sessions in a browser tab, each through a tunnel the machine opened itself, and the console that runs them. This is the console you get on <a href="#self-host">your own server</a>.</p>
     <div class="shots">
       <figure>
         <div class="shot"><div class="bar" aria-hidden="true"><i></i><i></i><i></i><span>Linux · SSH</span></div><img src="img/linux-ssh.jpg" alt="An SSH terminal to a Linux machine in a browser tab, showing system information" width="1600" height="1000" loading="lazy"></div>
@@ -296,10 +301,42 @@ irm {{CONSOLE_URL}}/e/CODE | iex</pre></li>
   </div>
 </section>
 
-<section id="why">
+<section id="self-host">
+  <div class="wrap">
+    <h2>Run your own</h2>
+    <p class="sub">RemoteHound is open source and self-hosted. Each organisation runs its own copy: your machines, your sign-in, your audit log, on a server you control. Our own console is private to our team, so the screenshots above are the way to look around.</p>
+    <div class="lanes">
+      <div class="lane">
+        <p class="lane__who">You need</p>
+        <h3>A server or any Docker host</h3>
+        <ol>
+          <li><strong>A Linux server, VM or cloud instance</strong> with Docker and Docker Compose. A small one is enough for a handful of machines.</li>
+          <li><strong>A DNS name</strong> pointing at it, with ports 80 and 443 open for the console.</li>
+          <li><strong>TCP port 2222</strong> reachable by the machines you enrol, for their outbound tunnels.</li>
+          <li><strong>A sign-in provider:</strong> Microsoft Entra ID, Google, GitHub, any OpenID provider, or your own sign-in proxy.</li>
+        </ol>
+      </div>
+      <div class="lane lane--admin">
+        <p class="lane__who">About ten minutes</p>
+        <h3>Start the bundle</h3>
+        <pre class="cmd">git clone https://github.com/jchirayath/remotehound
+cd remotehound/deploy
+cp .env.example .env &amp;&amp; chmod 600 .env
+docker run --rm ghcr.io/jchirayath/remotehound \
+  gen-secret &gt;&gt; .env
+<b># your domain, sign-in and first admin</b>
+$EDITOR .env
+docker compose up -d</pre>
+        <p>Then open your own address, sign in as the first admin, check that <em>Integration</em> is all green and enrol your first machine. The <a href="https://github.com/jchirayath/remotehound/blob/main/docs/RUNBOOK.md">setup guide</a> covers sign-in providers, backups and upgrades.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="why" class="alt">
   <div class="wrap">
     <h2>Why we built it</h2>
-    <p class="sub">We already run <a href="https://meshcentral.com/">MeshCentral</a> at <a href="{{MESH_URL}}/">{{MESH_HOST}}</a>. It's a capable, mature tool, but two things kept getting in the way.</p>
+    <p class="sub">We already run <a href="https://meshcentral.com/">MeshCentral</a>. It's a capable, mature tool, but two things kept getting in the way.</p>
     <div class="why">
       <div>
         <blockquote>1. Someone at the other end has to approve the session.<br>2. Every machine needs a full client installed.</blockquote>
@@ -320,19 +357,18 @@ irm {{CONSOLE_URL}}/e/CODE | iex</pre></li>
             </tbody>
           </table>
         </div>
-        <p class="note"><strong>Both keep running.</strong> {{MESH_HOST}} stays for helping people at their own computers, where approving each session is the point. RemoteHound at {{CONSOLE_HOST}} is for machines we look after ourselves.</p>
+        <p class="note"><strong>Both keep running.</strong> MeshCentral stays for helping people at their own computers, where approving each session is the point. RemoteHound is for machines we look after ourselves.</p>
       </div>
     </div>
   </div>
 </section>
 
-<section id="links" class="alt">
+<section id="links">
   <div class="wrap">
     <h2>Links</h2>
-    <p class="sub">{{SIGN_IN_NOTE}}</p>
     <div class="links-row">
-      <a class="card" href="{{CONSOLE_URL}}/"><h3>RemoteHound console</h3><p>Enrol machines, connect, share sessions and manage the service.</p><span class="host">{{CONSOLE_HOST}}</span></a>
-      <a class="card" href="{{MESH_URL}}/"><h3>Our MeshCentral server</h3><p>Our MeshCentral server, for attended help on other people's computers.</p><span class="host">{{MESH_HOST}}</span></a>
+      <a class="card" href="https://github.com/jchirayath/remotehound"><h3>Source code</h3><p>RemoteHound on GitHub, Apache License 2.0. Issues and contributions welcome.</p><span class="host">github.com</span></a>
+      <a class="card" href="https://github.com/jchirayath/remotehound/blob/main/docs/RUNBOOK.md"><h3>Setup guide</h3><p>Run your own server: sign-in providers, backups, upgrades and rotating secrets.</p><span class="host">github.com</span></a>
       <a class="card" href="https://meshcentral.com/"><h3>MeshCentral project</h3><p>The open-source remote management tool RemoteHound sits beside.</p><span class="host">meshcentral.com</span></a>
     </div>
   </div>
@@ -343,6 +379,7 @@ irm {{CONSOLE_URL}}/e/CODE | iex</pre></li>
   <div class="wrap">
     <span>RemoteHound · open source under the Apache License 2.0</span>
     <span>Sessions rendered by <a href="https://guacamole.apache.org/">Apache Guacamole</a></span>
+    <span>Built by <a href="{{MAKER_URL}}">{{MAKER_NAME}}</a></span>
   </div>
 </footer>
 </body>

@@ -2,7 +2,8 @@
 
 The project's one-page website: what RemoteHound is for, how it works (setting a machine up, connecting,
 and where Apache Guacamole fits), features, screenshots of Linux, macOS and Windows sessions and the
-console, and why it was built next to MeshCentral.
+console, how to run your own (RemoteHound is self-hosted: there is no shared console to sign in to, so
+the page shows screenshots instead of linking to one), and why it was built next to MeshCentral.
 
 ```
 website/
@@ -16,9 +17,9 @@ website/
 
 - **No scripts, no external requests.** Styles are inline; images are local. It serves under a strict
   CSP (`default-src 'none'; img-src 'self'; style-src 'unsafe-inline'`).
-- **Placeholders, not domains.** This repo keeps owner data out (`ci/check-public.mjs`), so the console
-  and MeshCentral URLs, and the sign-in note, are filled in at deploy time from the git-ignored
-  `local/website.env`. The header of `deploy.sh` lists its keys.
+- **Placeholders, not domains.** This repo keeps owner data out (`ci/check-public.mjs`), so the
+  footer's "Built by" name and link are filled in at deploy time from the git-ignored
+  `local/website.env`. The page names no install of its own (no console or MeshCentral server URLs). The header of `deploy.sh` lists its keys.
 - **Screenshots** come from a local test bundle (example data only: `remote.example.com`, demo device
   names). `linux-ssh.jpg` is a real SSH session to an Ubuntu container enrolled with the one-liner;
   `windows-desktop.jpg` a real Windows 11 RDP session. A macOS Screen Sharing shot is still wanted: take

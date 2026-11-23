@@ -11,6 +11,7 @@ Security fixes are disclosed here once users can update (VULN-7).
 - `e2e/azure/run.sh`: unattended end-to-end test on real Windows and Linux machines in Azure (creates and deletes its own resource group).
 
 ### Changed
+- Website: RemoteHound is self-hosted, so the page no longer links to a console. A new **Run your own** section lists what you need (a server or any Docker host, a DNS name, ports 80/443 and 2222, a sign-in provider) and the commands to start the bundle, with links to the source on GitHub and the setup guide. The header has a GitHub link; screenshots show the console. The footer credits the maker (filled in at deploy time).
 - Every control is at least 44 × 44 px on every screen, on desktop as well as touch: small and icon buttons, inputs and selects, column sort buttons, theme and filter options, table links and the ⓘ help buttons (their 24 px icon keeps its look; the hit area around it grows). The size is a design token (`space.domain.target` → `--space-domain-target`), and a walkthrough test measures every screen, drawer, dialog and the help panel on the desktop and phone layouts.
 - CI caches Docker layers for the e2e job's two images (GitHub Actions cache).
 - guacd's health check runs every 30 s, every 2 s while starting (the image's own runs every 5 minutes). After a start or restart, guacd no longer shows "health: starting" and a **Degraded** Services card for up to 5 minutes, and `docker compose up --wait` returns in seconds.
