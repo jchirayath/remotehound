@@ -35,6 +35,13 @@
     "xxxl": {
       "$type": "dimension",
       "$value": "48px"
+    },
+    "domain": {
+      "target": {
+        "$type": "dimension",
+        "$value": "44px",
+        "$description": "Smallest hit area for anything a person clicks or taps (CLAUDE.md UI rule; WCAG 2.5.5 AAA)."
+      }
     }
   },
   "radius": {
