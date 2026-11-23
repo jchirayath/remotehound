@@ -299,6 +299,10 @@ test('@feature:help help opens from the ? button and links the full guide', asyn
 
 test('@feature:services see every service, read guacd logs, restart guacd and watch it come back', async ({ page }) => {
   test.setTimeout(90_000)
+  // On a Linux host (CI) the browser shares the machine with Docker: restarting guacd removes its
+  // network interface, and Chrome drops the in-flight request as ERR_NETWORK_CHANGED. The restart
+  // itself still has to work — the card must come back as running below.
+  page.allowedErrors = [/ERR_NETWORK_CHANGED/]
   await open(page, '/services')
   for (const name of ['RemoteHound', 'Tunnel server', 'Data store', 'Guacamole', 'guacd']) {
     // The heading's accessible name also carries its ⓘ button ("About …"), so match the start.

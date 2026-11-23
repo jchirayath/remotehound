@@ -16,7 +16,8 @@ export const test = base.extend({
     // up as an HTTP error status or a connection error instead, which still fails the test.
     page.on('requestfailed', r => {
       const why = r.failure()?.errorText || ''
-      if (!/\/api\/v1\/logs\/stream/.test(r.url()) && !/ERR_ABORTED/.test(why)) problems.push('requestfailed: ' + r.url() + ' ' + why)
+      // A test may also name errors it expects (page.allowedErrors), for failed requests as for console lines.
+      if (!/\/api\/v1\/logs\/stream/.test(r.url()) && !/ERR_ABORTED/.test(why) && !page.allowedErrors?.some(x => x.test(why))) problems.push('requestfailed: ' + r.url() + ' ' + why)
     })
     await use(page)
     expect(problems, problems.join('\n')).toEqual([])
