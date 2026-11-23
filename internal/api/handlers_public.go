@@ -365,6 +365,7 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	s.Audit.Record(r.Context(), "user.preferences", audit.Success, "user:"+a.UserID, map[string]any{"theme": in.Theme})
 	writeJSON(w, http.StatusOK, s.meFor(r), nil)
 }
 

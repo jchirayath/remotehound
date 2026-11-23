@@ -55,6 +55,7 @@ test('@feature:devices edit, disable, enable and delete a device; each change au
   await page.getByRole('button', { name: 'Save changes' }).click()
   await expect(page.getByText('Device saved')).toBeVisible()
   await expect(page.locator('h1')).toHaveText(`crud-renamed-${stamp}`)
+  await expect(page).toHaveTitle(`crud-renamed-${stamp} · RemoteHound`) // the browser tab follows the rename
   const saved = (await api(request, ADMIN, 'GET', `/api/v1/devices/${id}`)).body.data
   expect(saved.tags).toEqual(['kiosk', 'floor-2'])
   expect(saved.notes).toBe('Front desk')
@@ -215,6 +216,8 @@ test('@feature:integration run the Guacamole checks: every hop passes', async ({
   await open(page, '/integration')
   await page.getByRole('button', { name: 'Run checks' }).click()
   await expect(page.getByText('Guacamole is ready')).toBeVisible({ timeout: 15_000 })
+  // Stock Guacamole does not report its version: no meaningless "Guacamole unknown".
+  await expect(page.getByText(/Guacamole\s+unknown/)).toHaveCount(0)
 })
 
 test('@feature:logs logs are searchable, filter by level and follow one request ID', async ({ page, request }) => {
@@ -317,6 +320,12 @@ test('@feature:services see every service, read guacd logs, restart guacd and wa
   const drawer = page.getByRole('dialog', { name: /guacd logs/i })
   await expect(drawer.getByRole('log')).toContainText(/guacd/i)
   await drawer.getByRole('button', { name: 'Close' }).click()
+  // The 15 s background refresh replaces every card; a keyboard user keeps focus on the same control.
+  const logsBtn = guacd.getByRole('button', { name: 'View logs' })
+  await logsBtn.focus()
+  const before = await logsBtn.elementHandle()
+  await expect.poll(() => before.evaluate(el => !el.isConnected), { timeout: 25_000 }).toBe(true)
+  await expect.poll(() => page.evaluate(() => document.activeElement?.dataset?.focus)).toBe('guacd:logs')
   // Restart for real: the audit gains exactly one successful restart and the card comes back as
   // running. (Not the "guacd: running" toast — on a Linux host the browser may lose that reply, above.)
   const outcomes = async (ok) => (await auditFor(request, 'service.action', 'service:guacd')).filter(e => (e.outcome === 'success') === ok).length
@@ -325,6 +334,9 @@ test('@feature:services see every service, read guacd logs, restart guacd and wa
   await page.getByRole('alertdialog').getByRole('button', { name: 'Restart' }).click()
   await expect.poll(() => outcomes(true), { timeout: 60_000 }).toBe(okBefore + 1)
   expect(await outcomes(false), 'the restart was audited as a failure').toBe(badBefore)
+  // Even when the browser lost the reply (Linux CI), the console must not claim the restart failed.
+  await expect(page.getByText(/guacd: running/i)).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('Restart failed')).toHaveCount(0)
   await page.reload()
   // The container state chip (the card's own badge may read "Degraded" while guacd's health check warms up).
   await expect(card('guacd').getByText('running', { exact: true }).first()).toBeVisible({ timeout: 60_000 })

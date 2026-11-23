@@ -83,7 +83,8 @@ export default function render(ctx) {
           h('p', null, text),
           h('p', { class: 'hero__meta' },
             rep.checked_at ? h('span', null, 'Last checked ', relTime(rep.checked_at)) : h('span', null, 'Never checked'),
-            rep.guacamole_version ? h('span', null, 'Guacamole ', h('code', null, rep.guacamole_version)) : null,
+            // Stock Guacamole does not report its version; "unknown" says nothing, so it is not shown.
+            rep.guacamole_version && rep.guacamole_version !== 'unknown' ? h('span', null, 'Guacamole ', h('code', null, rep.guacamole_version)) : null,
             counts.length ? h('span', { class: 'chips' }, counts.map(([s, n]) => badge(`${n} ${STATUS[s].label.toLowerCase()}`, STATUS[s].tone))) : null))),
       checks.length
         ? h('ul', { class: 'checks', role: 'list' }, checks.map(c => {

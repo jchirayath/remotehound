@@ -44,7 +44,6 @@ export default function render(ctx) {
       const [r, gm] = await Promise.all([api.get(path, null, { signal: ctx.signal }), groupMap(), loadMyCreds()])
       device = r.data
       gmap = gm
-      ctx.setTitle(device.name)
       paint()
     } catch (err) {
       if (err?.name === 'AbortError') return
@@ -153,6 +152,7 @@ export default function render(ctx) {
 
   function paint() {
     unmount(root)
+    ctx.setTitle(device.name) // every repaint, so a rename updates the browser tab too
     const group = gmap.get(device.group_id)
     const p = page({
       title: device.name,

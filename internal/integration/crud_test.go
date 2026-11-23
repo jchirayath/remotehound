@@ -160,6 +160,9 @@ func TestThemePreferencePersists(t *testing.T) {
 	if me.Data.Theme != "dark" {
 		t.Fatalf("viewer's preference leaked into the admin's: %q", me.Data.Theme)
 	}
+	// Each change is audited once, against the user who made it; refused changes add nothing.
+	wantAudit(t, h, "user.preferences", "user:"+meID(h), 1)
+	wantAudit(t, h, "user.preferences", "user:"+v.Data.ID, 1)
 }
 
 func TestJobRunAndLogLevelAreAdminOnlyAndAudited(t *testing.T) {

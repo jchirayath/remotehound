@@ -14,6 +14,10 @@ Security fixes are disclosed here once users can update (VULN-7).
 - CI runs the browser tests (`e2e/`) against the bundle built from each commit. They now edit, block and delete through the UI and check for exactly one audit event per change, and cover each list screen's empty and error states (with request ID). Integration tests cover group and user CRUD, theme preference, job runs, log level and recording download confinement. `deploy/test/make-env.sh` writes the test bundle's env file.
 
 ### Fixed
+- Changing your theme is recorded in the audit log (`user.preferences`), like every other change.
+- When the connection drops during a Services action, the console checks the container and reports what happened instead of claiming **Restart failed**. The **Start** confirmation no longer says the service "restarts" and that open sessions drop.
+- The Services page keeps keyboard focus on the same button when it refreshes every 15 seconds.
+- Renaming a device updates the browser tab title. The Integration screen no longer shows "Guacamole unknown" (stock Guacamole does not report its version).
 - A Services **Start / Stop / Restart** now finishes even if the browser goes away mid-action (tab closed, network change), and the audit log records what really happened. Before, the action ran but was logged as `service.action` **failure** ("rh-control unreachable … context canceled") and answered 502.
 - Devices that share a name (for example one machine enrolled twice) can be told apart in the **Save a login** picker, the **My saved logins** table and the Logs **Device** filter: the label adds the hostname, a short device ID when that still matches, and online/offline. Unique names are unchanged.
 - **Show this request only** on the Logs screen now shows every record of that request: it clears the search, level, source and device filters instead of keeping them.

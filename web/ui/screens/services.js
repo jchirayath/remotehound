@@ -16,6 +16,7 @@ import { can } from '../lib/session.js'
 import { columnHelp } from '../lib/help.js'
 import { page, button, badge, relTime, skeleton, errorState, toast, toastError, infoTip, kv, banner, drawer, confirmDialog, toggle, linkButton, copyButton } from '../lib/ui.js'
 import { durationMs } from '../lib/format.js'
+import { log } from '../lib/log.js'
 
 const STATUS = {
   ok: { label: 'Running', tone: 'success', icon: 'status.success' },
@@ -63,7 +64,12 @@ export default function render(ctx) {
   const timer = setInterval(() => { if (!busy && document.visibilityState === 'visible') load() }, 15000)
   ctx.onCleanup(() => clearInterval(timer))
 
+  /** Marks a control so a repaint can give focus back to its replacement. */
+  function focusKey(el, key) { el.dataset.focus = key; return el }
+
   function paint(rep) {
+    // The refresh replaces every card; keep a keyboard user's place on the same control.
+    const had = body.contains(document.activeElement) ? document.activeElement.closest('[data-focus]')?.dataset.focus : null
     painted = true
     const overall = STATUS[rep.overall] ? rep.overall : 'unknown'
     const [title, text] = HERO[overall] || HERO.degraded
@@ -80,6 +86,10 @@ export default function render(ctx) {
       controlBanner(rep.control),
       h('ul', { class: 'checks svc-grid', role: 'list', 'aria-label': 'Services' }, rep.services.map(s => card(s, rep.control))),
       guacCard(rep.guacamole))
+    if (had) {
+      const again = [...body.querySelectorAll('[data-focus]')].find(el => el.dataset.focus === had)
+      if (again && !again.disabled) again.focus({ preventScroll: true })
+    }
   }
 
   function controlBanner(c) {
@@ -100,14 +110,14 @@ export default function render(ctx) {
         if (s.self_managed && a !== 'restart') continue
         const running = c.state === 'running'
         const disabled = (a === 'start' && running) || (a === 'stop' && !running)
-        append(actions, button({ ...ACTION[a], size: 'sm', disabled, title: disabled ? `${s.name} is already ${running ? 'running' : 'stopped'}` : undefined,
-          onClick: () => act(s, a) }))
+        append(actions, focusKey(button({ ...ACTION[a], size: 'sm', disabled, title: disabled ? `${s.name} is already ${running ? 'running' : 'stopped'}` : undefined,
+          onClick: () => act(s, a) }), `${s.id}:${a}`))
       }
     }
     if (c && control.reachable && c.actions.includes('logs')) {
-      append(actions, button({ label: 'View logs', icon: 'domain.nav.logs', size: 'sm', variant: 'ghost', onClick: () => openLogs(s) }))
+      append(actions, focusKey(button({ label: 'View logs', icon: 'domain.nav.logs', size: 'sm', variant: 'ghost', onClick: () => openLogs(s) }), `${s.id}:logs`))
     } else if (s.id === 'remotehound' && can('logs.read')) {
-      append(actions, linkButton({ href: '/logs', label: 'Open logs', icon: 'domain.nav.logs', size: 'sm', variant: 'ghost' }))
+      append(actions, focusKey(linkButton({ href: '/logs', label: 'Open logs', icon: 'domain.nav.logs', size: 'sm', variant: 'ghost' }), `${s.id}:logs`))
     }
     const problems = s.problems || []
     return h('li', { class: `check-card check-card--${st.tone} svc-card`, 'aria-labelledby': `svc-${s.id}` },
@@ -159,9 +169,11 @@ export default function render(ctx) {
       title: `${ACTION[action].label} ${s.name}?`,
       body: action === 'stop'
         ? `${s.name} stops and stays stopped until someone starts it. ${s.id === 'guacd' || s.id === 'guacamole' ? 'Every open remote session ends and no new one can open.' : ''}`
-        : self
-          ? 'RemoteHound restarts: the console is unavailable for about 10 seconds and open sessions drop. Devices reconnect by themselves.'
-          : `${s.name} restarts. ${s.id === 'guacd' || s.id === 'guacamole' ? 'Open remote sessions drop; people can reconnect after a few seconds.' : ''}`,
+        : action === 'start'
+          ? `${s.name} starts. ${s.id === 'guacd' || s.id === 'guacamole' ? 'Remote sessions can open again once it is up, in a few seconds.' : ''}`
+          : self
+            ? 'RemoteHound restarts: the console is unavailable for about 10 seconds and open sessions drop. Devices reconnect by themselves.'
+            : `${s.name} restarts. ${s.id === 'guacd' || s.id === 'guacamole' ? 'Open remote sessions drop; people can reconnect after a few seconds.' : ''}`,
       confirmLabel: ACTION[action].label, tone: action === 'stop' || self ? 'danger' : 'primary',
       typed: action === 'stop' ? s.id : undefined,
     })
@@ -176,11 +188,36 @@ export default function render(ctx) {
         toast(`${s.name}: ${r.data?.state || 'done'}`, { tone: 'success' })
       }
     } catch (err) {
+      // The reply was lost (network change, laptop sleep) but the server finishes the action anyway:
+      // look at the container instead of claiming a failure that may not have happened.
+      if (err?.status === 0 && await reportFromState(s, action)) return
       toastError(err, `${ACTION[action].label} failed`)
     } finally {
       busy = false
       load()
     }
+  }
+
+  /**
+   * After a lost reply: re-read the container a few times and report what it is now.
+   * Returns true when the action evidently happened (a toast says so), false to show the error.
+   */
+  async function reportFromState(s, action) {
+    const want = action === 'stop' ? 'exited' : 'running'
+    for (let i = 0; i < 5 && !ctx.signal.aborted; i++) {
+      await new Promise(res => setTimeout(res, 1500))
+      try {
+        const r = await api.get('/api/v1/services', null, { signal: ctx.signal })
+        const state = r.data.services.find(x => x.id === s.id)?.container?.state
+        if (state === want) {
+          toast(`${s.name}: ${state}`, { tone: 'success', detail: 'The connection dropped during the action, but it went through.' })
+          return true
+        }
+      } catch (e) {
+        log.debug('services.state_recheck_failed', { service: s.id, attempt: i + 1, code: e?.code || String(e?.message || e) }) // still offline: try again
+      }
+    }
+    return false
   }
 
   /** After a self-restart: poll until the API answers again (up to 90 s). */
