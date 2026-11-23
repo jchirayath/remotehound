@@ -119,6 +119,14 @@ services:
     # (it keeps per-user config there) — in memory, owned by the guacd user.
     tmpfs: ["/tmp", "/home/guacd:uid=1000,gid=1000,mode=0700"]
     security_opt: ["no-new-privileges:true"]
+    # The image's own check (same command) runs every 5 minutes with no start phase, so after
+    # any start or restart guacd showed "health: starting" (Services: Degraded) for up to 5 min.
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 4822 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      start_interval: 2s
     labels:
       io.remotehound.control.service: guacd
       io.remotehound.control.actions: start,stop,restart,logs

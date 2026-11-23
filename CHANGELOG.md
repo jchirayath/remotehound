@@ -13,6 +13,7 @@ Security fixes are disclosed here once users can update (VULN-7).
 ### Changed
 - Every control is at least 44 × 44 px on every screen, on desktop as well as touch: small and icon buttons, inputs and selects, column sort buttons, theme and filter options, table links and the ⓘ help buttons (their 24 px icon keeps its look; the hit area around it grows). The size is a design token (`space.domain.target` → `--space-domain-target`), and a walkthrough test measures every screen, drawer, dialog and the help panel on the desktop and phone layouts.
 - CI caches Docker layers for the e2e job's two images (GitHub Actions cache).
+- guacd's health check runs every 30 s, every 2 s while starting (the image's own runs every 5 minutes). After a start or restart, guacd no longer shows "health: starting" and a **Degraded** Services card for up to 5 minutes, and `docker compose up --wait` returns in seconds.
 - CI runs the browser tests (`e2e/`) against the bundle built from each commit. They now edit, block and delete through the UI and check for exactly one audit event per change, and cover each list screen's empty and error states (with request ID). Integration tests cover group and user CRUD, theme preference, job runs, log level and recording download confinement. `deploy/test/make-env.sh` writes the test bundle's env file.
 
 ### Fixed
