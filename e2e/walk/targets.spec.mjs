@@ -76,6 +76,11 @@ test('@feature:help a wide system font shortens names, never buttons', async ({ 
   await open(page, '/')
   await page.evaluate(() => { document.body.style.letterSpacing = '0.12em' }) // CSSOM: allowed by the page's CSP
   expect(await smallTargets(page)).toEqual([])
+  // CI's Linux font also cut the name off at a fixed sidebar width: the sidebar grows to fit it instead.
+  const name = page.locator('.sidebar .brand__name')
+  if (await name.count()) {
+    expect(await name.evaluate(el => el.scrollWidth <= el.clientWidth + 0.5), 'brand name is cut off with a wide font').toBe(true)
+  }
 })
 
 test('@feature:help the skip link is a full-size target when focused', async ({ page }) => {

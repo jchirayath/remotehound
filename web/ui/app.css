@@ -81,7 +81,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .standalone { min-height: 100dvh; display: grid; place-items: center; padding: var(--space-xl); }
 
 /* ── 3 · shell ──────────────────────────────────────────────────────────── */
-.shell { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 100dvh; }
+/* The sidebar grows past --sidebar-w only if its top row (logo, name, 44 px collapse button) needs it,
+   e.g. with a wide system font; the other sections are size-contained so they never widen it. */
+.shell { display: grid; grid-template-columns: minmax(var(--sidebar-w), max-content) minmax(0, 1fr); min-height: 100dvh; }
 .sidebar-collapsed .shell { grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr); }
 .shell__content { min-width: 0; display: flex; flex-direction: column; }
 .main { flex: 1; outline: none; padding: var(--space-xl) var(--space-xxl) var(--space-xxxl); }
@@ -93,6 +95,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   padding: var(--space-lg) var(--space-md); background: var(--color-domain-chrome-bg); border-right: var(--hairline); overflow-y: auto;
 }
 .sidebar__top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); padding: 0 var(--space-xs); }
+.sidebar > :not(.sidebar__top) { contain: inline-size; }
 .sidebar__nav { flex: 1; display: flex; flex-direction: column; gap: var(--space-lg); }
 .sidebar__search {
   display: flex; align-items: center; gap: var(--space-sm); min-height: var(--touch); padding: 0 var(--space-md);
