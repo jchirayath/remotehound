@@ -171,6 +171,7 @@
     <nav class="links" aria-label="Sections">
       <a href="#how">How it works</a>
       <a href="#features">Features</a>
+      <a href="#security">Security</a>
       <a href="#screenshots">Screenshots</a>
       <a href="#self-host">Run your own</a>
       <a href="#why">Why we built it</a>
@@ -272,7 +273,26 @@ irm https://your-server/e/CODE | iex</pre></li>
   </div>
 </section>
 
-<section id="screenshots" class="alt">
+<section id="security" class="alt">
+  <div class="wrap">
+    <h2>Security and controls</h2>
+    <p class="sub">RemoteHound hands out access to computers, so the design starts from what a stolen piece could do and limits each one. Every control below is written down in the <a href="https://github.com/jchirayath/remotehound/blob/main/docs/THREAT_MODEL.md">threat model</a> and covered by tests.</p>
+    <div class="grid">
+      <div class="card"><h3><span class="dot" aria-hidden="true">ID</span>Sign-in you control</h3><p>Microsoft Entra ID, Google, GitHub or any OpenID provider, verified with PKCE and signed tokens, or your own sign-in proxy behind a shared secret. Sessions are signed, HttpOnly cookies with idle and absolute timeouts.</p></div>
+      <div class="card"><h3><span class="dot" aria-hidden="true">◇</span>Deny by default</h3><p>Admin, operator and viewer roles. Operators see only their own groups' devices; others don't exist for them. Removing someone's access ends their live sessions, and the last admin can't be removed.</p></div>
+      <div class="card"><h3><span class="dot" aria-hidden="true">⇄</span>A device key does one thing</h3><p>Each machine makes its own ed25519 key. It can hold open only the forwards that machine declared: no shell on the server, no commands, no reaching other machines or the server's network.</p></div>
+      <div class="card"><h3><span class="dot" aria-hidden="true">60</span>One-time session tickets</h3><p>Each Connect gets a sealed ticket for one connection that lives 60 seconds and works only for the person it was made for. Guacamole has no users or database of its own and can't be reached from outside.</p></div>
+      <div class="card"><h3><span class="dot" aria-hidden="true">✱</span>Passwords sealed, never shown</h3><p>Saved logins are encrypted with AES-256-GCM, separately for each person and device. The API never returns them, and the logs and audit trail redact them.</p></div>
+      <div class="card"><h3><span class="dot" aria-hidden="true">#</span>Tamper-evident audit</h3><p>Every sign-in, enrolment, connection and change is recorded once, with who, when and from where, in an append-only log chained with SHA-256 and checked every six hours.</p></div>
+      <div class="card"><h3><span class="dot" aria-hidden="true">▣</span>Hardened containers</h3><p>The server runs non-root in a distroless image with a read-only filesystem and every capability dropped. Guacamole and guacd sit on an internal network with no published ports and no route to the internet.</p></div>
+      <div class="card"><h3><span class="dot" aria-hidden="true">≤</span>Limits on abuse</h3><p>Enrolment codes are single-use, expire in 15 minutes by default and are stored hashed; wrong guesses are rate-limited. The tunnel port caps and times out unauthenticated handshakes, and the API limits requests per address and per user.</p></div>
+      <div class="card"><h3><span class="dot" aria-hidden="true">✓</span>Supply chain</h3><p>One external Go module. Images pinned by digest, CI actions pinned to commits, secret scanning over the whole history, and govulncheck and Trivy on every change.</p></div>
+    </div>
+    <p class="note"><strong>Known limits, stated openly.</strong> Whoever holds a device's key could pose as that device's services, so prefer each person's own login over a shared password. guacd's upstream image is built on an Alpine release that no longer gets updates; it runs without privileges on an internal network until a supported build exists. The full list is in the <a href="https://github.com/jchirayath/remotehound/blob/main/docs/THREAT_MODEL.md">threat model</a>. Found a problem? <a href="https://github.com/jchirayath/remotehound/blob/main/SECURITY.md">Report it privately</a>.</p>
+  </div>
+</section>
+
+<section id="screenshots">
   <div class="wrap">
     <h2>Screenshots</h2>
     <p class="sub">Real sessions in a browser tab, each through a tunnel the machine opened itself, and the console that runs them. This is the console you get on <a href="#self-host">your own server</a>.</p>
@@ -301,7 +321,7 @@ irm https://your-server/e/CODE | iex</pre></li>
   </div>
 </section>
 
-<section id="self-host">
+<section id="self-host" class="alt">
   <div class="wrap">
     <h2>Run your own</h2>
     <p class="sub">RemoteHound is open source and self-hosted. Each organisation runs its own copy: your machines, your sign-in, your audit log, on a server you control. Our own console is private to our team, so the screenshots above are the way to look around.</p>
@@ -333,7 +353,7 @@ docker compose up -d</pre>
   </div>
 </section>
 
-<section id="why" class="alt">
+<section id="why">
   <div class="wrap">
     <h2>Why we built it</h2>
     <p class="sub">We already run <a href="https://meshcentral.com/">MeshCentral</a>. It's a capable, mature tool, but two things kept getting in the way.</p>
@@ -363,7 +383,7 @@ docker compose up -d</pre>
   </div>
 </section>
 
-<section id="links">
+<section id="links" class="alt">
   <div class="wrap">
     <h2>Links</h2>
     <div class="links-row">
