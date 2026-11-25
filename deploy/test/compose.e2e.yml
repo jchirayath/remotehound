@@ -18,6 +18,11 @@ services:
       RH_PROXY_LOGOUT_URL: /signed-out
       # Proxy mode requires the shared header value; fixed TEST value, sent by Caddyfile.e2e.
       RH_PROXY_SECRET: e2e-test-proxy-value-not-a-secret
+  rh-docker-proxy:
+    profiles: !reset []
+    # Same group rule as rh-control below: 0 on Docker Desktop, the socket's
+    # group on Linux (DOCKER_GID=$(stat -c %g /var/run/docker.sock)).
+    user: "65534:${DOCKER_GID:-0}"
   rh-control:
     profiles: !reset []
     environment:
@@ -33,3 +38,10 @@ services:
       - "127.0.0.1:8444:8444"
     volumes: !override
       - ./test/Caddyfile.e2e:/etc/caddy/Caddyfile:ro
+
+volumes:
+  rh-docker-sock:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=65534,gid=${DOCKER_GID:-0},mode=0770"
