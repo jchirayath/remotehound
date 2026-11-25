@@ -14,11 +14,14 @@
 #   logs       + vector: every container's stdout into one JSONL file the
 #                Logs screen shows as source=bundle (needs the Docker socket,
 #                read-only — enable only if you accept that).
-#   control    + rh-control: Start/Stop/Restart and container logs on the
-#                Services screen. The helper holds the Docker socket (root on
-#                the host) so RemoteHound never does; it acts only on the
-#                containers labelled io.remotehound.control.* below. Also set
-#                RH_CONTROL_URL and RH_CONTROL_TOKEN in .env.
+#   control    + rh-control and rh-docker-proxy: Start/Stop/Restart and
+#                container logs on the Services screen. rh-docker-proxy is the
+#                only holder of the Docker socket (root on the host) and passes
+#                rh-control just the calls it makes; RemoteHound itself never
+#                touches it. rh-control acts only on the containers labelled
+#                io.remotehound.control.* below. Also set RH_CONTROL_URL and
+#                RH_CONTROL_TOKEN in .env, and DOCKER_GID to the gid of
+#                /var/run/docker.sock on the host (`stat -c %g /var/run/docker.sock`).
 #
 # Without Caddy (you already run a proxy): remove the caddy service and publish
 # remotehound's 8080 to your proxy; set RH_TRUSTED_PROXIES to the proxy's address.
@@ -153,21 +156,58 @@ services:
     depends_on: [remotehound]
     logging: *logging
 
+  # rh-docker-proxy: the only holder of the Docker socket in this bundle. The
+  # socket is root on the host, so rh-control mounting it directly meant a
+  # compromise of rh-control was a compromise of the host (the residual risk
+  # ADR-0004 recorded). The proxy hands rh-control a socket of its own that
+  # answers ONLY the calls internal/control/docker.go makes: GET _ping, the
+  # container list, one container's JSON and logs; POST start/stop/restart.
+  # Create, exec, images, volumes, networks and the daemon API (everything
+  # that turns socket access into root) are refused, whatever rh-control is
+  # tricked into sending. No network at all: it speaks only over unix sockets.
+  # Add an endpoint to docker.go and it must be added to the allowlist here.
+  # Running on betty since 2026-11-25: allowed calls answer 200, create, exec,
+  # images and /info answer 403.
+  rh-docker-proxy:
+    profiles: [control]
+    image: wollomatic/socket-proxy:1.14.0@sha256:fead157c4de4092461267092be49c993c2e6dd296a54c89ed04b8c870016b045
+    restart: unless-stopped
+    user: "65534:${DOCKER_GID:-999}"       # nobody, in the docker socket's group
+    command:
+      - -proxysocketendpoint=/run/rh-docker/docker.sock
+      - -proxysocketendpointfilemode=432   # 0660: rh-control shares the group
+      - -allowGET=^(/v[0-9.]+)?/(_ping|containers/json|containers/[a-zA-Z0-9_.-]+/(json|logs))$$
+      - -allowPOST=^(/v[0-9.]+)?/containers/[a-zA-Z0-9_.-]+/(start|stop|restart)$$
+      - -watchdoginterval=30
+      - -stoponwatchdog
+      - -shutdowngracetime=5
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - rh-docker-sock:/run/rh-docker
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 32m
+    pids_limit: 32
+    logging: *logging
+
   rh-control:
     profiles: [control]
     image: ghcr.io/jchirayath/remotehound:${REMOTEHOUND_VERSION:-latest}
     command: ["control"]
     restart: unless-stopped
+    depends_on: [rh-docker-proxy]
     environment:
       RH_CONTROL_LISTEN: ":9091"
-      RH_CONTROL_DOCKER_SOCKET: /var/run/docker.sock
+      RH_CONTROL_DOCKER_SOCKET: /run/rh-docker/docker.sock   # the proxy's, not the host's
       RH_CONTROL_TOKEN: ${RH_CONTROL_TOKEN:-}   # the helper refuses to start without it
-    # Non-root, in the socket's group only. The socket is still root-equivalent:
-    # what limits the helper is its code (labelled containers, listed actions)
-    # and that nothing but remotehound can reach it.
+    # Non-root, in the proxy socket's group. It never sees the real socket:
+    # the proxy refuses anything beyond the calls above, and the helper's own
+    # code further limits it to labelled containers and listed actions.
     user: "65532:${DOCKER_GID:-999}"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - rh-docker-sock:/run/rh-docker
     networks: [control]   # internal, shared with remotehound only; no ports
     read_only: true
     cap_drop: [ALL]
@@ -206,5 +246,10 @@ volumes:
   rh-data:        # state, audit log, SSH host key — BACK THIS UP (docs/RUNBOOK.md)
   recordings:     # session recordings (guacd writes, remotehound lists/downloads/prunes)
   bundle-logs:
+  rh-docker-sock: # tmpfs holding the proxy's socket; nothing persists
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=65534,gid=${DOCKER_GID:-999},mode=0770"
   caddy-data:
   caddy-config:

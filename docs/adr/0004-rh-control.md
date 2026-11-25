@@ -29,7 +29,10 @@ control of every container on the machine — on a shared host, every other serv
 + A RemoteHound compromise yields, at most: restart/stop/start/logs of the labelled bundle containers.
   It cannot exec, create, inspect environments, or touch unlabelled containers.
 + Status works with no Docker access at all; control is a deliberate opt-in.
-− A compromise of rh-control itself is a host compromise. Mitigations: tiny surface (four routes),
-  no inbound network path but remotehound's, non-root user in the socket's group, read-only root,
-  no capabilities. Recorded in STANDARD_EXCEPTIONS and THREAT_MODEL (TB-6).
+− A compromise of rh-control could once have been a host compromise. Since 2026-11-25 it never holds
+  the socket: `rh-docker-proxy` (wollomatic/socket-proxy, no network, read-only) does, and answers
+  only ping, list, inspect, logs and start/stop/restart. A compromised rh-control can therefore
+  stop, start or read logs of any container, but cannot exec, create or reach the daemon API.
+  Further mitigations: tiny surface (four routes), no inbound network path but remotehound's,
+  non-root, read-only root, no capabilities. Recorded in STANDARD_EXCEPTIONS and THREAT_MODEL (TB-6).
 − Operators must keep the labels in their compose file; an unlabelled container simply has no buttons.

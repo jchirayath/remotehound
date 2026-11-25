@@ -31,7 +31,11 @@ its key) · viewer / operator / admin · someone on the Docker host · a malicio
 6. RemoteHound → rh-control → Docker socket (optional `control` profile; ADR-0004). The socket is
    root-equivalent. Controls: internal network only, shared token, label allowlist enforced in the
    helper, no container environments returned, admin-only + audited + rate-limited in RemoteHound,
-   RemoteHound may only restart itself. Residual: a compromise of rh-control itself is a host compromise.
+   RemoteHound may only restart itself. rh-control never holds the socket: `rh-docker-proxy` does, and
+   answers only the six calls rh-control makes (ping, list, inspect, logs, start/stop/restart),
+   refusing create, exec, images and the daemon API. Residual: a compromise of rh-control can stop,
+   start or read the logs of any container on the host, not just the labelled ones (the label
+   allowlist lives in rh-control); a compromise of the proxy itself is a host compromise.
 
 ## Abuse cases and controls (STRIDE)
 
