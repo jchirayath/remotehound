@@ -29,8 +29,7 @@
       "Bash(tools/standard/check.sh:*)",
       "Bash(semgrep --config .semgrep/standard:*)",
       "Bash(docker compose -f deploy/compose.yml -f deploy/test/compose.e2e.yml:*)"
-    ],
-    "disableAutoMode": "disable"
+    ]
   },
   "extraKnownMarketplaces": {
     "engineering-standard": {
