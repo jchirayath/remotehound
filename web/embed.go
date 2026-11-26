@@ -7,7 +7,7 @@ import (
 	"io/fs"
 )
 
-//go:embed ui/index.html ui/*.js ui/*.css ui/*.svg ui/*.ico ui/*.png ui/brand ui/lib ui/screens ui/help
+//go:embed ui/index.html ui/*.js ui/*.css ui/*.svg ui/*.ico ui/*.png ui/brand ui/lib ui/screens ui/help ui/guide
 var files embed.FS
 
 // UI returns the ui/ directory as the filesystem root.

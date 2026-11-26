@@ -14,6 +14,8 @@
 #   SITE_HOST=…            the site's own host name (used for the check at the end)
 #   MAKER_NAME="…"         who built it, shown in the footer ("Built by …"); quote it if it has spaces
 #   MAKER_URL=https://…    the footer link for MAKER_NAME
+#   CONSOLE_URL=https://…  your RemoteHound server: the address the downloadable
+#                          device setup guide (PDF) puts in its commands
 #   DEPLOY_SSH=…           ssh destination of the web server (a Host alias works)
 #   DEPLOY_DIR=…           folder the web server serves this site from
 #
@@ -36,7 +38,7 @@ ENVF="local/website.env"
 [[ -f "$ENVF" ]] || die "$ENVF is missing — see the header of this script for what it holds"
 # shellcheck disable=SC1090
 set -a; . "$ENVF"; set +a
-for v in SITE_HOST MAKER_NAME MAKER_URL DEPLOY_SSH DEPLOY_DIR; do
+for v in SITE_HOST MAKER_NAME MAKER_URL CONSOLE_URL DEPLOY_SSH DEPLOY_DIR; do
   [[ -n "${!v:-}" ]] || die "$v is not set in $ENVF"
 done
 
@@ -67,6 +69,9 @@ for f in $(grep -oE 'img/[A-Za-z0-9._-]+' "$STAGE/index.html" | sort -u); do
   [[ -f "$STAGE/$f" ]] || die "index.html uses $f, which isn't in website/img"
 done
 ok "rendered index.html and $(find "$STAGE/img" -type f | wc -l | tr -d ' ') images"
+# The device setup guide, printed from the console's own page (web/ui/guide) with a blank code.
+website/guide-pdf.sh "$STAGE/remotehound-device-setup.pdf" "$CONSOLE_URL"
+grep -q 'remotehound-device-setup.pdf' "$STAGE/index.html" || die "index.html no longer links the setup guide PDF"
 
 c "Syncing to $DEPLOY_SSH:$DEPLOY_DIR${DRY:+ (dry run)}"
 ssh -o BatchMode=yes -o ConnectTimeout=20 "$DEPLOY_SSH" "sudo mkdir -p '$DEPLOY_DIR'" \
@@ -86,3 +91,6 @@ code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://$SITE_HOST
 [[ "$code" == 200 ]] || die "https://$SITE_HOST/ answered ${code:-000} — if the name is new, local DNS may not have it yet: curl --resolve $SITE_HOST:443:<server IP> https://$SITE_HOST/"
 curl -s --max-time 20 "https://$SITE_HOST/" | grep -q '{{' && die "the live page still has placeholders"
 ok "https://$SITE_HOST/ -> 200, fully rendered"
+ct="$(curl -s -o /dev/null -w '%{http_code} %{content_type}' --max-time 20 "https://$SITE_HOST/remotehound-device-setup.pdf")" || true
+[[ "$ct" == "200 application/pdf"* ]] || die "https://$SITE_HOST/remotehound-device-setup.pdf answered '$ct'"
+ok "setup guide PDF -> $ct"

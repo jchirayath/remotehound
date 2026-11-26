@@ -31,6 +31,9 @@ lib/
   session.js          signed-in user, can(permission), cached groups
   format.js           UX-6 formatting: relative/absolute time, bytes, durations, CSV cells
   log.js              the only module allowed to call console.* (structured, redacted ring buffer)
+  guide-data.js       device setup guide: code / server-URL allow-lists and the postMessage shape (pure)
+guide/                the printable device setup guide (Enroll > Setup guide; also the website PDF):
+                      device-setup.html + guide.css (tokens only) + guide.js (fills it from the opener)
 screens/<name>.js     one module per screen, loaded on demand (login.js renders without a session)
 screens/credential-form.js  shared "my saved login" drawer (Profile + device page); not a route
 tests/*.test.mjs      node:test unit tests, no dependencies

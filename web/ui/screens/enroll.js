@@ -17,10 +17,35 @@ import {
   toast, toastError, applyFieldErrors, formError, banner, emptyState, deviceLink, drawer,
 } from '../lib/ui.js'
 import { countdown, toDate } from '../lib/format.js'
+import { baseFromCommand, MSG_DATA, MSG_READY } from '../lib/guide-data.js'
 
 const TTLS = [[15, '15 minutes'], [30, '30 minutes'], [60, '1 hour'], [240, '4 hours'], [1440, '24 hours']]
 const STATE_TONE = { open: 'info', used: 'success', expired: 'neutral' }
 const OS_LABEL = { macos: 'macOS', linux: 'Linux', windows: 'Windows' }
+const GUIDE_PATH = '/ui/guide/device-setup.html'
+
+/** The printable guide covers the permanent install on macOS and Windows. */
+function guideAvailable(enr) {
+  return enr.mode !== 'attended' && enr.expected_os !== 'linux' && baseFromCommand(enr.command_windows) !== ''
+}
+
+/**
+ * Opens the device setup guide in a new tab and hands it this code by postMessage once it says it
+ * is ready: the code never goes into a URL, so it stays out of history and logs (see guide.js).
+ */
+function openGuide(enr) {
+  const w = window.open(GUIDE_PATH, '_blank')
+  if (!w) { toast('Allow pop-ups for this site to open the guide', { tone: 'warning' }); return }
+  const data = { type: MSG_DATA, code: enr.code, base: baseFromCommand(enr.command_windows), os: enr.expected_os || '', name: enr.name || '', expires_at: enr.expires_at }
+  const onMsg = (ev) => {
+    if (ev.source !== w || ev.origin !== location.origin || ev.data?.type !== MSG_READY) return
+    stop()
+    w.postMessage(data, location.origin)
+  }
+  const timer = setTimeout(() => stop(), 30000)
+  function stop() { clearTimeout(timer); window.removeEventListener('message', onMsg) }
+  window.addEventListener('message', onMsg)
+}
 
 export default function render(ctx) {
   const p = page({
@@ -169,6 +194,7 @@ export default function render(ctx) {
           enr.expected_os ? h('p', { class: 'muted' }, `Only a ${OS_LABEL[enr.expected_os]} machine can use it.`) : null,
           attended ? h('p', null, badge('One-time session', 'info'), ' Nothing is installed on the device.') : null,
           h('div', { class: 'btn-row' },
+            guideAvailable(enr) ? button({ label: 'Setup guide', icon: 'action.export', variant: 'ghost', size: 'sm', onClick: () => openGuide(enr) }) : null,
             button({ label: 'Copy code', icon: 'action.copy', variant: 'ghost', size: 'sm', onClick: () => navigator.clipboard.writeText(enr.code).then(() => toast('Code copied', { tone: 'success', timeout: 2000 }), () => toast('Copy failed — select the code manually', { tone: 'warning' })) }),
             can('enrollment.delete') ? button({ label: 'Revoke', icon: 'domain.action.revoke', variant: 'ghost', size: 'sm', onClick: async () => {
               if (!(await confirmDialog({ title: 'Revoke this code?', body: 'Anyone who has it can no longer enrol a device with it.', confirmLabel: 'Revoke', tone: 'danger' }))) return

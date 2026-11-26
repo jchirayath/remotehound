@@ -26,6 +26,14 @@ The script tells the server which one it ran, and **Devices** shows it in the **
 
 To make a temporary install permanent, open the device and choose **Make it permanent** (or create a new code), then run the permanent command. On macOS and Linux the script removes the per-user install; the old entry shows **Check identity** (enrolled twice) so you can delete it.
 
+## Setup guide for the person at the machine
+
+For a **macOS** or **Windows** code (or **Any**) with **Install: stays connected**, the code panel has a **Setup guide** button. It opens a printable guide in a new tab, already filled in with this code, the commands for your server, the device name and when the code expires. With a machine type set, it shows only that system's pages. Print it, or choose **Save as PDF** as the printer and send the file.
+
+The guide walks the person through everything they do at the machine: the settings to change first (Screen Sharing and keeping a Mac awake; keeping a PC awake and signing in with a password rather than only a PIN), the command, what the window shows, problems and how to remove RemoteHound. It covers the **Permanent** install only.
+
+The code is handed to the new tab inside the browser, never in its address, so it stays out of the browser history. If your browser blocks the new tab, allow pop-ups for RemoteHound. A blank copy, with a box to write the code in, is at `/ui/guide/device-setup.html` on your server.
+
 ## No script: type an ssh command
 
 Security software (Microsoft Defender, EDR/XDR, a managed-detection service) often blocks the install script, or isolates the machine after it runs: downloading and running a script, a hidden scheduled task and registry changes look like malware. For those machines, RemoteHound also offers a command that **runs no script**: it uses the `ssh` client already on the machine, with the code as the user name.

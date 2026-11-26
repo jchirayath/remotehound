@@ -12,9 +12,15 @@ website/
 │                    #   favicon.ico + apple-touch-icon.png from tools/brand/raster.mjs (deploy.sh also
 │                    #   publishes those two at the site root, where Safari looks for them)
 ├── deploy.sh        # render the template with local/website.env and publish it
+├── guide-pdf.sh     # print the device setup guide (web/ui/guide, the console's own page) to
+│                    #   remotehound-device-setup.pdf with CONSOLE_URL in its commands; needs Chrome
 └── README.md
 ```
 
+- **Setup guide PDF.** `remotehound-device-setup.pdf` is built at deploy time from
+  `web/ui/guide/device-setup.html` (the guide the console fills in per code), so there is one source.
+  The server address comes from `CONSOLE_URL` in `local/website.env`; nothing owner-specific is
+  committed. Preview it with `website/guide-pdf.sh /tmp/guide.pdf https://your-server`.
 - **No scripts, no external requests.** Styles are inline; images are local. It serves under a strict
   CSP (`default-src 'none'; img-src 'self'; style-src 'unsafe-inline'`).
 - **Placeholders, not domains.** This repo keeps owner data out (`ci/check-public.mjs`), so the

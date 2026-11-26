@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect a computer to RemoteHound</title>
+<!--
+  Device setup guide: what the person at a Mac or Windows PC does to enrol it.
+  One source, two uses:
+    - Console: Enroll > "Setup guide" opens this page and sends it the new code
+      by postMessage (never in the URL); guide.js fills it in, then Print / Save as PDF.
+    - Website: website/guide-pdf.sh writes the server address over "https://your-server"
+      in a staged copy and prints it to remotehound-device-setup.pdf, code left blank.
+  The drawn screens repeat the exact text client/bootstrap.sh and
+  client/bootstrap.ps1 print: change them together.
+-->
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="guide.css">
+<script type="module" src="guide.js"></script>
+</head>
+<body>
+
+<div class="toolbar">
+  <span class="toolbar__msg" data-when="waiting">Loading the code…</span>
+  <span class="toolbar__msg" data-when="filled">Filled in for this code. Print it, or choose <strong>Save as PDF</strong> as the printer.</span>
+  <span class="toolbar__msg" data-when="blank">Blank guide: write the code in by hand.</span>
+  <button type="button" class="toolbar__btn" data-action="print">Print or save as PDF</button>
+</div>
+
+<!-- ============================== Page 1: before you start ============================== -->
+<main>
+<div class="head">
+  <img src="../brand/mark.svg" alt="" width="46" height="46">
+  <div>
+    <div class="eyebrow">RemoteHound · device setup</div>
+    <h1>Connect a computer to RemoteHound</h1>
+  </div>
+</div>
+<p class="lede">These steps connect <span data-when="blank">a Mac or a Windows PC</span><span data-when="filled" data-fill="what">this computer</span> so that the people who look after it can reach it from a browser. It takes about five minutes, and you only do it once. The one thing that changes from computer to computer is the <strong>six-character code</strong>.<span data-when="both"> Read this page, then follow <strong>On a Mac</strong> or <strong>On a Windows PC</strong>.</span></p>
+
+<div class="boxes">
+  <div class="box">
+    <h3>You need</h3>
+    <ul>
+      <li><strong>The code</strong> <span data-when="blank">from the person who looks after the computer. It works once, for one computer, and expires after about 15 minutes, so start soon after you get it.</span><span data-when="filled">shown on the right. It works once, for one computer.</span></li>
+      <li><strong>The computer's administrator password</strong> (the one you type to install software).</li>
+      <li><strong>An internet connection.</strong></li>
+      <li data-os="macos"><strong>A Mac</strong> with macOS 10.12 Sierra or later.</li>
+      <li data-os="windows"><strong>A Windows PC</strong> with Windows 10 (version 1809 or later) or Windows 11.</li>
+    </ul>
+  </div>
+  <div class="box codebox">
+    <h3><span data-when="blank">Write your code here</span><span data-when="filled">Your code</span></h3>
+    <div class="slots" data-fill="slots"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+    <p class="small" data-when="filled">For: <strong data-fill="name">this computer</strong><br>Use it before <strong data-fill="expires">it expires</strong>.</p>
+    <p class="small">Lower-case letters and digits. A code never contains <span class="k">0</span>, <span class="k">o</span>, <span class="k">1</span>, <span class="k">l</span> or <span class="k">i</span>, so there is nothing to mix up.</p>
+  </div>
+</div>
+
+<div class="consent"><strong>What you are agreeing to.</strong> After this, the people who have access in RemoteHound can open this computer's screen (or a terminal) from their browser <strong>without asking you each time</strong>. Every connection is recorded. The computer opens the connection itself, so no router or firewall changes are needed, and nothing new is opened to your home or office network. You can remove it at any time (last page).</div>
+
+<h2>The command you will type</h2>
+<p data-when="blank">Type it exactly as shown, and put your code where it says <span class="cmd cmd--inline"><span class="code">CODE</span></span>. Everything else stays the same.</p>
+<p data-when="filled">Type it exactly as shown. The highlighted part is this computer's code.</p>
+<table class="cmd-table">
+  <thead><tr><th scope="col">Computer</th><th scope="col">Where to type it</th></tr></thead>
+  <tbody>
+    <tr data-os="macos"><th scope="row">Mac</th><td>Terminal<div class="cmd">curl -fsSL <span data-fill="base">https://your-server</span>/e/<span class="code" data-fill="code">CODE</span> | sudo sh</div></td></tr>
+    <tr data-os="windows"><th scope="row">Windows</th><td>PowerShell, opened with <strong>Run as administrator</strong><div class="cmd">irm <span data-fill="base">https://your-server</span>/e/<span class="code" data-fill="code">CODE</span> | iex</div></td></tr>
+  </tbody>
+</table>
+<p class="tip tip--tight"><span data-when="blank"><strong>Example:</strong> if your code is <span class="k">k7q2mx</span>, the Mac command is <span class="k">curl -fsSL <span data-fill="base">https://your-server</span>/e/k7q2mx | sudo sh</span>. </span>The <span class="k">|</span> character is the vertical bar, usually Shift + the backslash key. Typing the command only downloads instructions from your RemoteHound server; nothing changes on the computer until you enter your password (Mac) or approve the administrator prompt (Windows).</p>
+
+<!-- ============================== Mac ============================== -->
+<section class="page" data-os="macos">
+  <h2>On a Mac</h2>
+  <p class="muted">Shown on macOS Sequoia. On macOS 12 Monterey and older, System Settings is called System Preferences, and Sharing is a top-level icon.</p>
+  <ol class="steps">
+    <li>
+      <h3>Turn on Screen Sharing</h3>
+      <p>Open the Apple menu &gt; <strong>System Settings</strong> &gt; <strong>General</strong> &gt; <strong>Sharing</strong>, and switch on <strong>Screen Sharing</strong>. This is the one setting a script is not allowed to change for you. (The script turns on Remote Login itself.)</p>
+      <figure>
+        <div class="win mac"><div class="bar"><i></i><i></i><i></i><b>Sharing</b></div>
+          <div class="settings">
+            <div class="side"><div>Wi-Fi</div><div>Bluetooth</div><div>Network</div><div class="on">General</div><div>Appearance</div><div>Privacy &amp; Security</div><div>Desktop &amp; Dock</div></div>
+            <div class="main">
+              <div class="crumb">‹ &nbsp;Sharing</div>
+              <div class="group">
+                <div class="row">File Sharing <span class="sw"></span></div>
+                <div class="row">Media Sharing <span class="sw"></span></div>
+                <div class="row hl"><strong>Screen Sharing</strong> <span class="sw on"></span></div>
+                <div class="row">Remote Management <span class="sw"></span></div>
+                <div class="row">Remote Login <span class="sw"></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>System Settings &gt; General &gt; Sharing: switch on Screen Sharing. Leave Remote Management off; while it is on, Screen Sharing cannot be switched on.</figcaption>
+      </figure>
+      <p class="tip">Select the <strong>ⓘ</strong> next to Screen Sharing. Under <strong>Allow access for</strong>, keep <strong>All users</strong>, or add the account the person who connects will sign in with. They sign in with that Mac account's user name and password.</p>
+    </li>
+    <li>
+      <h3>Keep the Mac awake</h3>
+      <p>A Mac that is asleep can't be reached. In <strong>System Settings</strong>:</p>
+      <table class="settings-table">
+        <tbody>
+          <tr><th scope="row">MacBook (laptop)</th><td><strong>Battery</strong> &gt; <strong>Options…</strong> &gt; switch on <strong>Prevent automatic sleeping on power adapter when the display is off</strong> and set <strong>Wake for network access</strong> to <strong>Only on Power Adapter</strong> or <strong>Always</strong>. Leave it plugged in, with the lid open.</td></tr>
+          <tr><th scope="row">iMac, Mac mini, Mac Studio</th><td><strong>Energy</strong> &gt; switch on <strong>Prevent automatic sleeping when the display is off</strong> and <strong>Wake for network access</strong>.</td></tr>
+        </tbody>
+      </table>
+      <figure>
+        <div class="win mac"><div class="bar"><i></i><i></i><i></i><b>Energy</b></div>
+          <div class="settings settings--one">
+            <div class="main">
+              <div class="group">
+                <div class="row hl"><strong>Prevent automatic sleeping when the display is off</strong> <span class="sw on"></span></div>
+                <div class="row hl"><strong>Wake for network access</strong> <span class="sw on"></span></div>
+                <div class="row">Start up automatically after a power failure <span class="sw on"></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>System Settings &gt; Energy on a desktop Mac. <strong>Start up automatically after a power failure</strong> is worth turning on too, where it is offered.</figcaption>
+      </figure>
+    </li>
+    <li>
+      <h3>Open Terminal</h3>
+      <p>Press <strong>⌘ Command + Space</strong>, type <strong>Terminal</strong> and press <strong>Return</strong>. (It is also in Applications &gt; Utilities.)</p>
+    </li>
+    <li>
+      <h3>Type the command<span data-when="blank"> with your code</span>, then press Return</h3>
+      <div class="cmd">curl -fsSL <span data-fill="base">https://your-server</span>/e/<span class="code" data-fill="code">CODE</span> | sudo sh</div>
+      <p>When it asks for <strong>Password:</strong>, type your Mac's login password and press Return. <strong>Nothing appears while you type</strong>, not even dots; that is normal.</p>
+    </li>
+    <li>
+      <h3>Wait for "Connected"</h3>
+      <p>The script works through six short steps and ends with <strong>Connected as</strong> and the computer's name, normally within a minute. If a Sharing window pops up at the script's step [4/6], check that Screen Sharing is on (step 1) and close it.</p>
+      <figure>
+        <div class="win mac"><div class="bar"><i></i><i></i><i></i><b>Terminal — zsh</b></div>
+<div class="term">jane@Janes-MacBook-Pro ~ % <span class="u">curl -fsSL <span data-fill="base">https://your-server</span>/e/<span data-fill="code-ex">k7q2mx</span> | sudo sh</span>
+Password:
+RemoteHound: connecting this computer for remote support
+
+[1/6] Checking this computer
+<span class="g">  ✓</span> macOS 15.1, hostname Janes-MacBook-Pro
+<span class="g">  ✓</span> Running as root: installing system-wide (the tunnel starts at boot)
+<span class="g">  ✓</span> VNC is listening on port 5900
+
+[2/6] Creating this device's key
+<span class="g">  ✓</span> New ed25519 key SHA256:7fVAJh8LR3bYY1… (the private key stays on this computer)
+
+[3/6] Registering with <span data-fill="base">https://your-server</span>
+<span class="g">  ✓</span> Registered as Janes-MacBook-Pro (dev_aebf639d9531)
+
+[4/6] Turning on remote access services
+<span class="g">  ✓</span> Remote Login (SSH) turned on
+
+[5/6] Installing the tunnel
+<span class="g">  ✓</span> Started net.remotehound.tunnel (launchd-daemon)
+
+[6/6] Waiting for the tunnel to come up
+
+<span class="g h">  Connected as Janes-MacBook-Pro ✓</span></div>
+        </div>
+        <figcaption>Some lines are shortened. Your computer's name, and which services it finds, will differ.</figcaption>
+      </figure>
+    </li>
+    <li>
+      <h3>Tell the person who sent the code that you are done</h3>
+      <p>You can close Terminal. The connection keeps running in the background and comes back by itself after a restart or a network change, even when nobody is logged in.</p>
+    </li>
+  </ol>
+</section>
+
+<!-- ============================== Windows ============================== -->
+<section class="page" data-os="windows">
+  <h2>On a Windows PC</h2>
+  <p class="muted">Shown on Windows 11; Windows 10 looks much the same. Remote Desktop needs <strong>Windows Pro, Enterprise or Education</strong>: to check, open Settings &gt; System &gt; About and look at <strong>Edition</strong>. On Windows Home the steps still work, but only a terminal connection is possible, not the desktop.</p>
+  <ol class="steps">
+    <li>
+      <h3>Open PowerShell as administrator</h3>
+      <p>Click <strong>Start</strong>, type <strong>PowerShell</strong>, then choose <strong>Run as administrator</strong> on the right. When Windows asks <strong>"Do you want to allow this app to make changes to your device?"</strong>, choose <strong>Yes</strong>. (If it asks for a password, use an administrator account's.)</p>
+      <div class="two">
+        <figure>
+          <div class="win winos"><div class="bar"><b>Start</b><span>–</span><span>□</span><span>✕</span></div>
+            <div class="start">
+              <div class="search">⌕ powershell</div>
+              <div class="res"><div class="small muted">Best match</div><div class="best"><strong>Windows PowerShell</strong><br><span class="small muted">System</span></div></div>
+              <div class="detail"><strong>Windows PowerShell</strong><br><span class="small muted">System</span><div class="detail__first">Open</div><div class="hl">Run as administrator</div><div>Open file location</div></div>
+            </div>
+          </div>
+          <figcaption>Start &gt; type PowerShell &gt; <strong>Run as administrator</strong>.</figcaption>
+        </figure>
+        <figure>
+          <div class="win uac">
+            <div class="top">User Account Control</div>
+            <div class="body"><div class="q">Do you want to allow this app to make changes to your device?</div><strong>Windows PowerShell</strong><br><span class="small">Verified publisher: Microsoft Windows</span></div>
+            <div class="btns"><span class="yes">Yes</span><span>No</span></div>
+          </div>
+          <figcaption>Choose <strong>Yes</strong>.</figcaption>
+        </figure>
+      </div>
+      <p class="tip">The window's title must start with <strong>Administrator:</strong>. If it doesn't, close it and open it again with Run as administrator. Use <strong>PowerShell</strong>, not Command Prompt: the command does not work in Command Prompt.</p>
+    </li>
+    <li>
+      <h3>Type the command<span data-when="blank"> with your code</span>, then press Enter</h3>
+      <div class="cmd">irm <span data-fill="base">https://your-server</span>/e/<span class="code" data-fill="code">CODE</span> | iex</div>
+    </li>
+    <li>
+      <h3>Wait for "Connected"</h3>
+      <p>The script turns on Remote Desktop for you (reachable only through RemoteHound; nothing is opened to your network) and ends with <strong>Connected as</strong> and the PC's name, normally within a minute.</p>
+      <figure>
+        <div class="win winos"><div class="bar"><b>Administrator: Windows PowerShell</b><span>–</span><span>□</span><span>✕</span></div>
+<div class="ps">PS C:\WINDOWS\system32&gt; <span class="u">irm <span data-fill="base">https://your-server</span>/e/<span data-fill="code-ex">k7q2mx</span> | iex</span>
+RemoteHound: connecting this computer for remote support
+
+[1/6] Checking this computer
+<span class="g">  ✓ Microsoft Windows 11 Pro (build 10.0.26100), hostname DESKTOP-4KQ7T2</span>
+<span class="g">  ✓ Running as Administrator: installing system-wide (the tunnel starts at boot)</span>
+
+[2/6] Creating this device's key
+<span class="g">  ✓ New ed25519 key SHA256:Qm3vX0b9… (the private key stays on this computer)</span>
+
+[3/6] Registering with <span data-fill="base">https://your-server</span>
+<span class="g">  ✓ Registered as DESKTOP-4KQ7T2 (dev_3c81e0a7f2b4)</span>
+
+[4/6] Turning on remote access services
+<span class="g">  ✓ Remote Desktop turned on (reachable only through the tunnel; no firewall rule was opened)</span>
+    The operator signs in with a Windows account on this PC.
+
+[5/6] Installing the tunnel
+<span class="g">  ✓ Scheduled Task 'RemoteHound Tunnel' registered and started</span>
+
+[6/6] Waiting for the tunnel to come up
+
+<span class="g h">  Connected as DESKTOP-4KQ7T2 ✓</span></div>
+        </div>
+        <figcaption>Some lines are shortened. Your PC's name and Windows version will differ.</figcaption>
+      </figure>
+    </li>
+    <li>
+      <h3>Check two settings</h3>
+      <p>The script turns on Remote Desktop itself. Two more settings decide whether anyone can actually get in:</p>
+      <table class="settings-table">
+        <tbody>
+          <tr><th scope="row">Keep the PC awake</th><td>Settings &gt; <strong>System</strong> &gt; <strong>Power &amp; battery</strong> (Windows 10: <strong>Power &amp; sleep</strong>) &gt; <strong>Screen, sleep &amp; hibernate timeouts</strong>: set <strong>When plugged in, put my device to sleep after</strong> to <strong>Never</strong>. Turning the screen off is fine. A sleeping PC can't be reached.</td></tr>
+          <tr><th scope="row">Sign in with a password</th><td>Remote Desktop needs the account's <strong>password</strong>, not a PIN, fingerprint or face. If you only ever use a PIN: Settings &gt; <strong>Accounts</strong> &gt; <strong>Sign-in options</strong>, switch off <strong>For improved security, only allow Windows Hello sign-in for Microsoft accounts on this device</strong>, then sign out and back in once with the password. For a Microsoft account, the password is the one for your Microsoft account online.</td></tr>
+          <tr><th scope="row">Remote Desktop is on</th><td>Settings &gt; <strong>System</strong> &gt; <strong>Remote Desktop</strong> shows <strong>On</strong>. The script switched it on; it is listed here so you know where to look, or to switch it off later.</td></tr>
+        </tbody>
+      </table>
+    </li>
+    <li>
+      <h3>Tell the person who sent the code that you are done</h3>
+      <p>You can close PowerShell. The connection runs in the background, starts with Windows and reconnects by itself. Whoever connects signs in with a Windows account on this PC, so they need its user name and password (or their own account on it).</p>
+    </li>
+  </ol>
+</section>
+
+<!-- ============================== Problems + removal ============================== -->
+<section class="page">
+  <h2>If something goes wrong</h2>
+  <table>
+    <thead><tr><th scope="col">You see</th><th scope="col">What to do</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">"This code is not valid or has expired."</th><td>The code was mistyped, already used or too old. Check it letter by letter; if it is right, ask for a new one.</td></tr>
+      <tr><th scope="row">"RemoteHound is busy … try again in a minute."</th><td>Too many wrong codes were tried from your network. Your code is still good: wait a minute and run the same command again.</td></tr>
+      <tr><th scope="row">"This code is for a … machine, but this one reports …"</th><td>The code was made for a different kind of computer (for example a Windows code on a Mac). Ask for a code for this computer; the old one was not used up.</td></tr>
+      <tr data-os="macos"><th scope="row">Mac: "macOS needs Full Disk Access for your terminal app to change Remote Login"</th><td>Either switch on <strong>Remote Login</strong> yourself in System Settings &gt; General &gt; Sharing, or allow Terminal in System Settings &gt; Privacy &amp; Security &gt; Full Disk Access. Then run the command again.</td></tr>
+      <tr data-os="macos"><th scope="row">Mac: "Sorry, try again."</th><td>The password was wrong. Type your Mac login password again; nothing shows while you type.</td></tr>
+      <tr data-os="macos"><th scope="row">Mac: "Could not read the key fingerprint (OpenSSH 6.8 or newer is needed)", or curl reports a certificate problem</th><td>This Mac's macOS is too old. It needs updating (at the Mac itself) before it can be connected.</td></tr>
+      <tr data-os="windows"><th scope="row">Windows: "Not running as Administrator"</th><td>PowerShell was not opened with Run as administrator. Close it, open it again as administrator (step 1 of the Windows page) and run the command again.</td></tr>
+      <tr data-os="windows"><th scope="row">Windows: "irm is not recognized", or red text about "&amp;"</th><td>The command was typed in Command Prompt. Open <strong>PowerShell</strong> instead.</td></tr>
+      <tr data-os="windows"><th scope="row">Windows: "This is Windows Home, which has no Remote Desktop server"</th><td>Fine to continue; only a terminal connection will be possible. Upgrading to Windows Pro adds the desktop.</td></tr>
+      <tr><th scope="row">"The server has not seen the tunnel yet"</th><td>Usually a network that blocks outgoing connections on port 2222 (some offices, schools and hotels). It keeps trying in the background. Send the person who gave you the code a photo of the last lines on screen.</td></tr>
+      <tr><th scope="row">Security software warns about the script</th><td>Some antivirus and company security tools block or flag it. Don't override them on a work computer; tell the person who sent the code, who can give you a version that runs no script.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="gap">Running it again</h2>
+  <p>Running the command again with a new code is safe: it replaces the computer's old registration. Tell the person who sent the code, so they can delete the old entry.</p>
+
+  <h2 class="gap">Removing RemoteHound</h2>
+  <p>This stops the connection and deletes everything the script added. Screen Sharing, Remote Login and Remote Desktop are left as they are; turn them off in settings if you no longer want them.</p>
+  <table>
+    <tbody>
+      <tr data-os="macos"><th scope="row">Mac (Terminal)</th><td><div class="cmd">sudo sh '/Library/Application Support/RemoteHound/uninstall.sh'</div></td></tr>
+      <tr data-os="windows"><th scope="row">Windows (PowerShell as administrator)</th><td><div class="cmd">powershell -ExecutionPolicy Bypass -File "C:\ProgramData\RemoteHound\uninstall.ps1"</div></td></tr>
+    </tbody>
+  </table>
+  <p class="muted small">The person who looks after the computer can also switch off its access in RemoteHound at any time; the connection then stops for good.</p>
+
+  <div class="foot">RemoteHound is open source (Apache License 2.0): github.com/jchirayath/remotehound. The screens in this guide are drawn to match macOS Sequoia, Windows 11 and RemoteHound's exact messages; yours may look slightly different. Your RemoteHound server: <span data-fill="base">https://your-server</span></div>
+</section>
+</main>
+</body>
+</html>
