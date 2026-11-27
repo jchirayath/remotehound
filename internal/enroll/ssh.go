@@ -1,8 +1,8 @@
 package enroll
 
-// Script-free enrolment over SSH (ADR-0005, docs/specs/CLIENT_PROTOCOL.md §9):
+// Script-free enrollment over SSH (ADR-0005, docs/specs/CLIENT_PROTOCOL.md §9):
 // the commands a person types, and the tunnel.Enroller the SSH server calls
-// when the username is an enrolment code.
+// when the username is an enrollment code.
 
 import (
 	"context"
@@ -167,7 +167,7 @@ func clientBanner(b string) string {
 // RedeemSSH implements tunnel.Enroller: it consumes the code and creates the
 // device in one store transaction, as Redeem does for the scripts. The
 // error's detail is shown in the person's terminal.
-func (s *Service) RedeemSSH(enrollmentID string, r tunnel.SSHEnrolment) (tunnel.Redeemed, error) {
+func (s *Service) RedeemSSH(enrollmentID string, r tunnel.SSHEnrollment) (tunnel.Redeemed, error) {
 	ctx := context.Background()
 	method := "ssh-attended"
 	if r.PublicKey != "" {

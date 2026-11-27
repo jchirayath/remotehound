@@ -165,7 +165,7 @@ func itoa(n int) string {
 //  1. the user who already has this provider identity linked;
 //  2. linkTo (a signed-in user adding another sign-in method) — refused if the
 //     identity already belongs to someone else;
-//  3. a pre-authorised user with the same email, only when the provider says
+//  3. a pre-authorized user with the same email, only when the provider says
 //     the email is VERIFIED and that user has never signed in (no identities) —
 //     so an unverified address can never take over an account;
 //  4. the bootstrap admin (verified email) while no admin exists;
@@ -248,7 +248,7 @@ func (a *Authenticator) Resolve(ctx context.Context, id Identity, linkTo string,
 				if who == "" {
 					who = "your " + id.Provider + " account"
 				}
-				return apierr.Forbidden("Your account is not authorised for RemoteHound. Ask an admin to add " + who + ".")
+				return apierr.Forbidden("Your account is not authorized for RemoteHound. Ask an admin to add " + who + ".")
 			}
 			u = &model.User{Meta: model.Meta{ID: ids.New("usr"), CreatedAt: now, UpdatedAt: now, Version: 1},
 				Email: id.Email, DisplayName: personName(id.Name), Role: role, GroupIDs: []string{}, Theme: "system"}

@@ -106,7 +106,7 @@ func New(cfg *config.Config) (*App, error) {
 	}
 	devs.Tunnel = tun
 	enr := &enroll.Service{Store: st, Audit: aud, Secrets: sec, Devices: devs, Tunnel: tun, AllowHTTP: cfg.Development()}
-	tun.SetEnroller(enr) // script-free enrolment over SSH (ADR-0005)
+	tun.SetEnroller(enr) // script-free enrollment over SSH (ADR-0005)
 
 	internalHTTP := httpx.New(httpx.Options{Timeout: 8 * time.Second, AllowPrivate: []string{cfg.GuacURL.Hostname()}})
 	checker := &guac.Checker{GuacURL: cfg.GuacURL, GuacdAddr: cfg.GuacdAddr, Key: sec.GuacJSONKey.Bytes(), HTTP: internalHTTP,
@@ -191,7 +191,7 @@ func New(cfg *config.Config) (*App, error) {
 	return a, nil
 }
 
-// Run starts every listener and job and blocks until ctx is cancelled, then
+// Run starts every listener and job and blocks until ctx is canceled, then
 // drains in-flight requests and jobs (OPS-1).
 func (a *App) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)

@@ -1,5 +1,5 @@
 /**
- * Enroll (/enroll) — create a one-time enrolment code, show the command to type on the device,
+ * Enroll (/enroll) — create a one-time enrollment code, show the command to type on the device,
  * and wait live until the device joins. Below: every code (open / used / expired) with revoke.
  *
  * Data: POST /api/v1/enrollments (the only response that carries `code` + commands);
@@ -62,7 +62,7 @@ export default function render(ctx) {
   function stepCreate() {
     stopWaiting()
     if (!can('enrollment.create')) {
-      replace(wizard, h('h2', { id: 'enroll-h', class: 'card__title' }, 'Enrolment codes'), banner('info', 'Your role cannot create codes', 'Ask an administrator or operator to enrol devices. You can still see the codes below.'))
+      replace(wizard, h('h2', { id: 'enroll-h', class: 'card__title' }, 'Enrollment codes'), banner('info', 'Your role cannot create codes', 'Ask an administrator or operator to enroll devices. You can still see the codes below.'))
       return
     }
     const f = {
@@ -187,7 +187,7 @@ export default function render(ctx) {
     replace(wizard,
       h('h2', { id: 'enroll-h', class: 'card__title' }, h('span', { class: 'step-num', 'aria-hidden': 'true' }, '2'), 'Type this on the device'),
       h('div', { class: 'codehero' },
-        h('div', { class: 'keycaps', role: 'img', 'aria-label': `Enrolment code ${chars.join(' ')}` }, chars.map(c => h('span', { class: 'keycap', 'aria-hidden': 'true' }, c))),
+        h('div', { class: 'keycaps', role: 'img', 'aria-label': `Enrollment code ${chars.join(' ')}` }, chars.map(c => h('span', { class: 'keycap', 'aria-hidden': 'true' }, c))),
         h('div', { class: 'codehero__side' },
           h('p', { class: 'countdown' }, icon('domain.object.clock', { size: 'sm' }), 'Expires in ', clock),
           h('p', { class: 'muted' }, 'Single use. Shown only once — copy it now.'),
@@ -197,7 +197,7 @@ export default function render(ctx) {
             guideAvailable(enr) ? button({ label: 'Setup guide', icon: 'action.export', variant: 'ghost', size: 'sm', onClick: () => openGuide(enr) }) : null,
             button({ label: 'Copy code', icon: 'action.copy', variant: 'ghost', size: 'sm', onClick: () => navigator.clipboard.writeText(enr.code).then(() => toast('Code copied', { tone: 'success', timeout: 2000 }), () => toast('Copy failed — select the code manually', { tone: 'warning' })) }),
             can('enrollment.delete') ? button({ label: 'Revoke', icon: 'domain.action.revoke', variant: 'ghost', size: 'sm', onClick: async () => {
-              if (!(await confirmDialog({ title: 'Revoke this code?', body: 'Anyone who has it can no longer enrol a device with it.', confirmLabel: 'Revoke', tone: 'danger' }))) return
+              if (!(await confirmDialog({ title: 'Revoke this code?', body: 'Anyone who has it can no longer enroll a device with it.', confirmLabel: 'Revoke', tone: 'danger' }))) return
               try { await api.del(`/api/v1/enrollments/${encodeURIComponent(enr.id)}`); toast('Code revoked', { tone: 'success' }); listGrid?.refresh(); stepCreate() } catch (err) { toastError(err) }
             } }) : null))),
       cmdTabs.el,
@@ -254,10 +254,10 @@ export default function render(ctx) {
   let gmap = new Map()
   let stateFilter = ctx.query?.state || ''
   listGrid = can('enrollment.read') ? grid({
-    label: 'Enrolment codes',
+    label: 'Enrollment codes',
     helpScreen: 'enroll',
     emptyKey: 'enroll.codes',
-    exportName: 'enrolment-codes',
+    exportName: 'enrollment-codes',
     query: { state: stateFilter },
     onClearFilters: () => { stateFilter = ''; listGrid.reload({ state: '' }) },
     initialSort: { id: 'created_at', dir: 'desc' },
@@ -295,7 +295,7 @@ export default function render(ctx) {
   async function removeCode(e) {
     const open = e.state === 'open'
     const ok = await confirmDialog(open
-      ? { title: `Revoke code ••••${e.code_hint || ''}?`, body: 'Anyone who has it can no longer enrol a device with it.', confirmLabel: 'Revoke', tone: 'danger' }
+      ? { title: `Revoke code ••••${e.code_hint || ''}?`, body: 'Anyone who has it can no longer enroll a device with it.', confirmLabel: 'Revoke', tone: 'danger' }
       : { title: `Delete this ${e.state} code?`, body: `Removes the ${e.name || 'unnamed'} code from this list.${e.device_id && !e.device_deleted ? ' The device it enrolled stays.' : ''}`, confirmLabel: 'Delete', tone: 'danger' })
     if (!ok) return
     try {
@@ -331,7 +331,7 @@ export default function render(ctx) {
       h('p', { class: 'muted' }, `Code ••••${e.code_hint || ''} keeps working; only what it creates changes.`), msg, f.name.el, f.group_id.el, f.expected_os.el)
     const save = button({ label: 'Save', icon: 'action.save', variant: 'primary', type: 'submit' })
     save.setAttribute('form', 'enroll-edit-form')
-    const d = drawer({ title: 'Edit enrolment code', content: form, footer: h('div', { class: 'btn-row' }, button({ label: 'Cancel', variant: 'ghost', onClick: () => d.close() }), save) })
+    const d = drawer({ title: 'Edit enrollment code', content: form, footer: h('div', { class: 'btn-row' }, button({ label: 'Cancel', variant: 'ghost', onClick: () => d.close() }), save) })
     form.addEventListener('submit', async (ev) => {
       ev.preventDefault()
       replace(msg)
@@ -351,7 +351,7 @@ export default function render(ctx) {
   stepCreate()
   append(p.body, wizard,
     h('section', { class: 'section', 'aria-labelledby': 'codes-h' },
-      h('h2', { id: 'codes-h', class: 'section__title' }, 'Enrolment codes'),
+      h('h2', { id: 'codes-h', class: 'section__title' }, 'Enrollment codes'),
       listGrid ? listGrid.el : emptyState('enroll.codes')))
   return p.el
 }

@@ -1,7 +1,7 @@
 package tunnel
 
-// Script-free enrolment over SSH (ADR-0005): the SSH username is an
-// enrolment code. Allowed and denied paths of the tunnel policy.
+// Script-free enrollment over SSH (ADR-0005): the SSH username is an
+// enrollment code. Allowed and denied paths of the tunnel policy.
 //
 // @feature:enroll @feature:devices
 
@@ -28,7 +28,7 @@ type fakeEnroller struct {
 	h       *fakeHooks
 	codes   map[string]CodeInfo // code -> info
 	logins  int                 // CodeLogin calls
-	redeems []SSHEnrolment
+	redeems []SSHEnrollment
 	fail    error         // RedeemSSH returns this when set
 	delay   time.Duration // RedeemSSH takes this long (a slow store write)
 }
@@ -41,7 +41,7 @@ func (e *fakeEnroller) CodeLogin(code, _ string) (CodeInfo, bool) {
 	return ci, ok
 }
 
-func (e *fakeEnroller) RedeemSSH(enrolID string, r SSHEnrolment) (Redeemed, error) {
+func (e *fakeEnroller) RedeemSSH(enrolID string, r SSHEnrollment) (Redeemed, error) {
 	e.mu.Lock()
 	d := e.delay
 	e.mu.Unlock()

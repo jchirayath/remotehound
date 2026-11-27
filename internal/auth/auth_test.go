@@ -229,7 +229,7 @@ func TestBootstrapAdminNeedsVerifiedEmail(t *testing.T) {
 	}
 }
 
-func TestPreAuthorisedEmailBindsOnlyWhenVerified(t *testing.T) {
+func TestPreAuthorizedEmailBindsOnlyWhenVerified(t *testing.T) {
 	a := newAuth(t)
 	_ = a.Store.Update(func(s *model.State) error {
 		s.Users["usr_pre"] = &model.User{Meta: model.Meta{ID: "usr_pre", Version: 1}, Email: "op@example.com", Role: model.RoleOperator}
@@ -238,7 +238,7 @@ func TestPreAuthorisedEmailBindsOnlyWhenVerified(t *testing.T) {
 		return nil
 	})
 	if _, err := a.Resolve(context.Background(), Identity{Provider: "oidc", Subject: "o1", Email: "op@example.com"}, "", true); err == nil {
-		t.Fatal("unverified email bound to a pre-authorised user")
+		t.Fatal("unverified email bound to a pre-authorized user")
 	}
 	u, err := a.Resolve(context.Background(), Identity{Provider: "entra", Subject: "e1", Email: "op@example.com", EmailVerified: true}, "", true)
 	if err != nil || u.ID != "usr_pre" || len(u.Identities) != 1 {

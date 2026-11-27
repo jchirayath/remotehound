@@ -34,7 +34,7 @@ export default function render(ctx) {
     }),
     h('dl', { class: 'kv' },
       h('div', { class: 'kv__row' }, h('dt', null, 'Role'), h('dd', null, badge(me.role, me.role === 'admin' ? 'brand' : me.role === 'operator' ? 'info' : 'neutral'))),
-      h('div', { class: 'kv__row' }, h('dt', null, 'Signed in with'), h('dd', null, me.auth_mode === 'proxy' ? 'Your organisation’s sign-in proxy' : me.auth_mode === 'dev' ? 'Development sign-in' : 'Your identity provider'))))
+      h('div', { class: 'kv__row' }, h('dt', null, 'Signed in with'), h('dd', null, me.auth_mode === 'proxy' ? 'Your organization’s sign-in proxy' : me.auth_mode === 'dev' ? 'Development sign-in' : 'Your identity provider'))))
 
   /* sign-in methods */
   const methodsBody = h('div', { class: 'methods' })
@@ -50,7 +50,7 @@ export default function render(ctx) {
     const kindOf = (id) => providers.find(x => x.id === id)?.kind || 'oidc'
     const linked = new Set(identities.map(i => i.provider))
     if (me.auth_mode !== 'oauth' && !identities.length) {
-      replace(methodsBody, banner('info', 'Managed by your organisation', fieldHelp('profile.identities_managed')))
+      replace(methodsBody, banner('info', 'Managed by your organization', fieldHelp('profile.identities_managed')))
       return
     }
     replace(methodsBody,
@@ -90,7 +90,7 @@ export default function render(ctx) {
       can('device.connect') ? button({ label: 'Save a login', icon: 'action.add', variant: 'primary', onClick: () => openCredentialForm({ onSaved: () => creds.reload() }) }) : null))
   // Logins for two devices with the same name get labels that tell them apart (deviceLabels).
   let credLabels = new Map()
-  const labelled = (c) => ({ ...c, device_name: credLabels.get(c.device_id) || c.device_name })
+  const labeled = (c) => ({ ...c, device_name: credLabels.get(c.device_id) || c.device_name })
   const creds = grid({
     label: 'My saved logins',
     helpScreen: 'profile',
@@ -98,18 +98,18 @@ export default function render(ctx) {
     searchable: false,
     rowKey: (c) => `${c.device_id}/${c.service}`,
     initialSort: { id: 'device_name', dir: 'asc' },
-    onRowClick: (c) => openCredentialForm({ existing: labelled(c), onSaved: () => creds.reload() }),
+    onRowClick: (c) => openCredentialForm({ existing: labeled(c), onSaved: () => creds.reload() }),
     load: async ({ signal }) => {
       const r = await api.get('/api/v1/me/credentials', null, { signal })
       credLabels = deviceLabels((r.data || []).map(c => ({ id: c.device_id, name: c.device_name })))
       return r
     },
     columns: [
-      { id: 'device_name', label: 'Device', primary: true, value: (c) => labelled(c).device_name, render: (c) => deviceLink(labelled(c)) },
+      { id: 'device_name', label: 'Device', primary: true, value: (c) => labeled(c).device_name, render: (c) => deviceLink(labeled(c)) },
       { id: 'service', label: 'Service', value: (c) => serviceLabel(c.service), render: (c) => h('span', { class: 'os' }, icon(`domain.service.${['ssh', 'rdp', 'vnc'].includes(c.service) ? c.service : 'ssh'}`, { size: 'sm' }), serviceLabel(c.service)) },
       { id: 'username', label: 'Username', className: 'mono' },
       { id: 'updated_at', label: 'Saved', render: (c) => relTime(c.updated_at) },
-      { id: 'actions', label: 'Actions', sortable: false, exportable: false, help: false, render: (c) => button({ label: 'Edit', icon: 'action.edit', variant: 'ghost', size: 'sm', onClick: () => openCredentialForm({ existing: labelled(c), onSaved: () => creds.reload() }) }) },
+      { id: 'actions', label: 'Actions', sortable: false, exportable: false, help: false, render: (c) => button({ label: 'Edit', icon: 'action.edit', variant: 'ghost', size: 'sm', onClick: () => openCredentialForm({ existing: labeled(c), onSaved: () => creds.reload() }) }) },
     ],
   })
   credsCard.append(creds.el)

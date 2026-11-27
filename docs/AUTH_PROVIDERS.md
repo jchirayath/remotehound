@@ -27,19 +27,19 @@ via `…_CLIENT_SECRET_FILE` (Docker/Kubernetes secrets).
 Signing in with a provider proves *who* someone is; it does not let them in. Access is granted when:
 
 1. that provider account is **already linked** to a RemoteHound user, or
-2. an admin **pre-authorised the email** (Users → Add) and the provider says the email is **verified** — the
+2. an admin **pre-authorized the email** (Users → Add) and the provider says the email is **verified** — the
    account links on that first sign-in, or
 3. the email is `RH_BOOTSTRAP_ADMIN` (verified) and no admin exists yet, or
 4. Settings → **Role mapping** grants a role for one of the identity's groups (OIDC `groups`/`roles` claim — Entra, Keycloak, Okta…).
 
-Everyone else sees "not authorised". An **unverified email never binds or bootstraps** an account
+Everyone else sees "not authorized". An **unverified email never binds or bootstraps** an account
 (this prevents account takeover through a provider that lets anyone claim any address). Users add further
 sign-in methods themselves on **Profile → Sign-in methods** (link while signed in); a provider account can
 belong to only one RemoteHound user, and the last method cannot be removed.
 
 ## Microsoft Entra ID
 
-1. Entra admin centre → App registrations → New: *Web* redirect `https://<domain>/auth/callback/entra`.
+1. Entra admin center → App registrations → New: *Web* redirect `https://<domain>/auth/callback/entra`.
 2. Certificates & secrets → new client secret. Token configuration → add optional claim `email`; for role
    mapping add the `groups` claim (or app roles and set Settings → Roles claim = `roles`).
 3. ```env
@@ -49,7 +49,7 @@ belong to only one RemoteHound user, and the last method cannot be removed.
    RH_AUTH_ENTRA_TRUST_EMAIL=true               # single tenant only
    ```
    Multi-tenant (`organizations`/`common`) accepts any Microsoft tenant's issuer — gate access with
-   pre-authorised users or role mapping, never with the issuer.
+   pre-authorized users or role mapping, never with the issuer.
 
 ## Google
 Google Cloud console → APIs & Services → Credentials → OAuth client ID (*Web application*), redirect
@@ -66,7 +66,7 @@ RH_AUTH_APPLE_PRIVATE_KEY_FILE=/run/secrets/apple_signin.p8
 ```
 RemoteHound signs a fresh ES256 client secret for each exchange (no 6-month expiry to babysit). Apple
 returns via a cross-site **POST**; the short-lived, signed login-flow cookie is therefore `SameSite=None; Secure`.
-Apple sends the user's name only on their first authorisation.
+Apple sends the user's name only on their first authorization.
 
 ## Facebook
 Meta for Developers → app → Facebook Login → Valid OAuth redirect URI `…/auth/callback/facebook`;

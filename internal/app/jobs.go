@@ -73,7 +73,7 @@ func (a *App) registerJobs() {
 		},
 	})
 	a.Jobs.Register(jobs.Job{
-		Name: "retention", Description: "Applies retention: expired enrolment codes, old sessions, old recordings and audit records.",
+		Name: "retention", Description: "Applies retention: expired enrollment codes, old sessions, old recordings and audit records.",
 		Interval: time.Hour, Timeout: 10 * time.Minute,
 		Run: a.retention,
 	})

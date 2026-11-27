@@ -24,7 +24,7 @@ Take a snapshot first: Debug → Jobs → `store-snapshot` → Run now.
 ## Backups and restore (OPS-3) — RPO 24 h, RTO 30 min
 
 Back up the `rh-data` volume (`state.json`, `audit.jsonl`, `ssh_host_ed25519_key`, `snapshots/`).
-**The host key matters:** devices pin it; losing it means every device must re-enrol.
+**The host key matters:** devices pin it; losing it means every device must re-enroll.
 ```bash
 docker run --rm -v remotehound_rh-data:/d -v "$PWD":/b alpine tar czf /b/rh-data-$(date +%F).tgz -C /d .
 # restore
@@ -39,11 +39,11 @@ the device list and `audit-verify`.
 
 | Secret | How | Effect |
 |---|---|---|
-| `RH_SECRET_KEY` | New value in `.env`, `docker compose up -d remotehound` | All operators signed out; stored service passwords become unreadable — re-enter them; open enrolment codes stop working. |
+| `RH_SECRET_KEY` | New value in `.env`, `docker compose up -d remotehound` | All operators signed out; stored service passwords become unreadable — re-enter them; open enrollment codes stop working. |
 | `RH_GUAC_JSON_SECRET` | New value in `.env`, `docker compose up -d remotehound guacamole` | In-flight connect links fail; nothing else. |
 | OIDC client secret | IdP → new secret → `.env` → restart remotehound | None. |
-| SSH host key | Delete `/data/ssh_host_ed25519_key`, restart | **Every device must re-enrol** (pinned key). Only after a host compromise. |
-| A device key | Device page → Delete (or Disable) | Tunnel closed immediately; re-enrol the device. |
+| SSH host key | Delete `/data/ssh_host_ed25519_key`, restart | **Every device must re-enroll** (pinned key). Only after a host compromise. |
+| A device key | Device page → Delete (or Disable) | Tunnel closed immediately; re-enroll the device. |
 
 ## Smoke test
 
@@ -68,7 +68,7 @@ header named by `RH_PROXY_EMAIL_HEADER`; it sends `X-RemoteHound-Proxy-Secret` m
 `route { }` block, so header strips placed before the gate silently delete the identity the gate just
 copied — wrap strip → gate → proxy in `route`.
 
-Severities: **SEV1** outage of sign-in or connect, or any suspected unauthorised access · **SEV2**
+Severities: **SEV1** outage of sign-in or connect, or any suspected unauthorized access · **SEV2**
 degraded (Guacamole down, devices flapping) · **SEV3** minor. One incident lead; for SEV1/2 post a status
 note to users; blameless postmortem within 5 business days (REL-4).
 

@@ -13,7 +13,7 @@
  *  Overlays        drawer, confirmDialog, toast (from overlay.js), toastError(err, fallback)
  *
  * Help text, empty-state copy and error fixes come from the help registry (help.js) — never inline.
- * Colours/spacing come only from tokens via classes in app.css.
+ * Colors/spacing come only from tokens via classes in app.css.
  */
 import { h, append, replace, uid } from './dom.js'
 import { icon } from './icons.js'
@@ -106,7 +106,7 @@ export function linkButton({ href, label, icon: name, variant = 'secondary', dow
 
 /**
  * A device name that links to its page. When the device has since been deleted (rows from
- * sessions, saved logins and enrolment codes carry `device_deleted`), it links to Enroll instead,
+ * sessions, saved logins and enrollment codes carry `device_deleted`), it links to Enroll instead,
  * with the old name filled in, so the machine can be registered again.
  * @param {{device_id:string, device_name?:string, name?:string, device_deleted?:boolean}} row
  * @param {string} [label] link text for a live device (default: its name)
@@ -219,7 +219,7 @@ export function badge(text, tone = 'neutral', iconName) {
   return h('span', { class: `badge badge--${tone}` }, iconName ? icon(iconName, { size: 'sm' }) : null, text)
 }
 
-/** How the enrolment script installed the tunnel (device.install_scope). */
+/** How the enrollment script installed the tunnel (device.install_scope). */
 export function installScope(d, { long = false } = {}) {
   if (d.install_scope === 'system') {
     return h('span', { class: 'install-scope', title: 'Installed with sudo / as Administrator: starts at boot, runs when nobody is logged in.' },
@@ -233,7 +233,7 @@ export function installScope(d, { long = false } = {}) {
   return h('span', { class: 'muted', title: 'Enrolled by an older script that did not report how it installed.' }, 'Not reported')
 }
 
-/** Presence: online / offline / pending / disabled — dot + text (never colour alone). */
+/** Presence: online / offline / pending / disabled — dot + text (never color alone). */
 export function presence(device, { compact = false } = {}) {
   const state = device.status === 'disabled' ? 'disabled' : device.status === 'pending' ? 'pending' : device.online ? 'online' : 'offline'
   const text = { online: 'Online', offline: 'Offline', pending: 'Pending', disabled: 'Disabled' }[state]
@@ -242,7 +242,7 @@ export function presence(device, { compact = false } = {}) {
     h('span', { class: compact ? 'sr-only' : 'presence__text' }, text))
 }
 
-/** Group pill with the group's domain colour. */
+/** Group pill with the group's domain color. */
 export function groupPill(group) {
   if (!group) return h('span', { class: 'muted' }, 'No group')
   const color = ['teal', 'violet', 'amber', 'rose', 'sky', 'lime', 'slate', 'orange'].includes(group.color) ? group.color : 'slate'
@@ -420,7 +420,7 @@ export async function load(container, o) {
 /* ───────────────────────── forms ───────────────────────── */
 
 /**
- * A labelled form field with helper text from the registry and error display.
+ * A labeled form field with helper text from the registry and error display.
  * @param {{id:string, label:string, help?:string|false, type?:'text'|'number'|'email'|'password'|'textarea'|'select'|'multiselect'|'checkbox'|'url',
  *          value?:any, options?:Array<{value:string,label:string}>, required?:boolean, min?:number, max?:number, maxlength?:number,
  *          placeholder?:string, autocomplete?:string, disabled?:boolean, mono?:boolean, suffix?:string, onInput?:Function, rows?:number}} spec
@@ -769,7 +769,7 @@ export function saveBlob(blob, name) {
 }
 
 /**
- * A labelled filter <select> for grid toolbars.
+ * A labeled filter <select> for grid toolbars.
  * @param {{label:string, value?:string, options:Array<{value:string,label:string}>, onChange:(v:string)=>void, allLabel?:string}} o
  */
 export function filterSelect(o) {

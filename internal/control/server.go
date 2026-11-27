@@ -20,7 +20,7 @@ import (
 // Server is rh-control's HTTP API (internal network only):
 //
 //	GET  /healthz                         liveness + whether the engine answers (no auth)
-//	GET  /v1/services                     every labelled container (allowlisted view)
+//	GET  /v1/services                     every labeled container (allowlisted view)
 //	POST /v1/services/{service}/{action}  start | stop | restart
 //	GET  /v1/services/{service}/logs      ?tail=N (1..1000)
 type Server struct {
@@ -79,7 +79,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// resolve finds the labelled container for {service} and checks the action
+// resolve finds the labeled container for {service} and checks the action
 // against ITS label — the allowlist is enforced here, not only in RemoteHound.
 func (s *Server) resolve(w http.ResponseWriter, r *http.Request, action string) *target {
 	name := r.PathValue("service")
@@ -96,7 +96,7 @@ func (s *Server) resolve(w http.ResponseWriter, r *http.Request, action string) 
 	}
 	t, ok := ts[name]
 	if !ok {
-		writeErr(w, http.StatusNotFound, "unknown_service", "No container is labelled "+LabelService+"="+name+".")
+		writeErr(w, http.StatusNotFound, "unknown_service", "No container is labeled "+LabelService+"="+name+".")
 		return nil
 	}
 	if !slices.Contains(t.actions, action) {

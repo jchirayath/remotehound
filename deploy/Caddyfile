@@ -4,7 +4,7 @@
 # only transport-level headers are added here.
 #
 # Logs never carry credentials: the Guacamole connect blob (?data=), its
-# session token (?token=) and enrolment codes (/e/<code>) are live secrets for
+# session token (?token=) and enrollment codes (/e/<code>) are live secrets for
 # their lifetime, so they are masked in the access log AND in Caddy's own
 # default log, which records the request when an upstream fails (502s,
 # dropped websockets).

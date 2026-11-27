@@ -18,7 +18,7 @@
 #                container logs on the Services screen. rh-docker-proxy is the
 #                only holder of the Docker socket (root on the host) and passes
 #                rh-control just the calls it makes; RemoteHound itself never
-#                touches it. rh-control acts only on the containers labelled
+#                touches it. rh-control acts only on the containers labeled
 #                io.remotehound.control.* below. Also set RH_CONTROL_URL and
 #                RH_CONTROL_TOKEN in .env, and DOCKER_GID to the gid of
 #                /var/run/docker.sock on the host (`stat -c %g /var/run/docker.sock`).
@@ -204,7 +204,7 @@ services:
       RH_CONTROL_TOKEN: ${RH_CONTROL_TOKEN:-}   # the helper refuses to start without it
     # Non-root, in the proxy socket's group. It never sees the real socket:
     # the proxy refuses anything beyond the calls above, and the helper's own
-    # code further limits it to labelled containers and listed actions.
+    # code further limits it to labeled containers and listed actions.
     user: "65532:${DOCKER_GID:-999}"
     volumes:
       - rh-docker-sock:/run/rh-docker

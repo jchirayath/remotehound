@@ -35,7 +35,7 @@ body:
     attributes:
       label: Area
       options:
-        - Enrolment / bootstrap script
+        - Enrollment / bootstrap script
         - Tunnel / device connectivity
         - Session (Guacamole) / Connect
         - Sign-in / users / groups

@@ -123,7 +123,7 @@ func TestGuacProxyRejectsPathParameters(t *testing.T) {
 	}
 }
 
-// The proxy recognises a form body exactly as the gate does (guac.BodyKind):
+// The proxy recognizes a form body exactly as the gate does (guac.BodyKind):
 // an unusual spelling of the media type still drops the stale token.
 func TestGuacLoginFormDetectionMatchesGate(t *testing.T) {
 	var got url.Values

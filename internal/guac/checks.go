@@ -66,7 +66,7 @@ func (c *Checker) Last() Report {
 	return c.last
 }
 
-// Health summarises the last report as ok | degraded | down | unknown.
+// Health summarizes the last report as ok | degraded | down | unknown.
 func (c *Checker) Health() string {
 	r := c.Last()
 	switch r.Overall {

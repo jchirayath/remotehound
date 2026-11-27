@@ -10,7 +10,7 @@
 #     with the real parser (pwsh), and checks the file is pure ASCII (PS 5.1 safe)
 # (c) functional: bootstrap.sh in RH_TEST_MODE against fake_server.py: files,
 #     permissions, the JSON it sent, hostile hostname, hostile server answers,
-#     refused code, re-enrolment, uninstall dry run
+#     refused code, re-enrollment, uninstall dry run
 # (d) watchdog: tunnel.sh with a stub `ssh`: revoked handling, state file,
 #     backoff sequence, SIGTERM, log rotation, bad config
 # Every result line is "PASS @feature:enroll <name>" or "FAIL @feature:enroll <name>".
@@ -176,10 +176,10 @@ for s in $SHELLS; do
   # -- happy path, with a hostile hostname --------------------------------
   EVIL=$(printf 'evil"host\\name$(id)`x`;\nline2\033[31m')
   runbs "$s" k7q2mx "$T" "$O" "$EVIL"
-  check "[$s] enrol: exit 0" test "$RC" = 0
-  check "[$s] enrol: prints Connected as <name>" has "$O" 'Connected as Test ? "evilhostnameidxline231m"'
-  check "[$s] enrol: all six steps shown" sh -c "grep -c '^\[[1-6]/6\]' '$O' | grep -qx 6"
-  check "[$s] enrol: request JSON well-formed, hostname sanitised" \
+  check "[$s] enroll: exit 0" test "$RC" = 0
+  check "[$s] enroll: prints Connected as <name>" has "$O" 'Connected as Test ? "evilhostnameidxline231m"'
+  check "[$s] enroll: all six steps shown" sh -c "grep -c '^\[[1-6]/6\]' '$O' | grep -qx 6"
+  check "[$s] enroll: request JSON well-formed, hostname sanitised" \
     json_ok k7q2mx evilhostnameidxline231m "$D/id_ed25519.pub"
   DEV=$(sed -n 's/^RH_DEVICE_ID=//p' "$D/device.conf" 2>/dev/null)
   check "[$s] files: device.conf contents" sh -c "
@@ -198,7 +198,7 @@ for s in $SHELLS; do
   check "[$s] files: tunnel.sh syntax" $(shcmd "$s") -n "$D/tunnel.sh"
   check "[$s] files: uninstall.sh syntax" $(shcmd "$s") -n "$D/uninstall.sh"
   check "[$s] files: tunnel.sh identical to the heredoc" cmp -s "$D/tunnel.sh" "$WORK/tunnel.sh"
-  check "[$s] files: tunnel.log has the enrol line" has "$D/tunnel.log" "INFO enrolled as $DEV"
+  check "[$s] files: tunnel.log has the enroll line" has "$D/tunnel.log" "INFO enrolled as $DEV"
   check "[$s] security: private key never printed" no_secret "$D/id_ed25519" "$O" "$D/tunnel.log" "$WORK/requests.jsonl"
   check "[$s] status poll sent the URL-encoded local fingerprint" python3 -I -c "
 import json,sys
@@ -206,17 +206,17 @@ gets=[json.loads(l) for l in open(sys.argv[1]) if '\"GET\"' in l]
 q=[g['query'] for g in gets if g['query'].get('device_id')==sys.argv[2]]
 assert q and q[-1]['fingerprint']==sys.argv[3], q" "$WORK/requests.jsonl" "$DEV" "$(fp_of "$D/id_ed25519.pub")"
 
-  # -- re-enrolment with a new code: same folder, new key, new device ----------
+  # -- re-enrollment with a new code: same folder, new key, new device ----------
   FP1=$(fp_of "$D/id_ed25519.pub")
   runbs "$s" k7q2my "$T" "$O.2"
   FP2=$(fp_of "$D/id_ed25519.pub")
   DEV2=$(sed -n 's/^RH_DEVICE_ID=//p' "$D/device.conf")
-  check "[$s] re-enrol: exit 0" test "$RC" = 0
-  check "[$s] re-enrol: key regenerated" test -n "$FP2" -a "$FP1" != "$FP2"
-  check "[$s] re-enrol: device.conf replaced" test -n "$DEV2" -a "$DEV" != "$DEV2"
-  check "[$s] re-enrol: key still mode 600" perm "$D/id_ed25519" "-rw-------"
+  check "[$s] re-enroll: exit 0" test "$RC" = 0
+  check "[$s] re-enroll: key regenerated" test -n "$FP2" -a "$FP1" != "$FP2"
+  check "[$s] re-enroll: device.conf replaced" test -n "$DEV2" -a "$DEV" != "$DEV2"
+  check "[$s] re-enroll: key still mode 600" perm "$D/id_ed25519" "-rw-------"
 
-  # -- failures must leave the working enrolment untouched ----------------------
+  # -- failures must leave the working enrollment untouched ----------------------
   cp "$D/device.conf" "$WORK/conf.before"; cp "$D/id_ed25519" "$WORK/key.before"
   runbs "$s" usedzz "$T" "$O.used"
   check "[$s] used code: exit 1" test "$RC" = 1
@@ -240,7 +240,7 @@ assert q and q[-1]['fingerprint']==sys.argv[3], q" "$WORK/requests.jsonl" "$DEV"
   if [ "$s" = sh ] && command -v wget >/dev/null 2>&1; then
     RH_TEST_NO_CURL=1; export RH_TEST_NO_CURL
     runbs "$s" k7q2mz "$WORK/wget home" "$O.wget" wget-host.1
-    check "[$s] wget: enrol exit 0" test "$RC" = 0
+    check "[$s] wget: enroll exit 0" test "$RC" = 0
     check "[$s] wget: connected" has "$O.wget" "Connected as"
     check "[$s] wget: request JSON well-formed" json_ok k7q2mz wget-host.1 "$WORK/wget home/remotehound/id_ed25519.pub"
     runbs "$s" usedzz "$WORK/wget home" "$O.wget2"

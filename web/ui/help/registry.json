@@ -4,7 +4,7 @@
   "screens": {
     "overview": {
       "title": "Overview",
-      "purpose": "See at a glance whether your devices are reachable and whether anything needs attention: offline machines, pending enrolments, a degraded Guacamole or failing background jobs.",
+      "purpose": "See at a glance whether your devices are reachable and whether anything needs attention: offline machines, pending enrollments, a degraded Guacamole or failing background jobs.",
       "how_to": [
         "Check the **Fleet** card: the number of devices online out of all devices. Select a count to open the device list filtered to it.",
         "If **Guacamole** is not healthy, select it to open the Integration screen and run the checks.",
@@ -13,7 +13,7 @@
       "columns": {
         "devices_online": "Devices with a live tunnel right now. Updated every 30 seconds on this screen.",
         "sessions_active": "Remote sessions open at this moment, counted from tunnel connections (accurate even if a browser tab is closed abruptly).",
-        "enrollments_open": "Enrolment codes created but not yet used and not expired. Each can enrol exactly one device.",
+        "enrollments_open": "Enrollment codes created but not yet used and not expired. Each can enroll exactly one device.",
         "guacamole": "Result of the last Guacamole health probe (every 30 seconds). Degraded means sessions may fail to open.",
         "jobs_failing": "Background jobs whose last run failed, such as backups, audit-chain verification or the Guacamole probe. See the Debug screen."
       },
@@ -77,7 +77,7 @@
         "To connect as yourself, select **Use my own login** below the Connect button and save your credentials (see **Profile → My saved logins**)."
       ],
       "fields": {
-        "transport": "How the device connects. ssh-r: the enrolment script's watchdog keeps a reverse SSH tunnel up. ssh-manual: someone typed an ssh command with a key; it reconnects only when they run it again. ssh-attended: a one-time session typed with no key; it ends when the window closes and never reconnects.",
+        "transport": "How the device connects. ssh-r: the enrollment script's watchdog keeps a reverse SSH tunnel up. ssh-manual: someone typed an ssh command with a key; it reconnects only when they run it again. ssh-attended: a one-time session typed with no key; it ends when the window closes and never reconnects.",
         "key_fingerprint": "Fingerprint of the device's own ed25519 key. The private key never leaves the device."
       },
       "columns": {
@@ -158,14 +158,14 @@
     },
     "groups": {
       "title": "Groups",
-      "purpose": "Organise devices and decide which devices operators and viewers can see. A device belongs to one group; a user can have several.",
+      "purpose": "Organize devices and decide which devices operators and viewers can see. A device belongs to one group; a user can have several.",
       "how_to": [
-        "Select **New group**, type a name, pick a colour and select **Create group**.",
-        "Move devices into the group from each device's page, or set it when you create an enrolment code.",
+        "Select **New group**, type a name, pick a color and select **Create group**.",
+        "Move devices into the group from each device's page, or set it when you create an enrollment code.",
         "Give users access to the group on the **Users** screen."
       ],
       "columns": {
-        "name": "The group name and its colour, used wherever the group appears.",
+        "name": "The group name and its color, used wherever the group appears.",
         "description": "Optional note about what belongs in this group.",
         "device_count": "Devices currently in the group. Select the number to see them.",
         "updated_at": "When the group was last changed."
@@ -361,7 +361,7 @@
     },
     "settings": {
       "title": "Settings",
-      "purpose": "Change how RemoteHound behaves without restarting it: its public address, enrolment defaults, sign-in length, recording, logging, retention and role mapping.",
+      "purpose": "Change how RemoteHound behaves without restarting it: its public address, enrollment defaults, sign-in length, recording, logging, retention and role mapping.",
       "how_to": [
         "Change values in any section. A bar at the bottom shows how many changes are unsaved.",
         "Select **Save changes**, or **Discard** to go back to the saved values.",
@@ -427,7 +427,7 @@
     },
     "login": {
       "title": "Sign in",
-      "purpose": "Choose how to sign in to RemoteHound. Your organisation decides which sign-in methods are offered; RemoteHound never sees or stores your password.",
+      "purpose": "Choose how to sign in to RemoteHound. Your organization decides which sign-in methods are offered; RemoteHound never sees or stores your password.",
       "how_to": [
         "Select the button for the account you use at work, for example **Continue with Microsoft Entra** or **Continue with Google**.",
         "Complete the sign-in at that provider. You come back to the page you were trying to open.",
@@ -520,7 +520,7 @@
     "device.group_id": "Decides who can see and connect to this device.",
     "device.tags": "Comma-separated labels to help you search, for example kiosk, floor-2. Up to 20 tags of 32 characters.",
     "device.notes": "Free text for your team: location, owner, quirks. Up to 2000 characters. Never put passwords here.",
-    "device.transport": "How the device connects. ssh-r: the enrolment script's watchdog keeps a reverse SSH tunnel up. ssh-manual: someone typed an ssh command with a key; it reconnects only when they run it again. ssh-attended: a one-time session typed with no key; it ends when the window closes and never reconnects.",
+    "device.transport": "How the device connects. ssh-r: the enrollment script's watchdog keeps a reverse SSH tunnel up. ssh-manual: someone typed an ssh command with a key; it reconnects only when they run it again. ssh-attended: a one-time session typed with no key; it ends when the window closes and never reconnects.",
     "device.key_fingerprint": "Fingerprint of the device's own ed25519 key. The private key never leaves the device.",
     "device.enable": "Lets the device reconnect its tunnel and accept sessions again.",
     "device.disable": "Closes the tunnel now and refuses new logins until you enable it again. Nothing on the device is removed.",
@@ -533,7 +533,7 @@
     "device.clear_password": "Deletes the stored password; you will be asked for it at the next connection.",
     "device.option_security": "How RDP negotiates security. 'any' works in most cases; use 'nla' for modern Windows and 'tls' or 'rdp' for older servers.",
     "device.option_ignore_cert": "Accept the device's self-signed RDP certificate. The connection is still encrypted inside the tunnel.",
-    "device.option_color_depth": "Fewer colours use less bandwidth on slow connections. Default lets the server choose.",
+    "device.option_color_depth": "Fewer colors use less bandwidth on slow connections. Default lets the server choose.",
     "device.option_enable_sftp": "Lets you drag files to and from the device inside the session. Uses the SSH service's credentials.",
     "device.option_read_only": "Watch the screen without sending keyboard or mouse input.",
     "device.client_logs": "The last lines of the tunnel script's log, sent by the device each time it connects. Useful when a device keeps reconnecting.",
@@ -542,29 +542,29 @@
     "device.debug": "Logs every tunnel event for this device at DEBUG level, even when the server log level is higher. Turn off when done.",
     "enroll.name": "Leave empty to use the hostname the device reports. You can rename it later.",
     "enroll.group_id": "The group the device joins. Default uses the default group from Settings.",
-    "enroll.ttl_minutes": "How long the code can be used. It stops working after one successful enrolment either way.",
+    "enroll.ttl_minutes": "How long the code can be used. It stops working after one successful enrollment either way.",
     "enroll.command_unix": "Paste into Terminal; no password needed. The tunnel runs only while you are logged in, and the script cannot turn on SSH or Screen Sharing; it tells you what to switch on. Run the permanent command later to upgrade: it replaces this install.",
     "enroll.command_windows": "Paste into an ordinary PowerShell window. The tunnel runs only while you are logged in, and Remote Desktop cannot be turned on.",
     "enroll.command_windows_system": "Right-click PowerShell, choose 'Run as administrator', then paste. The tunnel starts at boot and keeps running when nobody is logged in, and the script can turn on Remote Desktop for you.",
-    "device.install_scope": "How the enrolment script installed the tunnel. Permanent: it starts at boot and runs when nobody is logged in. Temporary: it runs only while that user is logged in. To make a temporary install permanent, enrol again with the permanent command and delete the old entry.",
+    "device.install_scope": "How the enrollment script installed the tunnel. Permanent: it starts at boot and runs when nobody is logged in. Temporary: it runs only while that user is logged in. To make a temporary install permanent, enroll again with the permanent command and delete the old entry.",
     "enroll_edit.name": "The name the device gets when it joins. Leave empty to use its hostname.",
     "enroll_edit.group_id": "The group the device joins. It decides who can see and connect to it.",
     "enroll_edit.expected_os": "Only a machine of this type can use the code. Any accepts every machine.",
     "enroll.expired": "The code expired, was revoked, or was used by a device you cannot see. Create a new one to try again.",
     "groups.name": "Shown on device pills and in pickers. Up to 64 characters.",
     "groups.description": "Optional: what belongs in this group. Up to 500 characters.",
-    "groups.color": "Helps you recognise the group at a glance. Colours are never the only signal: the name is always shown.",
+    "groups.color": "Helps you recognize the group at a glance. Colors are never the only signal: the name is always shown.",
     "users.email": "The email address the person signs in with at your identity provider. It cannot be changed after the user is created.",
     "users.display_name": "How the name appears in RemoteHound and in the audit log.",
     "users.role": "Admin: full control. Operator: connect to and manage devices in their groups. Viewer: read-only.",
     "users.group_ids": "Which groups' devices the user can see and (as an operator) connect to.",
     "users.disabled": "Blocks sign-in and ends the user's sessions, while keeping their audit history.",
-    "settings.public_url": "The https address people and devices use to reach RemoteHound, without a trailing slash. Used in enrolment commands.",
+    "settings.public_url": "The https address people and devices use to reach RemoteHound, without a trailing slash. Used in enrollment commands.",
     "settings.ssh_public_host": "Host name devices use for their tunnel. Usually the same host as the public URL.",
     "settings.ssh_public_port": "Port devices connect their tunnel to. 2222 by default; must be reachable from the internet.",
-    "settings.enrollment_ttl_minutes": "Default lifetime of new enrolment codes, 5 to 1440 minutes.",
+    "settings.enrollment_ttl_minutes": "Default lifetime of new enrollment codes, 5 to 1440 minutes.",
     "settings.connect_token_ttl_seconds": "How long a Connect link stays valid before it must be used, 15 to 600 seconds. Shorter is safer.",
-    "settings.default_group_id": "Group for new devices when the enrolment code does not name one.",
+    "settings.default_group_id": "Group for new devices when the enrollment code does not name one.",
     "settings.vnc_enabled": "Allow VNC sessions. VNC is weaker than SSH and RDP; turn it off if you do not need it.",
     "settings.session_idle_minutes": "Sign people out of RemoteHound after this long without activity. Open remote sessions are not affected.",
     "settings.session_absolute_hours": "Sign people out after this long regardless of activity, 1 to 168 hours.",
@@ -582,7 +582,7 @@
     "login.small_print": "Signing in means your sign-ins and actions are recorded in RemoteHound's audit log. RemoteHound never sees your provider password.",
     "profile.theme": "Applies everywhere you sign in. System follows your device's light or dark setting.",
     "profile.identities": "Accounts you can sign in with. Link another provider so you are not locked out if one is unavailable.",
-    "profile.identities_managed": "Your organisation's sign-in proxy handles sign-in, so there is nothing to link here.",
+    "profile.identities_managed": "Your organization's sign-in proxy handles sign-in, so there is nothing to link here.",
     "profile.last_method": "You must keep at least one sign-in method. Link another before removing this one.",
     "profile.credentials": "Your own usernames and passwords for devices. Connect uses your own login, so you get your own session; nobody — admins included — can read it.",
     "profile.credential_device": "Devices you can connect to that have at least one service.",
@@ -596,7 +596,7 @@
     "sessions.share_ttl": "The invitation ends by itself after this time.",
     "sessions.all_view_only": "You can see every live session and end one if needed, but you cannot join or watch it unless its owner shares it with you. Ending someone's session is audited.",
     "profile.credential_private_key": "SSH only, instead of a password: paste the whole private key (from -----BEGIN to the END line). If the key has a passphrase, put it in the password box. Stored encrypted for you alone and never shown again; the device must list the matching public key in authorized_keys.",
-    "enroll.expected_os": "Which kind of machine this code is for. A machine reporting a different OS is refused (the code stays usable), so a command pasted on the wrong machine cannot enrol it. Any = no check.",
+    "enroll.expected_os": "Which kind of machine this code is for. A machine reporting a different OS is refused (the code stays usable), so a command pasted on the wrong machine cannot enroll it. Any = no check.",
     "enroll.command_unix_system": "Paste into Terminal and enter your password when sudo asks. The tunnel starts at boot and keeps running when nobody is logged in, and the script can turn on Remote Login (SSH) or Screen Sharing for you.",
     "device.connection_code": "The 4 characters the person at the device sees in their terminal. Ask them to read it out to be sure you are connected to the right machine. Shown only while a typed (no-script) session is live.",
     "enroll.mode": "Install: the script sets up a tunnel that stays connected, or someone types ssh with a key and can reconnect later. One-time: they type one ssh command; nothing is installed, and the session ends when they close the window. One-time codes cannot run the script.",
@@ -611,7 +611,7 @@
     },
     "devices": {
       "title": "No devices yet",
-      "body": "Enrol your first machine: create a code, then type one short command on it.",
+      "body": "Enroll your first machine: create a code, then type one short command on it.",
       "action": {
         "label": "Enroll a device",
         "href": "/enroll",
@@ -623,7 +623,7 @@
     },
     "overview.activity": {
       "title": "No activity yet",
-      "body": "Sign-ins, enrolments and sessions will appear here as they happen.",
+      "body": "Sign-ins, enrollments and sessions will appear here as they happen.",
       "icon": "domain.nav.audit"
     },
     "overview.getting_started": {
@@ -658,7 +658,7 @@
     },
     "device.services": {
       "title": "No services",
-      "body": "Add SSH, RDP or VNC so you can connect. The device usually reports these itself when it enrols.",
+      "body": "Add SSH, RDP or VNC so you can connect. The device usually reports these itself when it enrolls.",
       "icon": "domain.object.tunnel"
     },
     "device.sessions": {
@@ -677,13 +677,13 @@
       "icon": "domain.action.probe"
     },
     "enroll.codes": {
-      "title": "No enrolment codes",
+      "title": "No enrollment codes",
       "body": "Codes you create appear here so you can see whether they were used, and revoke them.",
       "icon": "domain.nav.enroll"
     },
     "groups": {
       "title": "No groups yet",
-      "body": "Groups organise devices and limit what operators and viewers can see. Without groups, everyone with access sees every device.",
+      "body": "Groups organize devices and limit what operators and viewers can see. Without groups, everyone with access sees every device.",
       "action": {
         "label": "Create a group",
         "href": "/groups",
@@ -760,7 +760,7 @@
     },
     "login.intro": {
       "title": "Welcome to RemoteHound",
-      "body": "Sign in with the account your organisation gave you, and your machines are a browser tab away."
+      "body": "Sign in with the account your organization gave you, and your machines are a browser tab away."
     },
     "login.none": {
       "title": "No sign-in methods are set up",
@@ -768,7 +768,7 @@
     },
     "profile.identities": {
       "title": "No sign-in methods",
-      "body": "Your organisation has not enabled any providers to link."
+      "body": "Your organization has not enabled any providers to link."
     },
     "profile.credentials": {
       "title": "No saved logins",
@@ -797,7 +797,7 @@
     },
     "noaccess.proxy": {
       "title": "Your sign-in did not reach RemoteHound",
-      "body": "You are signed in to your organisation, but RemoteHound did not receive who you are, so it cannot let you in. Try signing in again. If this keeps happening, tell your admin: the sign-in proxy in front of RemoteHound is not passing your identity."
+      "body": "You are signed in to your organization, but RemoteHound did not receive who you are, so it cannot let you in. Try signing in again. If this keeps happening, tell your admin: the sign-in proxy in front of RemoteHound is not passing your identity."
     },
     "device.not_registered": {
       "title": "This device isn't registered",
@@ -820,7 +820,7 @@
     },
     "DEVICE_OFFLINE": {
       "title": "The device is offline",
-      "fix": "Its tunnel is not connected. Check the machine is on and online; it reconnects on its own. If it stays offline, look at its Client logs or re-run the enrolment command with a new code.",
+      "fix": "Its tunnel is not connected. Check the machine is on and online; it reconnects on its own. If it stays offline, look at its Client logs or re-run the enrollment command with a new code.",
       "doc": "/docs/devices"
     },
     "SERVICE_NOT_FORWARDED": {
@@ -854,18 +854,18 @@
       "doc": "/docs/errors"
     },
     "ENROLL_CODE_INVALID": {
-      "title": "That enrolment code is not valid",
+      "title": "That enrollment code is not valid",
       "fix": "Check for typing mistakes, or create a new code.",
       "doc": "/docs/enroll"
     },
     "ENROLL_CODE_EXPIRED": {
-      "title": "That enrolment code has expired",
+      "title": "That enrollment code has expired",
       "fix": "Create a new code; codes last 15 minutes by default.",
       "doc": "/docs/enroll"
     },
     "ENROLL_CODE_USED": {
-      "title": "That enrolment code was already used",
-      "fix": "Each code enrols one device. Create a new code.",
+      "title": "That enrollment code was already used",
+      "fix": "Each code enrolls one device. Create a new code.",
       "doc": "/docs/enroll"
     },
     "GROUP_NOT_EMPTY": {
@@ -930,7 +930,7 @@
     },
     "ENROLL_KEY_INVALID": {
       "title": "The device sent an unusable key",
-      "fix": "Re-run the enrolment command with a new code; it generates a fresh key.",
+      "fix": "Re-run the enrollment command with a new code; it generates a fresh key.",
       "doc": "/docs/errors"
     },
     "GROUP_NOT_FOUND": {

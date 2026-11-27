@@ -8,7 +8,7 @@ The Users screen controls who can sign in, what they can do and which devices th
 2. Type the **Email** the person signs in with. The user is linked to their identity provider account the first time they sign in.
 3. Choose a **Role**:
    - **Admin**: full control, including users, settings, logs and debugging.
-   - **Operator**: connect to and manage devices, and enrol new ones, in their groups.
+   - **Operator**: connect to and manage devices, and enroll new ones, in their groups.
    - **Viewer**: read-only access to devices and sessions in their groups.
 4. Tick the **Groups** whose devices they can see. Admins see all groups, so the list is ignored for them.
 5. Select **Add user**.

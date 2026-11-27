@@ -272,7 +272,7 @@ irm https://your-server/e/CODE | iex</pre>
       <div class="card"><h3><span class="dot" aria-hidden="true">↑</span>No inbound ports</h3><p>The machine dials out, so it works from behind home routers and NAT. Each one has its own key, and its tunnel can only forward its own services.</p></div>
       <div class="card"><h3><span class="dot" aria-hidden="true">2+</span>Made for several people</h3><p>Everyone keeps their own saved logins. Invite someone to watch or take control of a live session; admins can see and end sessions but not join them.</p></div>
       <div class="card"><h3><span class="dot" aria-hidden="true">✓</span>Checks and fixes itself</h3><p>Tunnels reconnect on their own. The Services screen shows each part's health, ports and recent errors, and admins can restart them from there.</p></div>
-      <div class="card"><h3><span class="dot" aria-hidden="true">#</span>Every action recorded</h3><p>Sign-ins, enrolments, connections and changes go into a tamper-evident audit log. Sign in with Microsoft Entra ID, Google, GitHub or any OpenID provider.</p></div>
+      <div class="card"><h3><span class="dot" aria-hidden="true">#</span>Every action recorded</h3><p>Sign-ins, enrollments, connections and changes go into a tamper-evident audit log. Sign in with Microsoft Entra ID, Google, GitHub or any OpenID provider.</p></div>
     </div>
   </div>
 </section>
@@ -287,9 +287,9 @@ irm https://your-server/e/CODE | iex</pre>
       <div class="card"><h3><span class="dot" aria-hidden="true">⇄</span>A device key does one thing</h3><p>Each machine makes its own ed25519 key. It can hold open only the forwards that machine declared: no shell on the server, no commands, no reaching other machines or the server's network.</p></div>
       <div class="card"><h3><span class="dot" aria-hidden="true">60</span>One-time session tickets</h3><p>Each Connect gets a sealed ticket for one connection that lives 60 seconds and works only for the person it was made for. Guacamole has no users or database of its own and can't be reached from outside.</p></div>
       <div class="card"><h3><span class="dot" aria-hidden="true">✱</span>Passwords sealed, never shown</h3><p>Saved logins are encrypted with AES-256-GCM, separately for each person and device. The API never returns them, and the logs and audit trail redact them.</p></div>
-      <div class="card"><h3><span class="dot" aria-hidden="true">#</span>Tamper-evident audit</h3><p>Every sign-in, enrolment, connection and change is recorded once, with who, when and from where, in an append-only log chained with SHA-256 and checked every six hours.</p></div>
+      <div class="card"><h3><span class="dot" aria-hidden="true">#</span>Tamper-evident audit</h3><p>Every sign-in, enrollment, connection and change is recorded once, with who, when and from where, in an append-only log chained with SHA-256 and checked every six hours.</p></div>
       <div class="card"><h3><span class="dot" aria-hidden="true">▣</span>Hardened containers</h3><p>The server runs non-root in a distroless image with a read-only filesystem and every capability dropped. Guacamole and guacd sit on an internal network with no published ports and no route to the internet.</p></div>
-      <div class="card"><h3><span class="dot" aria-hidden="true">≤</span>Limits on abuse</h3><p>Enrolment codes are single-use, expire in 15 minutes by default and are stored hashed; wrong guesses are rate-limited. The tunnel port caps and times out unauthenticated handshakes, and the API limits requests per address and per user.</p></div>
+      <div class="card"><h3><span class="dot" aria-hidden="true">≤</span>Limits on abuse</h3><p>Enrollment codes are single-use, expire in 15 minutes by default and are stored hashed; wrong guesses are rate-limited. The tunnel port caps and times out unauthenticated handshakes, and the API limits requests per address and per user.</p></div>
       <div class="card"><h3><span class="dot" aria-hidden="true">✓</span>Supply chain</h3><p>One external Go module. Images pinned by digest, CI actions pinned to commits, secret scanning over the whole history, and govulncheck and Trivy on every change.</p></div>
     </div>
     <p class="note"><strong>Known limits, stated openly.</strong> Whoever holds a device's key could pose as that device's services, so prefer each person's own login over a shared password. guacd's upstream image is built on an Alpine release that no longer gets updates; it runs without privileges on an internal network until a supported build exists. The full list is in the <a href="https://github.com/jchirayath/remotehound/blob/main/docs/THREAT_MODEL.md">threat model</a>. Found a problem? <a href="https://github.com/jchirayath/remotehound/blob/main/SECURITY.md">Report it privately</a>.</p>
@@ -328,7 +328,7 @@ irm https://your-server/e/CODE | iex</pre>
 <section id="self-host" class="alt">
   <div class="wrap">
     <h2>Run your own</h2>
-    <p class="sub">RemoteHound is open source and self-hosted. Each organisation runs its own copy: your machines, your sign-in, your audit log, on a server you control. Our own console is private to our team, so the screenshots above are the way to look around.</p>
+    <p class="sub">RemoteHound is open source and self-hosted. Each organization runs its own copy: your machines, your sign-in, your audit log, on a server you control. Our own console is private to our team, so the screenshots above are the way to look around.</p>
     <div class="lanes">
       <div class="lane">
         <p class="lane__who">You need</p>
@@ -336,7 +336,7 @@ irm https://your-server/e/CODE | iex</pre>
         <ol>
           <li><strong>A Linux server, VM or cloud instance</strong> with Docker and Docker Compose. A small one is enough for a handful of machines.</li>
           <li><strong>A DNS name</strong> pointing at it, with ports 80 and 443 open for the console.</li>
-          <li><strong>TCP port 2222</strong> reachable by the machines you enrol, for their outbound tunnels.</li>
+          <li><strong>TCP port 2222</strong> reachable by the machines you enroll, for their outbound tunnels.</li>
           <li><strong>A sign-in provider:</strong> Microsoft Entra ID, Google, GitHub, any OpenID provider, or your own sign-in proxy.</li>
         </ol>
       </div>
@@ -351,7 +351,7 @@ docker run --rm ghcr.io/jchirayath/remotehound \
 <b># your domain, sign-in and first admin</b>
 $EDITOR .env
 docker compose up -d</pre>
-        <p>Then open your own address, sign in as the first admin, check that <em>Integration</em> is all green and enrol your first machine. The <a href="https://github.com/jchirayath/remotehound/blob/main/docs/RUNBOOK.md">setup guide</a> covers sign-in providers, backups and upgrades.</p>
+        <p>Then open your own address, sign in as the first admin, check that <em>Integration</em> is all green and enroll your first machine. The <a href="https://github.com/jchirayath/remotehound/blob/main/docs/RUNBOOK.md">setup guide</a> covers sign-in providers, backups and upgrades.</p>
       </div>
     </div>
   </div>
@@ -374,7 +374,7 @@ docker compose up -d</pre>
             <thead><tr><th scope="col"></th><th scope="col">RemoteHound</th><th scope="col">MeshCentral</th></tr></thead>
             <tbody>
               <tr><th scope="row">On the machine</th><td class="rh">One command; uses the built-in SSH client</td><td class="mc">Full agent installed and kept up to date</td></tr>
-              <tr><th scope="row">Each session</th><td class="rh">No prompt; consent given once at enrolment</td><td class="mc">Someone at the machine approves (as we run it)</td></tr>
+              <tr><th scope="row">Each session</th><td class="rh">No prompt; consent given once at enrollment</td><td class="mc">Someone at the machine approves (as we run it)</td></tr>
               <tr><th scope="row">Desktop</th><td class="rh">Native RDP and VNC, rendered in the browser</td><td class="mc">Its own remote-desktop protocol through the agent</td></tr>
               <tr><th scope="row">Several people</th><td class="rh">Personal logins, live share for view or control</td><td class="mc">Shared device groups and user rights</td></tr>
               <tr><th scope="row">Best for</th><td class="rh">Reaching your own machines, unattended</td><td class="mc">Attended help on someone else's computer</td></tr>

@@ -3,7 +3,7 @@
 //
 // Policy, enforced here and nowhere else:
 //   - Authentication: public key only. The SSH username is the device ID and
-//     the key must equal the one stored at enrolment (constant-time compare).
+//     the key must equal the one stored at enrollment (constant-time compare).
 //     Disabled or unknown devices are refused.
 //   - Allowed: "tcpip-forward" for ports that are the device's declared
 //     services (the port is the service identity — the server binds its own
@@ -15,8 +15,8 @@
 //   - One live connection per device: a new login replaces the old one, which
 //     heals half-open sessions after NAT/network changes.
 //
-// Script-free enrolment (ADR-0005), enforced here too:
-//   - A username that is an enrolment code logs in through the Enroller (the
+// Script-free enrollment (ADR-0005), enforced here too:
+//   - A username that is an enrollment code logs in through the Enroller (the
 //     same wrong-code limiter as HTTP): attended codes with "none" only,
 //     persistent codes with an ed25519 "publickey" only. "none" is refused for
 //     every other username.
@@ -96,8 +96,8 @@ type Hooks interface {
 	AddService(deviceID, kind string, remotePort int) error
 }
 
-// Enroller lets a person enrol by typing an ssh command whose username is an
-// enrolment code (ADR-0005). Implemented by internal/enroll; faked in tests.
+// Enroller lets a person enroll by typing an ssh command whose username is an
+// enrollment code (ADR-0005). Implemented by internal/enroll; faked in tests.
 type Enroller interface {
 	// CodeLogin checks code for a login from ip without consuming it. A wrong
 	// code counts against the shared wrong-code limiter; false also when the
@@ -105,17 +105,17 @@ type Enroller interface {
 	CodeLogin(code, ip string) (CodeInfo, bool)
 	// RedeemSSH consumes the code and creates the device. The error's message
 	// is shown to the person in their terminal.
-	RedeemSSH(enrollmentID string, r SSHEnrolment) (Redeemed, error)
+	RedeemSSH(enrollmentID string, r SSHEnrollment) (Redeemed, error)
 }
 
-// CodeInfo is an open enrolment code as a login sees it.
+// CodeInfo is an open enrollment code as a login sees it.
 type CodeInfo struct {
 	EnrollmentID string
 	Mode         string // model.EnrollModeAttended | model.EnrollModePersistent
 }
 
-// SSHEnrolment is what a code login reported before the device exists.
-type SSHEnrolment struct {
+// SSHEnrollment is what a code login reported before the device exists.
+type SSHEnrollment struct {
 	IP        string
 	Banner    string // the client's SSH version string
 	PublicKey string // authorized_keys line (persistent codes); "" for attended
@@ -206,7 +206,7 @@ func New(cfg Config) (*Server, error) {
 		ServerVersion:     "SSH-2.0-RemoteHound",
 		MaxAuthTries:      2,
 		PublicKeyCallback: s.authenticate,
-		// "none" only for attended enrolment codes (authNone refuses the rest).
+		// "none" only for attended enrollment codes (authNone refuses the rest).
 		// No password or keyboard-interactive: unset callbacks are refused.
 		NoClientAuth:         true,
 		NoClientAuthCallback: s.authNone,
@@ -257,7 +257,7 @@ func authFail(meta ssh.ConnMetadata, reason string) (*ssh.Permissions, error) {
 	return nil, errors.New("denied")
 }
 
-// codeUser returns the enrolment code a username spells, or "".
+// codeUser returns the enrollment code a username spells, or "".
 func codeUser(user string) string {
 	c := strings.ToLower(user)
 	if ids.ValidCode(c) {
@@ -270,7 +270,7 @@ func codeUser(user string) string {
 // key login, so refusing it is routine, not an event.
 var errNotNone = errors.New("none not allowed")
 
-// authNone admits an attended enrolment code with the "none" method, and
+// authNone admits an attended enrollment code with the "none" method, and
 // nothing else.
 func (s *Server) authNone(meta ssh.ConnMetadata) (*ssh.Permissions, error) {
 	code := codeUser(meta.User())
@@ -283,7 +283,7 @@ func (s *Server) authNone(meta ssh.ConnMetadata) (*ssh.Permissions, error) {
 	}
 	ci, ok := e.CodeLogin(code, hostOnly(meta.RemoteAddr()))
 	if !ok {
-		return authFail(meta, "enrolment code refused")
+		return authFail(meta, "enrollment code refused")
 	}
 	if ci.Mode != model.EnrollModeAttended {
 		return nil, errNotNone // a persistent code needs a key: the client tries publickey next
@@ -292,7 +292,7 @@ func (s *Server) authNone(meta ssh.ConnMetadata) (*ssh.Permissions, error) {
 	return &ssh.Permissions{Extensions: map[string]string{"enrollment_id": ci.EnrollmentID}}, nil
 }
 
-// authCodeKey admits a persistent enrolment code with an ed25519 key. x/crypto
+// authCodeKey admits a persistent enrollment code with an ed25519 key. x/crypto
 // verifies the signature before the login succeeds, so the key bound later is
 // one the client holds.
 func (s *Server) authCodeKey(meta ssh.ConnMetadata, code string, key ssh.PublicKey) (*ssh.Permissions, error) {
@@ -301,14 +301,14 @@ func (s *Server) authCodeKey(meta ssh.ConnMetadata, code string, key ssh.PublicK
 		return authFail(meta, "code logins disabled")
 	}
 	if key.Type() != ssh.KeyAlgoED25519 {
-		return authFail(meta, "enrolment key is not ed25519")
+		return authFail(meta, "enrollment key is not ed25519")
 	}
 	if !s.allowCodeCheck(meta) {
 		return authFail(meta, "too many code checks on one connection")
 	}
 	ci, ok := e.CodeLogin(code, hostOnly(meta.RemoteAddr()))
 	if !ok {
-		return authFail(meta, "enrolment code refused")
+		return authFail(meta, "enrollment code refused")
 	}
 	if ci.Mode != model.EnrollModePersistent {
 		return authFail(meta, "attended code offered a key")
@@ -365,7 +365,7 @@ func hostOnly(a net.Addr) string {
 	return h
 }
 
-// Serve accepts device connections until ctx is cancelled.
+// Serve accepts device connections until ctx is canceled.
 func (s *Server) Serve(ctx context.Context) error {
 	ln, err := net.Listen("tcp", s.cfg.ListenAddr)
 	if err != nil {
@@ -558,12 +558,12 @@ func (s *Server) handshake(ctx context.Context, c net.Conn) {
 	if enr := ext["enrollment_id"]; enr != "" {
 		// A code login: no device, not registered, until hello (ADR-0005).
 		if !s.acquireCodeLogin(enr) {
-			logx.L().Warn("Too many logins with one enrolment code", logx.Event("tunnel.enrol"), slog.String("app.outcome", "denied"),
+			logx.L().Warn("Too many logins with one enrollment code", logx.Event("tunnel.enroll"), slog.String("app.outcome", "denied"),
 				slog.String("app.enrollment.id", enr), slog.String("client.address", ip))
 			sconn.Close()
 			return
 		}
-		dc.enrol = &codeLogin{enrollmentID: enr, publicKey: ext["public_key"]}
+		dc.enroll = &codeLogin{enrollmentID: enr, publicKey: ext["public_key"]}
 		dc.releaseCode = sync.OnceFunc(func() { s.releaseCodeLogin(enr) })
 		defer dc.releaseCode()
 		timer := time.AfterFunc(s.helloTimeout, func() {
@@ -632,7 +632,7 @@ func (s *Server) forgetCodeChecks(remoteAddr string) {
 	s.codeMu.Unlock()
 }
 
-// codeLogin is a login with an enrolment code, before its device exists.
+// codeLogin is a login with an enrollment code, before its device exists.
 type codeLogin struct {
 	enrollmentID string
 	publicKey    string
@@ -796,7 +796,7 @@ type deviceConn struct {
 
 	// Script-free tunnels (ADR-0005). id is written once, under mu, when a
 	// code login becomes a device; read it with devID() where that can race.
-	enrol  *codeLogin // nil for a device login
+	enroll *codeLogin // nil for a device login
 	manual bool       // typed by a person: plain-language status lines, stdin unread
 	code   string     // connection code shown to the person and on the device page
 	// releaseCode frees this login's code-login slot (once; nil for device logins).
@@ -813,7 +813,7 @@ func (dc *deviceConn) devID() string {
 func (dc *deviceConn) pendingEnrol() bool {
 	dc.mu.Lock()
 	defer dc.mu.Unlock()
-	return dc.enrol != nil && !dc.enrol.done && !dc.enrol.redeeming
+	return dc.enroll != nil && !dc.enroll.done && !dc.enroll.redeeming
 }
 
 type forward struct {
@@ -831,8 +831,8 @@ type forward struct {
 
 func (dc *deviceConn) log() *slog.Logger {
 	l := logx.L().With(slog.String("app.device.id", dc.devID()))
-	if dc.enrol != nil {
-		l = l.With(slog.String("app.enrollment.id", dc.enrol.enrollmentID))
+	if dc.enroll != nil {
+		l = l.With(slog.String("app.enrollment.id", dc.enroll.enrollmentID))
 	}
 	return l
 }
@@ -852,7 +852,7 @@ func (dc *deviceConn) run(parent context.Context, chans <-chan ssh.NewChannel, r
 	dc.log().InfoContext(ctx, "Tunnel connected", logx.Event("tunnel.open"), slog.String("client.address", dc.remoteIP),
 		slog.String("app.client_version", string(dc.conn.ClientVersion())))
 
-	if dc.enrol == nil {
+	if dc.enroll == nil {
 		go dc.keepalive(ctx) // a code login starts it once it is a device
 	}
 	go func() {
@@ -975,10 +975,10 @@ type tcpipForwardMsg struct {
 // arrives before hello (and while the held ones drain) waits in line.
 func (dc *deviceConn) handleGlobal(ctx context.Context, req *ssh.Request) {
 	dc.mu.Lock()
-	if e := dc.enrol; e != nil && (!e.done || e.draining) {
+	if e := dc.enroll; e != nil && (!e.done || e.draining) {
 		if len(e.held) >= maxHeldForwards {
 			dc.mu.Unlock()
-			dc.log().WarnContext(ctx, "Too many requests before hello", logx.Event("tunnel.enrol"), slog.String("app.outcome", "denied"))
+			dc.log().WarnContext(ctx, "Too many requests before hello", logx.Event("tunnel.enroll"), slog.String("app.outcome", "denied"))
 			dc.close("too many requests before hello")
 			return
 		}
@@ -994,7 +994,7 @@ func (dc *deviceConn) handleGlobal(ctx context.Context, req *ssh.Request) {
 func (dc *deviceConn) drainHeld(ctx context.Context) {
 	for {
 		dc.mu.Lock()
-		e := dc.enrol
+		e := dc.enroll
 		if len(e.held) == 0 {
 			e.draining = false
 			dc.mu.Unlock()
@@ -1255,7 +1255,7 @@ func (dc *deviceConn) handleChannel(ctx context.Context, nc ssh.NewChannel) {
 func (dc *deviceConn) sessionRequests(ctx context.Context, ch ssh.Channel, reqs <-chan *ssh.Request) {
 	defer ch.Close()
 	dc.mu.Lock()
-	typed := dc.manual || dc.enrol != nil // a person's ssh: hello, not agent
+	typed := dc.manual || dc.enroll != nil // a person's ssh: hello, not agent
 	dc.mu.Unlock()
 	for req := range reqs {
 		var cmd string
@@ -1315,7 +1315,7 @@ func (dc *deviceConn) hello(ctx context.Context, ch ssh.Channel, facts Facts) {
 		facts.OS = "windows"
 	}
 	reconnect := ""
-	if dc.enrol != nil {
+	if dc.enroll != nil {
 		enr := dc.srv.getEnroller()
 		dc.mu.Lock()
 		if enr == nil || dc.closed {
@@ -1323,25 +1323,25 @@ func (dc *deviceConn) hello(ctx context.Context, ch ssh.Channel, facts Facts) {
 			dc.close("no enroller")
 			return
 		}
-		dc.enrol.redeeming = true // the hello timer leaves a redeem alone
-		facts.Services = heldServices(dc.enrol.held)
+		dc.enroll.redeeming = true // the hello timer leaves a redeem alone
+		facts.Services = heldServices(dc.enroll.held)
 		dc.mu.Unlock()
-		r, err := enr.RedeemSSH(dc.enrol.enrollmentID, SSHEnrolment{IP: dc.remoteIP,
-			Banner: string(dc.conn.ClientVersion()), PublicKey: dc.enrol.publicKey, Facts: facts})
+		r, err := enr.RedeemSSH(dc.enroll.enrollmentID, SSHEnrollment{IP: dc.remoteIP,
+			Banner: string(dc.conn.ClientVersion()), PublicKey: dc.enroll.publicKey, Facts: facts})
 		if err != nil {
 			dc.mu.Lock()
-			dc.enrol.done = true
+			dc.enroll.done = true
 			dc.mu.Unlock()
 			dc.releaseCode()
 			_, _ = io.WriteString(ch, "RemoteHound could not connect this machine: "+cleanLogLine(err.Error())+"\n")
 			_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{1}))
-			dc.log().WarnContext(ctx, "Enrolment over SSH refused", logx.Event("tunnel.enrol"), slog.String("app.outcome", "denied"), slog.String("app.reason", err.Error()))
-			dc.close("enrolment refused")
+			dc.log().WarnContext(ctx, "Enrollment over SSH refused", logx.Event("tunnel.enroll"), slog.String("app.outcome", "denied"), slog.String("app.reason", err.Error()))
+			dc.close("enrollment refused")
 			return
 		}
 		dc.mu.Lock()
 		dc.id, dc.manual = r.DeviceID, true
-		dc.enrol.done, dc.enrol.draining = true, true
+		dc.enroll.done, dc.enroll.draining = true, true
 		dc.mu.Unlock()
 		dc.releaseCode()
 		reconnect = r.Reconnect
@@ -1360,7 +1360,7 @@ func (dc *deviceConn) hello(ctx context.Context, ch ssh.Channel, facts Facts) {
 		}
 		go dc.keepalive(ctx)
 		dc.drainHeld(ctx)
-		dc.log().InfoContext(ctx, "Enrolled over SSH", logx.Event("tunnel.enrol"), slog.String("app.outcome", "success"))
+		dc.log().InfoContext(ctx, "Enrolled over SSH", logx.Event("tunnel.enroll"), slog.String("app.outcome", "success"))
 	}
 	name := dc.id
 	if d := dc.srv.cfg.Hooks.Device(dc.id); d != nil && d.Name != "" {

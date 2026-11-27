@@ -17,7 +17,7 @@ check "CORE-8 state written only by store" 'os\.WriteFile\(.*state' "$GO" '^inte
 check "SEC-21 no math/rand for secrets"   '"math/rand"' "$GO" '^$'
 check "SEC-2 no shell exec"               'exec\.Command\("(sh|bash|cmd|powershell)"' "$GO" '^$'
 check "CORE-12 fetch only in lib/api.js"  'fetch\(' "--include=*.js web/ui" '^web/ui/lib/api\.js:|^web/ui/tests/'
-check "CORE-13 no raw colours in UI"      '#[0-9a-fA-F]{3,8}\b|rgba?\(' "--include=*.css --include=*.js web/ui" '^web/ui/tokens\.css:|^web/ui/tests/|^web/ui/lib/icons\.js:'
+check "CORE-13 no raw colors in UI"       '#[0-9a-fA-F]{3,8}\b|rgba?\(' "--include=*.css --include=*.js web/ui" '^web/ui/tokens\.css:|^web/ui/tests/|^web/ui/lib/icons\.js:'
 check "THEME-5 no inline SVG outside icons" '<svg|createElementNS' "--include=*.js web/ui/screens web/ui/app.js" '^$'
 # Dependencies: exactly one external module (ADR-0002).
 deps=$(go list -m -f '{{if not .Main}}{{if not .Indirect}}{{.Path}}{{end}}{{end}}' all 2>/dev/null | sort -u | tr -d ' ')

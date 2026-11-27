@@ -112,7 +112,7 @@ type inspect struct {
 	} `json:"Config"`
 }
 
-// target is a labelled container the helper may act on.
+// target is a labeled container the helper may act on.
 type target struct {
 	id      string
 	tty     bool
@@ -120,7 +120,7 @@ type target struct {
 	actions []string
 }
 
-// Targets lists every labelled container, keyed by service name. A service
+// Targets lists every labeled container, keyed by service name. A service
 // name claimed by two containers is reported as an error rather than letting
 // "restart guacamole" pick one at random.
 func (d *Docker) Targets(ctx context.Context) (map[string]*target, error) {

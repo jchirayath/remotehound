@@ -16,7 +16,7 @@ import { safeReturnPath } from '../lib/router.js'
 
 export const PROVIDER_KINDS = ['entra', 'google', 'apple', 'facebook', 'github', 'oidc']
 
-/** Provider glyph tile, coloured from the provider's domain token. */
+/** Provider glyph tile, colored from the provider's domain token. */
 export function providerMark(kind, name) {
   const k = PROVIDER_KINDS.includes(kind) ? kind : 'oidc'
   return h('span', { class: `provider-mark provider--${k}`, 'aria-hidden': 'true', title: name || k }, icon(`domain.provider.${k}`))
@@ -42,7 +42,7 @@ export default function render(ctx) {
       if (mode === 'proxy' || mode === 'dev') {
         const safe = safeReturnPath(rd)
         replace(list, h('a', { class: 'provider-btn', href: `/auth/login${safe ? `?rd=${encodeURIComponent(safe)}` : ''}` },
-          providerMark('oidc', 'Sign in'), h('span', { class: 'provider-btn__label' }, mode === 'dev' ? 'Continue (development sign-in)' : 'Continue with your organisation'),
+          providerMark('oidc', 'Sign in'), h('span', { class: 'provider-btn__label' }, mode === 'dev' ? 'Continue (development sign-in)' : 'Continue with your organization'),
           icon('domain.nav.forward', { size: 'sm', className: 'provider-btn__go' })))
         return
       }

@@ -85,7 +85,7 @@ func (r *Registry) Register(j Job) {
 		status: Status{Name: j.Name, Description: j.Description, Schedule: "every " + j.Interval.String()}}
 }
 
-// Start launches every job's loop; they stop when ctx is cancelled. Wait blocks until they have.
+// Start launches every job's loop; they stop when ctx is canceled. Wait blocks until they have.
 func (r *Registry) Start(ctx context.Context) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

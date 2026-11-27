@@ -1,7 +1,7 @@
 /**
- * Groups (/groups) — organise devices and scope what operators and viewers can reach.
+ * Groups (/groups) — organize devices and scope what operators and viewers can reach.
  * Data: GET/POST /api/v1/groups, PATCH (If-Match) / DELETE /api/v1/groups/{id}.
- * Colours are the domain group tokens (color.domain.group.*), picked from swatches — never free text.
+ * Colors are the domain group tokens (color.domain.group.*), picked from swatches — never free text.
  */
 import { h, replace, uid, append } from '../lib/dom.js'
 import { api } from '../lib/api.js'
@@ -18,7 +18,7 @@ function colorPicker(value) {
   const helpId = uid('color-help')
   let current = GROUP_COLORS.includes(value) ? value : 'teal'
   const el = h('fieldset', { class: 'field swatches', 'aria-describedby': helpId },
-    h('legend', { class: 'field__label' }, 'Colour'),
+    h('legend', { class: 'field__label' }, 'Color'),
     h('div', { class: 'swatches__row' }, GROUP_COLORS.map(c => {
       const id = uid('sw')
       const input = h('input', { type: 'radio', name, id, value: c, checked: c === current, class: 'swatch__input' })
@@ -33,7 +33,7 @@ export default function render(ctx) {
   const writable = can('group.write')
   const p = page({
     title: 'Groups',
-    subtitle: 'Groups organise devices and decide which devices operators and viewers can see.',
+    subtitle: 'Groups organize devices and decide which devices operators and viewers can see.',
     helpKey: 'groups',
     actions: [button({ label: 'New group', icon: 'action.add', variant: 'primary', permission: 'group.write', onClick: () => edit(null) })],
   })

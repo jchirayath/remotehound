@@ -27,7 +27,7 @@ func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
 }
 
 // readyz checks our own critical dependencies. Guacamole being down is
-// reported as degraded but does not fail readiness (REL-7): the UI, enrolment
+// reported as degraded but does not fail readiness (REL-7): the UI, enrollment
 // and tunnels keep working, and restarting RemoteHound would not fix Guacamole.
 func (s *Server) readyz(w http.ResponseWriter, r *http.Request) {
 	checks := map[string]string{}

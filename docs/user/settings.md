@@ -6,14 +6,14 @@ Listeners, secrets and the identity provider are configured with environment var
 
 ## Public address
 
-- **Public URL**: the https address people and devices use, for example `https://rh.example.com`. Used in enrolment commands.
+- **Public URL**: the https address people and devices use, for example `https://rh.example.com`. Used in enrollment commands.
 - **SSH tunnel host** and **SSH tunnel port**: where devices connect their tunnel (port 2222 by default). The port must be reachable from the internet.
 
-## Enrolment and connections
+## Enrollment and connections
 
-- **Enrolment code lifetime**: default validity of new codes, 5 to 1440 minutes.
+- **Enrollment code lifetime**: default validity of new codes, 5 to 1440 minutes.
 - **Connect link lifetime**: how long a Connect link stays usable, 15 to 600 seconds.
-- **Default group**: group for devices whose enrolment code names none.
+- **Default group**: group for devices whose enrollment code names none.
 - **Allow VNC connections**: turn VNC off if you do not need it.
 
 ## Operator sessions

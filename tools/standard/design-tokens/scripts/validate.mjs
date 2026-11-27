@@ -4,7 +4,7 @@
 // Checks, per mode (light, dark, every presets/*.json):
 //   1. every required key exists (THEME-4)      4. every reference resolves, no cycles
 //   2. no unknown keys outside extension spaces  5. WCAG contrast for declared pairs (THEME-7)
-//   3. every colour is #RGB/#RRGGBB/#RRGGBBAA    6. icons.json covers every required icon (THEME-5)
+//   3. every color is #RGB/#RRGGBB/#RRGGBBAA    6. icons.json covers every required icon (THEME-5)
 // Zero dependencies. Exit 1 on any error.
 import { existsSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
@@ -40,7 +40,7 @@ for (const k of Object.keys(base)) if (!requiredBase.has(k) && !isExtension(k)) 
 let pairsChecked = 0
 for (const [mode, sem] of Object.entries(modes)) {
   for (const k of requiredColor) if (!(k in sem)) err(`${mode}: missing required key ${k}`)
-  for (const k of Object.keys(sem)) if (!requiredColor.has(k) && !isExtension(k)) err(`${mode}: unknown key ${k} (rename? use color.domain.* for app-specific colours)`)
+  for (const k of Object.keys(sem)) if (!requiredColor.has(k) && !isExtension(k)) err(`${mode}: unknown key ${k} (rename? use color.domain.* for app-specific colors)`)
   const resolved = resolveAll({ ...primitive, ...base, ...sem }, mode, err)
   const col = (k) => resolved[k]
   for (const k of Object.keys(sem)) {

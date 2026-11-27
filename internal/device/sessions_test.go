@@ -23,6 +23,6 @@ func TestSessionViewFlagsDeletedDevice(t *testing.T) {
 	}
 	st.Enrollments = map[string]*model.Enrollment{"enr_1": {Meta: model.Meta{ID: "enr_1"}, Name: "laptop", DeviceID: "dev_1"}}
 	if v := toSessionView(a, ss, st, now); !v.DeviceDeleted || v.DeviceName != "laptop (deleted device)" {
-		t.Fatalf("deleted device keeps its enrolment name: %+v", v)
+		t.Fatalf("deleted device keeps its enrollment name: %+v", v)
 	}
 }

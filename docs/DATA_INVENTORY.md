@@ -9,4 +9,4 @@
 | Service usernames/passwords | Secret | state.json, AES-256-GCM sealed | Until changed/cleared | Services → clear password |
 | Session records | Personal | state.json `sessions` | 90 d after end (setting) | Retention job |
 | Session recordings | Sensitive personal (screen contents) | recordings volume | 30 d (setting); off by default | Retention job; delete files |
-| Enrolment codes | Secret (short-lived) | state.json, HMAC only | 7 d after expiry/use | Retention job / Revoke |
+| Enrollment codes | Secret (short-lived) | state.json, HMAC only | 7 d after expiry/use | Retention job / Revoke |

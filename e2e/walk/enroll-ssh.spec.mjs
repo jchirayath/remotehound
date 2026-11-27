@@ -1,4 +1,4 @@
-// Script-free enrolment (ADR-0005): both connection types show their ssh
+// Script-free enrollment (ADR-0005): both connection types show their ssh
 // commands in light and dark, pass axe, and a one-time code never offers a
 // script. Screenshots are the THEME-9 evidence.
 // @kind:walkthrough

@@ -101,7 +101,7 @@ func (s *Server) serviceAction(w http.ResponseWriter, r *http.Request) {
 	}
 	idx := slices.IndexFunc(list, func(c control.Container) bool { return c.Service == id })
 	if idx < 0 {
-		s.fail(w, r, apierr.NotFound(apierr.CodeControlTarget, "No container is labelled for "+id+"."))
+		s.fail(w, r, apierr.NotFound(apierr.CodeControlTarget, "No container is labeled for "+id+"."))
 		return
 	}
 	if !slices.Contains(list[idx].Actions, action) {

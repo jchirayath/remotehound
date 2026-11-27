@@ -103,7 +103,7 @@ func (s *Server) Routes() http.Handler {
 	mux.Handle("POST /api/v1/devices/{id}/probe", priv(s.probeDevice))
 	mux.Handle("GET /api/v1/devices/{id}/logs", priv(s.deviceLogs))
 
-	// Enrolments.
+	// Enrollments.
 	mux.Handle("GET /api/v1/enrollments", priv(s.listEnrollments))
 	mux.Handle("POST /api/v1/enrollments", priv(s.createEnrollment))
 	mux.Handle("GET /api/v1/enrollments/{id}", priv(s.getEnrollment))

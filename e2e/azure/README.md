@@ -1,8 +1,8 @@
 # Azure end-to-end suite
 
 `run.sh` tests RemoteHound on real machines, unattended. It builds the bundle from this
-checkout's `HEAD` on an Azure VM, enrols Windows and Linux clients with the script-free
-ssh commands ([ADR-0005](../../docs/adr/0005-scriptless-enrolment.md)), and checks the
+checkout's `HEAD` on an Azure VM, enrolls Windows and Linux clients with the script-free
+ssh commands ([ADR-0005](../../docs/adr/0005-scriptless-enrollment.md)), and checks the
 result through the API, Guacamole and a browser. It creates **one** resource group and
 deletes it at the end, also when a step fails or you press Ctrl+C.
 

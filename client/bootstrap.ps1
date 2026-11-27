@@ -48,7 +48,7 @@
 #   as they are, because you may rely on them.
 #
 #  Running it again with a new code is safe: the folder is reused, a fresh key
-#  is made and the task is replaced. If enrolment fails, an existing working
+#  is made and the task is replaced. If enrollment fails, an existing working
 #  connection is left untouched.
 #
 #  This file is pure ASCII on purpose (Windows PowerShell 5.1 reads scripts
@@ -278,7 +278,7 @@ function Invoke-RemoteHoundEnrol {
         if (($BaseUrl + $Code).Contains('__RH_')) { Fail 'This script has to be downloaded from your RemoteHound server (its settings are not filled in).' }
         $BaseUrl = $BaseUrl.TrimEnd('/')
         if (-not (Test-Value '^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~/-]*)?\z' $BaseUrl)) { Fail 'The server address in this script looks wrong.' }
-        if (-not (Test-Value '^[a-hjkmnp-z2-9]{6}\z' $Code)) { Fail 'The enrolment code in this script looks wrong.' }
+        if (-not (Test-Value '^[a-hjkmnp-z2-9]{6}\z' $Code)) { Fail 'The enrollment code in this script looks wrong.' }
         # Windows PowerShell 5.1 on older .NET does not offer TLS 1.2 by default.
         try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch { }
 
@@ -400,7 +400,7 @@ function Invoke-RemoteHoundEnrol {
             if ($ecode -like 'ENROLL_CODE_*') { $hint = ' Ask whoever gave you the command for a new code.' }
             elseif ($ecode -eq 'RATE_LIMITED') { $hint = ' Wait a minute, then try again.' }
             if ($ecode) { $detail = "$detail ($ecode)" }
-            Fail ("The server refused the enrolment: {0}.{1}" -f $detail, $hint)
+            Fail ("The server refused the enrollment: {0}.{1}" -f $detail, $hint)
         }
         $d = $resp.data
         if (-not $d) { Fail 'The server sent an unexpected answer; stopping.' }
@@ -593,7 +593,7 @@ $tunnelPs1 = @'
 #  - Control lines from the server (ok / ping / reconnect / revoked) are
 #    appended to tunnel.log as "server: <line>".
 #  - "revoked": writes "revoked" to .\state, disables the task and exits 0.
-#    Re-running the enrol command resets it.
+#    Re-running the enroll command resets it.
 #  - Reconnects with exponential backoff, 2 s doubling to 5 min, plus random
 #    jitter of up to half the delay; a session that lasted over 60 s resets it.
 #  - tunnel.log is rotated at 1 MB; one old copy (tunnel.log.1) is kept.
@@ -726,7 +726,7 @@ if (-not $owned) { exit 0 }    # another watchdog is already running
 try {
     $c = Read-Conf
     if (-not $c) {
-        Write-Log 'ERROR' 'device.conf, id_ed25519 or known_hosts is missing or invalid; run the enrol command again'
+        Write-Log 'ERROR' 'device.conf, id_ed25519 or known_hosts is missing or invalid; run the enroll command again'
         Start-Sleep -Seconds 60
         exit 1
     }
@@ -739,7 +739,7 @@ try {
     $backoff = 2
     while ($true) {
         if ((Test-Path -LiteralPath $State) -and (([IO.File]::ReadAllText($State)).Trim() -eq 'revoked')) {
-            Write-Log 'INFO' 'device is revoked; not connecting (run the enrol command again to reconnect)'
+            Write-Log 'INFO' 'device is revoked; not connecting (run the enroll command again to reconnect)'
             exit 0
         }
         $start = Get-Date

@@ -7,7 +7,7 @@ The overview answers one question: is everything reachable, and does anything ne
 - **About RemoteHound**: one paragraph on what RemoteHound is for, and **Learn more about RemoteHound**, which opens the project site in a new tab (your administrator can point it elsewhere with `RH_PROJECT_URL`).
 - **Fleet**: how many devices are online out of all devices, with a bar showing the proportion. Select **online**, **offline** or **pending** to open the device list filtered to those devices.
 - **Active sessions**: remote sessions open right now, and how many were opened in the last 24 hours.
-- **Open enrolment codes**: codes that are still waiting for a device.
+- **Open enrollment codes**: codes that are still waiting for a device.
 - **Guacamole**: the latest result of the automatic health probe (every 30 seconds). *Healthy* means sessions can open; *Degraded* or *Down* means they may fail.
 - **Failing jobs**: background jobs whose last run failed. Open [Debug](/docs/debug) to see why.
 - **Recent activity**: the latest entries from the [audit log](/docs/audit), newest first.

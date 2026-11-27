@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tiny stand-in for the RemoteHound enrol API, used by client/test/run.sh (stdlib only).
+"""Tiny stand-in for the RemoteHound enroll API, used by client/test/run.sh (stdlib only).
 
   POST /api/v1/enroll          validates the EnrollRequest strictly, returns 201 {"data": EnrollResult}
   GET  /api/v1/enroll/status   checks device_id + fingerprint; "online" becomes true on the 2nd poll

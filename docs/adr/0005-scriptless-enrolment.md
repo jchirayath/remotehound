@@ -1,4 +1,4 @@
-# ADR-0005 — Script-free enrolment over SSH (attended and keyed)
+# ADR-0005 — Script-free enrollment over SSH (attended and keyed)
 
 Status: accepted (2026-11-22)
 
@@ -10,8 +10,8 @@ blocked, or the host is isolated afterwards. Many support cases only need a sess
 need the machine to start a tunnel at boot — and that boot persistence is the part that needs a script.
 
 ## Decision
-Add an enrolment path that runs no script: the person types an `ssh` command (OpenSSH is built into
-Windows 10 1809+ / Server 2019+, macOS and Linux) and the enrolment code is the SSH credential.
+Add an enrollment path that runs no script: the person types an `ssh` command (OpenSSH is built into
+Windows 10 1809+ / Server 2019+, macOS and Linux) and the enrollment code is the SSH credential.
 
 - **The code carries a mode**, chosen by the operator when creating it:
   - `persistent` (default, unchanged): the bootstrap scripts, **or** `ssh` with an ed25519 key the

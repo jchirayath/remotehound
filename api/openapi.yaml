@@ -6,7 +6,7 @@ info:
     name: Apache-2.0
     identifier: Apache-2.0
   description: |
-    The contract between the RemoteHound server, its web UI and the enrolment scripts (API-1).
+    The contract between the RemoteHound server, its web UI and the enrollment scripts (API-1).
     Conventions (engineering standard §6B):
       * JSON field names are snake_case; timestamps RFC 3339 UTC; IDs opaque prefixed strings.
       * Success bodies are `{ "data": ..., "meta": {...} }`; errors are RFC 9457 problem+json with
@@ -54,7 +54,7 @@ paths:
     get:
       tags: [public]
       security: []
-      summary: Bootstrap script for an enrolment code (does NOT consume the code)
+      summary: Bootstrap script for an enrollment code (does NOT consume the code)
       description: |
         Returns a POSIX sh script, or a PowerShell script when the User-Agent contains "PowerShell"
         or the path ends in `.ps1`. `/e/{code}.sh` forces sh. Unknown/expired codes return a
@@ -69,7 +69,7 @@ paths:
     post:
       tags: [public]
       security: []
-      summary: Redeem an enrolment code with the device's public key (consumes the code). 400 ENROLL_WRONG_METHOD for an attended code (not consumed; it works only over SSH, CLIENT_PROTOCOL.md §9)
+      summary: Redeem an enrollment code with the device's public key (consumes the code). 400 ENROLL_WRONG_METHOD for an attended code (not consumed; it works only over SSH, CLIENT_PROTOCOL.md §9)
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/EnrollRequest" } } }
@@ -161,7 +161,7 @@ paths:
         "200": { description: devices, content: { application/json: { schema: { $ref: "#/components/schemas/DeviceList" } } } }
     post:
       tags: [devices]
-      summary: Pre-register a device manually (advanced; normal path is an enrolment)
+      summary: Pre-register a device manually (advanced; normal path is an enrollment)
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/DeviceCreate" } } } }
       responses:
         "201": { description: created, content: { application/json: { schema: { $ref: "#/components/schemas/DeviceEnvelope" } } } }
@@ -242,8 +242,8 @@ paths:
       responses: { "201": { description: created (the only time `code` and the commands are returned), content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/EnrollmentCreated" } } } } } } }
   /api/v1/enrollments/{id}:
     parameters: [ { $ref: "#/components/parameters/Id" } ]
-    get: { tags: [enrollments], responses: { "200": { description: one enrolment, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Enrollment" } } } } } } } }
-    patch: { tags: [enrollments], summary: "Change an open code's device name, group or machine type (409 ENROLL_CODE_USED once used or expired)", requestBody: { required: true, content: { application/merge-patch+json: { schema: { type: object, properties: { name: { type: string, maxLength: 64 }, group_id: { type: string }, expected_os: { type: string, enum: ["", macos, linux, windows] } } } } } }, responses: { "200": { description: the updated enrolment, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Enrollment" } } } } } } } }
+    get: { tags: [enrollments], responses: { "200": { description: one enrollment, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Enrollment" } } } } } } } }
+    patch: { tags: [enrollments], summary: "Change an open code's device name, group or machine type (409 ENROLL_CODE_USED once used or expired)", requestBody: { required: true, content: { application/merge-patch+json: { schema: { type: object, properties: { name: { type: string, maxLength: 64 }, group_id: { type: string }, expected_os: { type: string, enum: ["", macos, linux, windows] } } } } } }, responses: { "200": { description: the updated enrollment, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Enrollment" } } } } } } } }
     delete: { tags: [enrollments], summary: "Revoke an open code, or remove a used or expired one from the list (its device is not affected)", responses: { "204": { description: removed } } }
   /api/v1/enrollments/cleanup:
     post: { tags: [enrollments], summary: Remove every used and expired code the caller may delete; open codes stay, responses: { "200": { description: how many were removed, content: { application/json: { schema: { type: object, properties: { data: { type: object, properties: { removed: { type: integer } } } } } } } } } }
@@ -259,7 +259,7 @@ paths:
 
   /api/v1/users:
     get: { tags: [users], parameters: [ { $ref: "#/components/parameters/PageSize" }, { $ref: "#/components/parameters/PageToken" }, { $ref: "#/components/parameters/Q" } ], responses: { "200": { description: list, content: { application/json: { schema: { $ref: "#/components/schemas/UserList" } } } } } }
-    post: { tags: [users], summary: Pre-authorise a user by email (bound to the IdP subject on first login), requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/UserWrite" } } } }, responses: { "201": { description: created, content: { application/json: { schema: { $ref: "#/components/schemas/UserEnvelope" } } } } } }
+    post: { tags: [users], summary: Pre-authorize a user by email (bound to the IdP subject on first login), requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/UserWrite" } } } }, responses: { "201": { description: created, content: { application/json: { schema: { $ref: "#/components/schemas/UserEnvelope" } } } } } }
   /api/v1/users/{id}:
     parameters: [ { $ref: "#/components/parameters/Id" } ]
     get: { tags: [users], responses: { "200": { description: user, content: { application/json: { schema: { $ref: "#/components/schemas/UserEnvelope" } } } } } }
@@ -299,11 +299,11 @@ paths:
     post: { tags: [integration], summary: Run every integration check now, responses: { "200": { description: report, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/IntegrationReport" } } } } } } } }
 
   /api/v1/services:
-    get: { tags: [integration], summary: "Status of every component (RemoteHound, tunnel server, store, Guacamole, guacd, labelled containers) plus the read-only Guacamole configuration (admin)", responses: { "200": { description: services report, content: { application/json: { schema: { type: object } } } } } }
+    get: { tags: [integration], summary: "Status of every component (RemoteHound, tunnel server, store, Guacamole, guacd, labeled containers) plus the read-only Guacamole configuration (admin)", responses: { "200": { description: services report, content: { application/json: { schema: { type: object } } } } } }
   /api/v1/services/{id}/logs:
-    get: { tags: [integration], summary: "Last N lines of a labelled container's output, redacted (admin; needs rh-control)", parameters: [ { name: id, in: path, required: true, schema: { type: string } }, { name: tail, in: query, schema: { type: integer, minimum: 1, maximum: 1000, default: 200 } } ], responses: { "200": { description: log lines, content: { application/json: { schema: { type: object } } } }, "503": { description: CONTROL_UNAVAILABLE } } }
+    get: { tags: [integration], summary: "Last N lines of a labeled container's output, redacted (admin; needs rh-control)", parameters: [ { name: id, in: path, required: true, schema: { type: string } }, { name: tail, in: query, schema: { type: integer, minimum: 1, maximum: 1000, default: 200 } } ], responses: { "200": { description: log lines, content: { application/json: { schema: { type: object } } } }, "503": { description: CONTROL_UNAVAILABLE } } }
   /api/v1/services/{id}/actions/{action}:
-    post: { tags: [integration], summary: "Start, stop or restart a labelled container through rh-control (admin, audited). RemoteHound may only restart itself (answers 202).", parameters: [ { name: id, in: path, required: true, schema: { type: string } }, { name: action, in: path, required: true, schema: { type: string, enum: [start, stop, restart] } } ], responses: { "200": { description: new container state }, "202": { description: self-restart accepted }, "403": { description: CONTROL_ACTION_NOT_ALLOWED }, "404": { description: CONTROL_TARGET_NOT_FOUND }, "503": { description: CONTROL_UNAVAILABLE } } }
+    post: { tags: [integration], summary: "Start, stop or restart a labeled container through rh-control (admin, audited). RemoteHound may only restart itself (answers 202).", parameters: [ { name: id, in: path, required: true, schema: { type: string } }, { name: action, in: path, required: true, schema: { type: string, enum: [start, stop, restart] } } ], responses: { "200": { description: new container state }, "202": { description: self-restart accepted }, "403": { description: CONTROL_ACTION_NOT_ALLOWED }, "404": { description: CONTROL_TARGET_NOT_FOUND }, "503": { description: CONTROL_UNAVAILABLE } } }
 
   /api/v1/audit:
     get:
@@ -432,7 +432,7 @@ components:
         key_fingerprint: { type: string }
         services: { type: array, items: { $ref: "#/components/schemas/Service" } }
         client_version: { type: string }
-        install_scope: { type: string, enum: ["system", "user", ""], description: "How the enrolment script installed the tunnel; empty when an older script did not say." }
+        install_scope: { type: string, enum: ["system", "user", ""], description: "How the enrollment script installed the tunnel; empty when an older script did not say." }
         install_user: { type: string, description: "The account a user-scope install runs as." }
         last_seen_at: { type: string, format: date-time }
         last_ip: { type: string }

@@ -99,7 +99,7 @@ export default function render(ctx) {
 
     const stats = h('div', { class: 'stats' },
       statCard({ label: 'Active sessions', value: number(o.sessions_active || 0), sub: `${number(o.sessions_24h || 0)} in the last 24 h`, icon: 'domain.nav.sessions', href: can('session.read') ? '/sessions' : null, helpScreen: 'overview', helpKey: 'sessions_active' }),
-      statCard({ label: 'Open enrolment codes', value: number(o.enrollments_open || 0), icon: 'domain.nav.enroll', href: can('enrollment.read') ? '/enroll' : null, helpScreen: 'overview', helpKey: 'enrollments_open', tone: 'accent' }),
+      statCard({ label: 'Open enrollment codes', value: number(o.enrollments_open || 0), icon: 'domain.nav.enroll', href: can('enrollment.read') ? '/enroll' : null, helpScreen: 'overview', helpKey: 'enrollments_open', tone: 'accent' }),
       statCard({ label: 'Guacamole', value: badge(g.label, g.tone, g.icon), icon: 'domain.nav.integration', href: can('integration.read') ? '/integration' : null, helpScreen: 'overview', helpKey: 'guacamole', tone: g.tone === 'success' ? 'brand' : g.tone }),
       statCard({ label: 'Failing jobs', value: number(o.jobs_failing || 0), icon: 'domain.nav.debug', href: can('debug.read') ? '/debug' : null, helpScreen: 'overview', helpKey: 'jobs_failing', tone: o.jobs_failing ? 'danger' : 'brand' }))
 

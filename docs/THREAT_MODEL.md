@@ -17,14 +17,14 @@ a compromise of every enrolled device, so the design minimises what each compone
 
 ## Actors
 
-Anonymous internet · a person with a (leaked) enrolment code · an enrolled device (or someone who stole
+Anonymous internet · a person with a (leaked) enrollment code · an enrolled device (or someone who stole
 its key) · viewer / operator / admin · someone on the Docker host · a malicious IdP group change.
 
 ## Trust boundaries
 
 1. Internet → Caddy/RemoteHound HTTPS (UI, API, `/e/{code}`, `/api/v1/enroll`).
-2. Internet → RemoteHound SSH :2222 (devices, and script-free enrolment where the username is an
-   enrolment code: ADR-0005).
+2. Internet → RemoteHound SSH :2222 (devices, and script-free enrollment where the username is an
+   enrollment code: ADR-0005).
 3. RemoteHound → Guacamole/guacd (internal network, shared JSON key).
 4. guacd → tunnel listeners (internal network only, bound to RemoteHound's guac-network IP).
 5. Device ← script delivered over HTTPS and executed by a person.
@@ -34,7 +34,7 @@ its key) · viewer / operator / admin · someone on the Docker host · a malicio
    RemoteHound may only restart itself. rh-control never holds the socket: `rh-docker-proxy` does, and
    answers only the six calls rh-control makes (ping, list, inspect, logs, start/stop/restart),
    refusing create, exec, images and the daemon API. Residual: a compromise of rh-control can stop,
-   start or read the logs of any container on the host, not just the labelled ones (the label
+   start or read the logs of any container on the host, not just the labeled ones (the label
    allowlist lives in rh-control); a compromise of the proxy itself is a host compromise.
 
 ## Abuse cases and controls (STRIDE)
@@ -43,14 +43,14 @@ its key) · viewer / operator / admin · someone on the Docker host · a malicio
 |---|---|---|
 | S1 | Forged operator session | HMAC-signed cookies with purpose-derived key; `__Host-` prefix, HttpOnly, Secure, SameSite=Lax; idle + absolute timeouts; per-user generation bumped on role/group/disable change (`internal/auth/session.go`); the same change, a deletion or an IdP role-mapping change also terminates the user's live desktop sessions at the tunnel (`api.endUserAccess`, audited `user.sessions_ended`), because the cookie generation does not reach an open Guacamole websocket. |
 | S2 | IdP token forgery / mix-up | Code + PKCE + state + nonce; ID token verified against JWKS, pinned RS256/ES256, iss/aud/azp/exp/nbf/nonce (`internal/auth/oidc.go`). |
-| S2b | Account takeover via an unverified provider email (e.g. a GitHub/OIDC account claiming the admin's address) | Identities match by `provider:subject`; email binds a first sign-in only when the provider asserts it verified, only to a never-signed-in pre-authorised user; bootstrap admin needs a verified email; linking extra providers only while signed in; a provider account belongs to one user (`internal/auth/auth.go`, tested). |
+| S2b | Account takeover via an unverified provider email (e.g. a GitHub/OIDC account claiming the admin's address) | Identities match by `provider:subject`; email binds a first sign-in only when the provider asserts it verified, only to a never-signed-in pre-authorized user; bootstrap admin needs a verified email; linking extra providers only while signed in; a provider account belongs to one user (`internal/auth/auth.go`, tested). |
 | S2c | Login CSRF / mix-up across providers | Flow cookie binds state, nonce, PKCE verifier and provider; callback refuses a flow started at another provider; linking requires the same signed-in user who started it. Apple's form_post needs the flow cookie `SameSite=None` — it is signed, 10-minute, single-use and grants nothing alone. |
 | S3 | Spoofed identity headers in proxy mode | Headers honoured only from `RH_TRUSTED_PROXIES` **and** with the shared `X-RemoteHound-Proxy-Secret` header (constant-time compare); config refuses proxy mode without trusted CIDRs or without `RH_PROXY_SECRET`, so a trusted CIDR alone never admits another host on that network. Optional `RH_PROXY_SUBJECT_HEADER` keys identities on the IdP's stable subject instead of the email (an email reassigned at the IdP cannot inherit an account). Identity headers are ignored on public routes and stripped before Guacamole. |
 | S4 | Device impersonation | ed25519 key generated on the device; server stores the public key; constant-time compare; disabled/deleted devices refused at auth. `ssh-attended` devices have no key and are refused at auth (one session, then gone); the `none` method is refused for every username that is not an attended code. |
-| S4b | Script-free enrolment over SSH (ADR-0005) | The code is the SSH username and goes through the **same** wrong-code limiter as `/e/{code}` (S5: no extra guessing budget; every code lookup counts — a non-ed25519 key, or code logins being disabled, refuse before any lookup with the same reply whatever the code, so they reveal nothing and cost nothing). At most 3 code lookups per TCP connection (`none` + `publickey` queries); a valid code is refunded, so what one code holder can open is capped too: 2 logins waiting for hello per code, 64 in total. `attended` codes authenticate only with `none`; `persistent` codes only with an ed25519 `publickey` and a verified signature, so the key bound to the device is one the client holds. An attended code cannot create a device that logs in again; a persistent code over SSH grants exactly what the script would (one key, declared forwards). Code logins get no device until `hello`, wait at most 10 s for it (a redeem in progress is not cut off), and their held global requests are capped (8). A login whose client drops as its device is made is never left registered as online. Typed commands keep each server's key and pin in their own folder (`~/.remotehound/<host>-<port>/`), so enrolling on a second server cannot break the first. The device is created and the code consumed in one store transaction (two racing logins: one wins). `ExpectedOS` is checked against the `os=` fact (or a Windows banner) before consuming. Host key: the command pins `known_hosts` and runs `StrictHostKeyChecking=yes` (no TOFU). `os=`/`host=` are client-reported, charset-limited facts (as with the script) and stated as such in the UI. **Residual:** attended sessions appear as a new device each time (operators delete them); a manual tunnel never reconnects by itself. |
-| S5 | Enrolment code guessing | 31⁶ = 887,503,681 codes, CSPRNG, 15 min default TTL (max 24 h), single use, stored as HMAC (no offline brute force from a stolen state file), per-IP HTTP limit (30/min), and wrong codes paused per client (IPv4 / IPv6 /64) after 10 a minute and for everyone after **300 a minute** (check and count are one atomic step) — paused callers are told "busy", not "invalid"; metric `remotehound_enroll_throttled_total{scope=client\|global}` (`internal/enroll`, tested). **Arithmetic at the ceiling** (an attacker needs ≥ 30 clients to reach it), with *k* codes open the whole time and never repeating a guess: expected time to the first hit = (887.5 M + 1) / (k + 1) / 300 per minute — *k* = 1: ≈ 1.48 M min ≈ **2.8 years**; *k* = 5: ≈ 493 k min ≈ **11 months** (random guessing: 5.6 years and 1.1 years). Per code: at most 4,500 guesses in a 15-minute life, ≈ 1 in 197,000 that it is hit (1 in 2,050 for a 24 h code — keep TTLs short). **Residual (P3):** clients behind one IPv4 (CGNAT, an office or school NAT) share a key, so 10 wrong codes from anyone there pause enrolment for all of them for up to a minute; and a global flood (≥ 300 misses/min) pauses enrolment for everyone. Both fail safe ("busy, try again in a minute", the code is not consumed) and show in the metric. |
+| S4b | Script-free enrollment over SSH (ADR-0005) | The code is the SSH username and goes through the **same** wrong-code limiter as `/e/{code}` (S5: no extra guessing budget; every code lookup counts — a non-ed25519 key, or code logins being disabled, refuse before any lookup with the same reply whatever the code, so they reveal nothing and cost nothing). At most 3 code lookups per TCP connection (`none` + `publickey` queries); a valid code is refunded, so what one code holder can open is capped too: 2 logins waiting for hello per code, 64 in total. `attended` codes authenticate only with `none`; `persistent` codes only with an ed25519 `publickey` and a verified signature, so the key bound to the device is one the client holds. An attended code cannot create a device that logs in again; a persistent code over SSH grants exactly what the script would (one key, declared forwards). Code logins get no device until `hello`, wait at most 10 s for it (a redeem in progress is not cut off), and their held global requests are capped (8). A login whose client drops as its device is made is never left registered as online. Typed commands keep each server's key and pin in their own folder (`~/.remotehound/<host>-<port>/`), so enrolling on a second server cannot break the first. The device is created and the code consumed in one store transaction (two racing logins: one wins). `ExpectedOS` is checked against the `os=` fact (or a Windows banner) before consuming. Host key: the command pins `known_hosts` and runs `StrictHostKeyChecking=yes` (no TOFU). `os=`/`host=` are client-reported, charset-limited facts (as with the script) and stated as such in the UI. **Residual:** attended sessions appear as a new device each time (operators delete them); a manual tunnel never reconnects by itself. |
+| S5 | Enrollment code guessing | 31⁶ = 887,503,681 codes, CSPRNG, 15 min default TTL (max 24 h), single use, stored as HMAC (no offline brute force from a stolen state file), per-IP HTTP limit (30/min), and wrong codes paused per client (IPv4 / IPv6 /64) after 10 a minute and for everyone after **300 a minute** (check and count are one atomic step) — paused callers are told "busy", not "invalid"; metric `remotehound_enroll_throttled_total{scope=client\|global}` (`internal/enroll`, tested). **Arithmetic at the ceiling** (an attacker needs ≥ 30 clients to reach it), with *k* codes open the whole time and never repeating a guess: expected time to the first hit = (887.5 M + 1) / (k + 1) / 300 per minute — *k* = 1: ≈ 1.48 M min ≈ **2.8 years**; *k* = 5: ≈ 493 k min ≈ **11 months** (random guessing: 5.6 years and 1.1 years). Per code: at most 4,500 guesses in a 15-minute life, ≈ 1 in 197,000 that it is hit (1 in 2,050 for a 24 h code — keep TTLs short). **Residual (P3):** clients behind one IPv4 (CGNAT, an office or school NAT) share a key, so 10 wrong codes from anyone there pause enrollment for all of them for up to a minute; and a global flood (≥ 300 misses/min) pauses enrollment for everyone. Both fail safe ("busy, try again in a minute", the code is not consumed) and show in the metric. |
 | T1 | Tampering with audit | Append-only JSONL with SHA-256 hash chain; `audit-verify` job every 6 h; retention rewrites keep original hashes. |
-| T2 | Script tampering in transit | HTTPS only (`curl -fsSL https://`, `irm https://`); scripts validate every server value before use; host key pinned from the enrol response. |
+| T2 | Script tampering in transit | HTTPS only (`curl -fsSL https://`, `irm https://`); scripts validate every server value before use; host key pinned from the enroll response. |
 | R1 | Operator denies opening a session | `session.open` audited with actor, role, IP; tunnel-observed session record attributed to the user who minted the token. |
 | I1 | Device key used to reach server-side networks | SSH server refuses `direct-tcpip`, shell, exec (other than `agent v1` for script devices, `hello v1` for manual ones — each only on its own transport), X11, agent forwarding, pty; only declared forwards bind. A manual device's `shell` request is answered as `hello`: no shell exists to run. stdin of a manual tunnel is never read. |
 | I2 | Desktop reachable by others than guacd | Tunnel listeners bind only on RemoteHound's `guac` network IP; `guac` network is `internal`. |
@@ -68,7 +68,7 @@ its key) · viewer / operator / admin · someone on the Docker host · a malicio
 
 ## Consent and privacy
 
-Unattended access is consented to **once**, by the person who runs the enrolment command; the script
+Unattended access is consented to **once**, by the person who runs the enrollment command; the script
 says what it will do before doing it, and `uninstall.sh|ps1` reverses it. Recordings are off by default,
 retained 30 days when on, and admin-only. See [DATA_INVENTORY.md](DATA_INVENTORY.md).
 
@@ -80,7 +80,7 @@ multi-tenant Entra now requires `RH_AUTH_ENTRA_ALLOWED_TENANTS` and the tenant i
 `SafeReturn` rejects control characters and backslashes (tab-based open redirect); the cross-device log
 ring is admin-only (operators read client logs only for devices in their groups); probes use a direct
 channel and never create or steal sessions, and ambiguous session attribution is recorded unattributed
-instead of crediting the wrong user; enrolment code hints are visible only to the code's creator, wrong
+instead of crediting the wrong user; enrollment code hints are visible only to the code's creator, wrong
 codes trip a per-minute brake (per client since the follow-up below), rate limits key IPv6 by /64; one `agent` exec and one session channel
 per tunnel; tunnel listeners default to `127.0.0.1` and refuse `0.0.0.0` without an explicit opt-in; kick
 and keepalive control writes can no longer block; the pre-auth handshake map is bounded; logout ends every
@@ -89,12 +89,12 @@ cookies are purpose-bound (`sess:` / `flow:`) and only Apple's flow is `SameSite
 https outside development; the share directory only lists users in your groups; live tails are capped
 per user; guacd runs with no capabilities and a read-only root.
 
-**Follow-up review 2026-11-21 (device and enrolment surface):**
+**Follow-up review 2026-11-21 (device and enrollment surface):**
 
 - *Script injection through `public_url` (critical).* `public_url` is substituted into both bootstrap
   scripts inside string literals and into the copy-paste one-liners. The old check refused ASCII quotes
   but not the Unicode quotes PowerShell also honours (‘ ’ ‚ ‛ “ ” „), so an admin-set value (or a stolen
-  admin session) could run code on every machine that enrols. `public_url` is now a strict ASCII
+  admin session) could run code on every machine that enrolls. `public_url` is now a strict ASCII
   allow-list, `^https?://[A-Za-z0-9.-]+(:port)?(/[A-Za-z0-9._~/-]*)?$` (https unless development), in
   `internal/core/validate.PublicURL`, applied to the Settings validator and to `RH_PUBLIC_URL` (which
   seeds Settings). Script rendering and `enroll.Commands` re-check the stored value and the code and
@@ -107,8 +107,8 @@ per user; guacd runs with no capabilities and a read-only root.
   the budget is 5 s, the table holds 1024, and when it is full the oldest pending handshake **of the
   busiest client** is closed instead of the new one being refused, so a flooder evicts its own
   handshakes first and a device is delayed by at most a retry (see D1).
-- *Enrolment brake as a kill switch (medium).* The wrong-code brake was one global counter (121 misses a
-  minute paused every lookup and redeem for everyone, i.e. ~2 requests a second blocked all enrolment),
+- *Enrollment brake as a kill switch (medium).* The wrong-code brake was one global counter (121 misses a
+  minute paused every lookup and redeem for everyone, i.e. ~2 requests a second blocked all enrollment),
   each `GET /e/{code}` counted twice, and paused callers were told their code was invalid. Misses are now
   counted once per request, atomically, per client (10 a minute per IPv4 address / IPv6 /64) with an
   absolute ceiling of 300 a minute, and a paused caller gets a distinct "busy, try again in a minute"
@@ -127,7 +127,7 @@ per user; guacd runs with no capabilities and a read-only root.
 
 | # | Residual | Why it remains | Mitigation |
 |---|---|---|---|
-| R1 | Whoever holds a device key can impersonate that device's services and receive the credentials operators send to it (no SSH host-key pinning yet; RDP `ignore-cert`). A local non-admin user on a user-mode install can restart the tunnel to their own listener. | Pinning needs the device's service host key captured at enrolment and passed to guacd (`host-key`), not yet built. | Prefer **personal** logins over shared admin passwords; never reuse a shared password across devices; install system-wide (admin) so only admins control the tunnel. |
+| R1 | Whoever holds a device key can impersonate that device's services and receive the credentials operators send to it (no SSH host-key pinning yet; RDP `ignore-cert`). A local non-admin user on a user-mode install can restart the tunnel to their own listener. | Pinning needs the device's service host key captured at enrollment and passed to guacd (`host-key`), not yet built. | Prefer **personal** logins over shared admin passwords; never reuse a shared password across devices; install system-wide (admin) so only admins control the tunnel. |
 | R2 | Session attribution is unattributed (not wrong) when two users click Connect on the same device+service within the token TTL. | The tunnel cannot see which Guacamole token a connection serves. | Per-token one-time listeners (planned) remove it. |
 | R3 | Guacamole runs same-origin under its relaxed CSP (`unsafe-eval`, inline styles). An HTML injection in Guacamole would reach RemoteHound's API. | Guacamole's AngularJS client needs it. | Keep Guacamole patched (Dependabot on the image digest); a separate origin for `/guacamole` is planned. |
 | R4 | The Windows bootstrap's ACL hardening is tested by parsing only, not on Windows. | No Windows CI runner yet. | Add a Windows job; review `client/bootstrap.ps1` changes with the `tunnel-security-reviewer` agent. |
@@ -136,5 +136,5 @@ per user; guacd runs with no capabilities and a read-only root.
 ### Deployment hardening (2026-11-21)
 
 - **Guacamole web app image.** `deploy/guacamole/Dockerfile` rebuilds Guacamole 1.6.0 (unchanged WAR code) on a current, digest-pinned Tomcat 9 with only `guacamole-auth-json`, and replaces Jackson 2.19.0 and Guava 32.1.3 — in the WAR and in the extension — with patched releases pinned by SHA-256. trivy: 18 critical / 120 high in the stock image → 0 / 0. Signed-in users reach Guacamole's Tomcat and REST API through the proxy, so this closes real exposure, not just scanner noise.
-- **No credentials in access or error logs.** Enrolment codes in `/e/<code>` are masked by `logx.Redact` (RemoteHound's own request log). The bundled Caddy (`deploy/Caddyfile`) masks `?data=`, `?token=` and `/e/<code>` in both its access log and its default log, which records the request URI when an upstream fails; without the second filter a dropped websocket would write a live Guacamole token to the log.
+- **No credentials in access or error logs.** Enrollment codes in `/e/<code>` are masked by `logx.Redact` (RemoteHound's own request log). The bundled Caddy (`deploy/Caddyfile`) masks `?data=`, `?token=` and `/e/<code>` in both its access log and its default log, which records the request URI when an upstream fails; without the second filter a dropped websocket would write a live Guacamole token to the log.
 - **Bundle edge:** Caddy 2.11.9 (2.10.2 carried 6 critical / 100 high CVEs).

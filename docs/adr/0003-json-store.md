@@ -3,7 +3,7 @@
 Status: accepted (2026-11-20)
 
 ## Context
-Self-hosters value a small bundle. State is small (devices, users, groups, enrolments, sessions,
+Self-hosters value a small bundle. State is small (devices, users, groups, enrollments, sessions,
 settings) and write rates are low (presence updates, clicks).
 
 ## Decision

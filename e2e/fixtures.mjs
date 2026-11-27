@@ -12,7 +12,7 @@ export const test = base.extend({
     page.on('console', m => { if (m.type() === 'error' && !page.allowedErrors?.some(r => r.test(m.text()))) problems.push('console: ' + m.text()) })
     page.on('pageerror', e => problems.push('pageerror: ' + e.message))
     // ERR_ABORTED is the browser cancelling an in-flight request because the test moved on (navigated,
-    // switched colour scheme). Over a real network (e2e/azure) that is routine; a server failure shows
+    // switched color scheme). Over a real network (e2e/azure) that is routine; a server failure shows
     // up as an HTTP error status or a connection error instead, which still fails the test.
     page.on('requestfailed', r => {
       const why = r.failure()?.errorText || ''
@@ -57,7 +57,7 @@ export async function sshPublicKey() {
 }
 
 /**
- * Enrol a device through the real API (it never connects, so it stays offline).
+ * Enroll a device through the real API (it never connects, so it stays offline).
  * Returns the device ID.
  */
 export async function enrolDevice(request, { name, os = 'linux', groupId, services = [{ kind: 'ssh', remote_port: 22 }] }) {

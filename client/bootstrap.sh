@@ -45,7 +45,7 @@
 #   may rely on them; turn those off yourself if you want.
 #
 #  Running it again with a new code is safe: the folder is reused, a fresh key
-#  is made and the service entry is replaced. If enrolment fails, an existing
+#  is made and the service entry is replaced. If enrollment fails, an existing
 #  working connection is left untouched.
 #
 #  Exit status: 0 connected, 1 error, 2 enrolled but not online within 60 s
@@ -57,7 +57,7 @@
 
 set -eu
 umask 077                      # every file and folder we create is private
-LC_ALL=C; export LC_ALL        # predictable tr/sed/awk/grep behaviour
+LC_ALL=C; export LC_ALL        # predictable tr/sed/awk/grep behavior
 
 # ---- filled in by the server when it hands out this script -----------------
 RH_BASE_URL='__RH_BASE_URL__'
@@ -222,7 +222,7 @@ rh_kill_pidfile() {
 }
 
 rh_cleanup() {
-  if [ -n "$RH_NEWKEY" ]; then rm -f "$RH_NEWKEY" "$RH_NEWKEY.pub"; fi   # enrolment did not finish
+  if [ -n "$RH_NEWKEY" ]; then rm -f "$RH_NEWKEY" "$RH_NEWKEY.pub"; fi   # enrollment did not finish
   if [ -n "$RH_TMP" ]; then rm -rf "$RH_TMP"; fi
 }
 
@@ -398,7 +398,7 @@ stage3() {
         RATE_LIMITED)  rh_hint=" Wait a minute, then try again." ;;
         *)             rh_hint="" ;;
       esac
-      die "The server refused the enrolment: $rh_detail${rh_ecode:+ ($rh_ecode)}.$rh_hint" ;;
+      die "The server refused the enrollment: $rh_detail${rh_ecode:+ ($rh_ecode)}.$rh_hint" ;;
   esac
 
   RH_DEVICE_ID=$(rh_jget data.device_id)
@@ -561,10 +561,10 @@ stage5() {
   esac
 }
 
-# Stop a running tunnel before its key and config are replaced (re-enrolment).
+# Stop a running tunnel before its key and config are replaced (re-enrollment).
 # A system-wide install (sudo) replaces a per-user install made earlier by the
 # same person: otherwise both tunnels keep running, as two devices. Runs that
-# install's own uninstall.sh as its owner. Only reached after this enrolment
+# install's own uninstall.sh as its owner. Only reached after this enrollment
 # succeeded, so a failed upgrade never removes the working per-user tunnel.
 rh_retire_user_install() {
   if [ "$RH_TEST" = 1 ] || [ "$RH_ROOT" != 1 ]; then return 0; fi
@@ -644,7 +644,7 @@ rh_write_tunnel() {
 #  - Control lines from the server (ok / ping / reconnect / revoked) are
 #    appended to tunnel.log as "server: <line>".
 #  - "revoked": writes "revoked" to ./state and exits 0, which the service
-#    manager treats as "stay down". Re-running the enrol command resets it.
+#    manager treats as "stay down". Re-running the enroll command resets it.
 #  - Reconnects with exponential backoff, 2 s doubling to 5 min, plus random
 #    jitter of up to half the delay; a session that lasted over 60 s resets it.
 #  - SIGTERM/SIGINT/SIGHUP: stops ssh, logs, and exits by the same signal.
@@ -763,13 +763,13 @@ main() {
   trap 'on_signal TERM' TERM; trap 'on_signal INT' INT; trap 'on_signal HUP' HUP
   echo "$$" >"$PIDF"
   if ! load_conf; then
-    log ERROR "device.conf, id_ed25519 or known_hosts is missing or invalid; run the enrol command again"
+    log ERROR "device.conf, id_ed25519 or known_hosts is missing or invalid; run the enroll command again"
     nap 60; rm -f "$PIDF"; exit 1
   fi
   backoff=2; loops=0
   while :; do
     if [ "$(cat "$STATE" 2>/dev/null)" = revoked ]; then
-      log INFO "device is revoked; not connecting (run the enrol command again to reconnect)"
+      log INFO "device is revoked; not connecting (run the enroll command again to reconnect)"
       rm -f "$PIDF"; exit 0
     fi
     start=$(date +%s)
@@ -895,7 +895,7 @@ main() {
   esac
   RH_BASE_URL=${RH_BASE_URL%/}
   rh_match '^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~/-]*)?$' "$RH_BASE_URL" || die "The server address in this script looks wrong."
-  rh_match '^[a-hjkmnp-z2-9]{6}$' "$RH_CODE" || die "The enrolment code in this script looks wrong."
+  rh_match '^[a-hjkmnp-z2-9]{6}$' "$RH_CODE" || die "The enrollment code in this script looks wrong."
   RH_TMP=$(mktemp -d 2>/dev/null || mktemp -d -t remotehound) || die "Could not create a temporary folder"
   trap rh_cleanup EXIT
   trap 'exit 130' INT TERM HUP

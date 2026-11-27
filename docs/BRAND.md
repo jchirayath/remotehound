@@ -16,7 +16,7 @@ Change the artwork there, not in the SVG files, so the files can't drift apart.
 | `web/ui/brand/mascot.svg` · `mascot-dark.svg` | Full mascot (window, beagle, signal). Sign-in page, empty states, 404, website hero. |
 | `web/ui/brand/mark.svg` · `mark-dark.svg` | Beagle head under the signal arcs. App header / sidebar, loading screen. Both files are the same; the pair is kept so `app.css`'s theme switch stays uniform. |
 | `web/ui/favicon.svg` | Browser tab icon (16 / 32 px): the head only, on a light outline. |
-| `web/ui/favicon.ico` · `apple-touch-icon.png` | Bitmap copies for Safari (which ignores SVG favicons) and iOS home screens: the favicon at 16/32/48 px, and the mark on the light panel colour at 180 px. Rendered from the SVGs by `node tools/brand/raster.mjs` (needs Chrome); re-run it after `build.mjs` and commit the output. |
+| `web/ui/favicon.ico` · `apple-touch-icon.png` | Bitmap copies for Safari (which ignores SVG favicons) and iOS home screens: the favicon at 16/32/48 px, and the mark on the light panel color at 180 px. Rendered from the SVGs by `node tools/brand/raster.mjs` (needs Chrome); re-run it after `build.mjs` and commit the output. |
 | `docs/img/logo-light.svg` · `logo-dark.svg` | Mark + "Remote**Hound**" wordmark for the README and docs. |
 | `website/img/*.svg` | Copies for the project website (written by the same script). |
 
@@ -30,9 +30,9 @@ An empty state shows the hound when its help-registry entry has `"mascot": "wait
 ## Construction
 
 - Drawn on a 120 × 128 grid (mark: the head at 0.8 scale on 64 × 64; favicon: 0.4 on 32 × 32), symmetric
-  about the vertical centre. Flat fills only: no gradients, strokes only for the brows, mouth, signal arcs
+  about the vertical center. Flat fills only: no gradients, strokes only for the brows, mouth, signal arcs
   and the `>_` glyph, no raster, no fonts.
-- Head: a round skull in the coat colour; a white blaze running down from the crown that opens into a
+- Head: a round skull in the coat color; a white blaze running down from the crown that opens into a
   white muzzle; two long, darker ears hanging in front of the skull; round eyes with a highlight; curved
   brows; a soft rounded nose; a smile with a small tongue.
 - Mascot: the head at 1.25 scale fills the screen of a rounded browser window (three title-bar dots, the
@@ -41,7 +41,7 @@ An empty state shows the hound when its help-registry entry has `"mascot": "wait
 - The mark drops the eye highlights, brows and tongue, enlarges the eyes and keeps the signal arcs, so it
   survives at 24–32 px. The favicon drops the arcs too.
 
-## Colours
+## Colors
 
 The portal palette is still blue and tan: the window frame is the brand blue, the signal and prompt are
 the tan accent, and the beagle brings its own coat.
@@ -58,7 +58,7 @@ the tan accent, and the beagle brings its own coat.
 | Tongue | `#F2654E` | `#F2654E` | — (MediaHound's tongue) |
 
 Screen code never uses these hex values; it uses the semantic tokens (`--color-brand-*`,
-`--color-domain-brand-*`). The SVG files are assets and carry their colours directly — if the palette
+`--color-domain-brand-*`). The SVG files are assets and carry their colors directly — if the palette
 changes, change `tools/brand/build.mjs` and re-run it.
 
 ## Clear space and minimum size
@@ -70,7 +70,7 @@ changes, change `tools/brand/build.mjs` and re-run it.
 
 ## Do
 
-- Use the provided files as they are, on `surface` colours, with the light or dark file matching the
+- Use the provided files as they are, on `surface` colors, with the light or dark file matching the
   background.
 - Let the mascot sit on a horizon (a bottom edge or rule) — that is how the sign-in page and empty states
   frame it.
@@ -78,15 +78,15 @@ changes, change `tools/brand/build.mjs` and re-run it.
 
 ## Don't
 
-- Recolour, stretch, rotate (beyond the CSS states), outline or add effects (shadows, glows, gradients)
+- Recolor, stretch, rotate (beyond the CSS states), outline or add effects (shadows, glows, gradients)
   to the artwork.
 - Put the light mascot on a dark background or the dark one on a light background.
 - Add speech bubbles, props, costumes or expressions, or use the mascot to deliver error messages.
 - Combine the mark with another logo, or use it to imply endorsement of a third-party product.
 
-## Licence
+## License
 
 The RemoteHound mascot, mark, favicon and logo are original artwork for this project, adapted from the
 hound in MediaHound's logo, a sister project by the same author. They are released with the rest of the
-repository under the [Apache License 2.0](../LICENSE). The Apache licence does not grant trademark rights
+repository under the [Apache License 2.0](../LICENSE). The Apache license does not grant trademark rights
 (§6): forks should use their own name and mark.

@@ -1,5 +1,5 @@
 // Package model holds the persisted domain types. They are plain data: no
-// behaviour beyond small derived helpers, so the store can clone them by JSON
+// behavior beyond small derived helpers, so the store can clone them by JSON
 // round-trip and handlers can map them to response DTOs explicitly (SEC-10:
 // no mass assignment — request bodies never decode straight into these).
 package model
@@ -30,7 +30,7 @@ const (
 	TransportAttended = "ssh-attended" // typed ssh with no key: one session, never logs in again
 )
 
-// Enrolment code modes (ADR-0005). "" is read as persistent.
+// Enrollment code modes (ADR-0005). "" is read as persistent.
 const (
 	EnrollModePersistent = "persistent" // the scripts, or ssh with a key
 	EnrollModeAttended   = "attended"   // ssh with no key only
@@ -90,7 +90,7 @@ type Device struct {
 	KeyFingerprint string    `json:"key_fingerprint"`
 	Services       []Service `json:"services"`
 	ClientVersion  string    `json:"client_version"`
-	// InstallScope is how the enrolment script installed the tunnel, as the
+	// InstallScope is how the enrollment script installed the tunnel, as the
 	// script reported it: "system" (sudo / Administrator; starts at boot) or
 	// "user" (one user's login only). Empty for scripts older than this field.
 	InstallScope string `json:"install_scope,omitempty"`
@@ -322,7 +322,7 @@ type State struct {
 // CurrentSchemaVersion is bumped with a migration in core/store.
 const CurrentSchemaVersion = 2
 
-// NewState returns an empty state with initialised maps.
+// NewState returns an empty state with initialized maps.
 func NewState() *State {
 	return &State{
 		SchemaVersion: CurrentSchemaVersion,

@@ -91,7 +91,7 @@ test('@feature:overview offline maps to NETWORK_OFFLINE and fires a network even
   await api.get('/api/v1/overview')
 })
 
-test('@feature:enroll 401 calls the unauthorised hook (sign-in redirect)', async () => {
+test('@feature:enroll 401 calls the unauthorized hook (sign-in redirect)', async () => {
   let called = false
   config.onUnauthorized = () => { called = true }
   queue.push(res(401, { title: 'Sign in', status: 401, code: 'AUTH_REQUIRED', request_id: 'r4' }))

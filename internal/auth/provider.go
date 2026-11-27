@@ -19,7 +19,7 @@ import (
 //     ID token against the issuer's JWKS for OIDC, or the provider's user API
 //     over TLS for plain OAuth 2.0) and returns a provider-scoped Identity.
 //   - EmailVerified is true only when the provider asserts it; RemoteHound
-//     binds a first sign-in to a pre-authorised user by email only then.
+//     binds a first sign-in to a pre-authorized user by email only then.
 type Provider interface {
 	ID() string
 	Display() ProviderInfo

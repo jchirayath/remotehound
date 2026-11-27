@@ -7,7 +7,7 @@ import (
 )
 
 // IdentityWarning flags a device that may not be the machine its name says:
-// the enrolment command was run on the wrong machine, or one machine was
+// the enrollment command was run on the wrong machine, or one machine was
 // enrolled twice. Advisory only: nothing is blocked.
 type IdentityWarning struct {
 	Code    string `json:"code"`    // NAME_OS_MISMATCH | DUPLICATE_HOST
@@ -59,7 +59,7 @@ func nameOSWarning(d *model.Device) *IdentityWarning {
 		host = " (hostname " + d.Hostname + ")"
 	}
 	return &IdentityWarning{Code: "NAME_OS_MISMATCH",
-		Message: "The name says " + said + ", but this machine reports " + reported + host + ". The enrolment command may have been run on the wrong machine."}
+		Message: "The name says " + said + ", but this machine reports " + reported + host + ". The enrollment command may have been run on the wrong machine."}
 }
 
 // hostKey identifies "the same machine" for duplicate detection.
@@ -73,7 +73,7 @@ func hostKey(d *model.Device) string {
 
 // endedOneTime: a finished one-time session (ADR-0005). It has no key and can
 // never reconnect; each session is a new device, so these are the machine's
-// session history, not a second enrolment. online is live tunnel presence
+// session history, not a second enrollment. online is live tunnel presence
 // (nil: unknown, treated as ended).
 func endedOneTime(o *model.Device, online func(string) bool) bool {
 	return o.Transport == model.TransportAttended && (online == nil || !online(o.ID))

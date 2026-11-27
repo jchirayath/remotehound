@@ -9,7 +9,7 @@ export const MSG_READY = 'remotehound-guide-ready'
 export const MSG_DATA = 'remotehound-guide'
 const OSES = new Set(['macos', 'windows'])
 
-/** Server base URL from an enrolment's Windows command ("irm <base>/e/<code> | iex"), or ''. */
+/** Server base URL from an enrollment's Windows command ("irm <base>/e/<code> | iex"), or ''. */
 export function baseFromCommand(cmd) {
   const m = /^irm (\S+)\/e\/[a-hjkmnp-z2-9]{6} \| iex$/.exec(String(cmd || ''))
   const base = m ? m[1] : ''

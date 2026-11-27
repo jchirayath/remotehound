@@ -16,7 +16,7 @@ Status: v0.1 design + foundation. Built to the
 | Requirement | What it forces |
 |---|---|
 | No client install on the remote machine | Use only what the OS ships: `ssh`, `curl`/`irm`, sshd, RDP, Screen Sharing, GNOME/KDE RDP. |
-| No approval at the other end | Unattended access. Consent is given **once**, by the person who runs the enrolment command. |
+| No approval at the other end | Unattended access. Consent is given **once**, by the person who runs the enrollment command. |
 | Machines behind NAT | The device dials **out**. `ssh -R` (built into Windows 10+, macOS, Linux) is the tunnel. |
 | One short, typed command | `curl -sL <host>/e/<code> \| sh` / `irm <host>/e/<code> \| iex`. Everything else is done by the script it downloads. |
 | Full desktop in the browser | Apache Guacamole renders SSH / RDP / VNC over HTML5. We do not write protocol code. |
@@ -51,7 +51,7 @@ Status: v0.1 design + foundation. Built to the
 `guac` is an **internal** network: guacamole and guacd have no route to the internet and nothing
 publishes their ports. The only published ports are 443 (caddy) and the SSH tunnel port (2222 by
 default). RemoteHound is the single front door — every browser request to Guacamole passes through
-RemoteHound's session check first (defence in depth on top of Guacamole's own token).
+RemoteHound's session check first (defense in depth on top of Guacamole's own token).
 
 ## 3. Key decisions (ADRs in `docs/adr/`)
 
@@ -73,13 +73,13 @@ RemoteHound's session check first (defence in depth on top of Guacamole's own to
    writes, last-good backup and per-record ETags is enough for hundreds of devices and keeps the bundle to
    zero databases. The `store.Store` interface is the seam for Postgres later.
 6. **Two kinds of configuration.** *Infrastructure* (listeners, data dir, secrets, auth provider) is
-   environment config validated at boot (CORE-1) and changes need a restart. *Behaviour* (public host
-   name, enrolment TTL, recording, retention, role mapping, log level) is stored in the database and
+   environment config validated at boot (CORE-1) and changes need a restart. *Behavior* (public host
+   name, enrollment TTL, recording, retention, role mapping, log level) is stored in the database and
    managed from the **Settings** screen at runtime.
 7. **Short bootstrap, idempotent stage-2.** The typed command only fetches a script. The script is
    re-runnable, does its work in numbered stages, and installs a *supervisor* (systemd / launchd /
    Scheduled Task) that keeps the tunnel up. Nothing is installed — only files, a key and a service entry.
-8. **Script-free enrolment for locked-down machines** ([ADR-0005](adr/0005-scriptless-enrolment.md)).
+8. **Script-free enrollment for locked-down machines** ([ADR-0005](adr/0005-scriptless-enrollment.md)).
    Endpoint security often blocks the script. A code can instead be typed as the SSH username of a
    plain `ssh -R` command: *attended* codes (no key, one session, nothing installed) or *persistent*
    codes with a key the person generated (reconnects only when they rerun the printed command).
@@ -103,7 +103,7 @@ internal/core/              ── platform core (§1 of the standard), the ONLY
 internal/auth/              provider registry (Entra, Google, Apple, Facebook, GitHub, OIDC) | trusted proxy | dev; identities, sessions, CSRF
 internal/tunnel/            embedded SSH server: device auth, forward policy, port allocator, presence, kick, metrics
 internal/guac/              JSON-auth sealer, Guacamole REST client, integration checks, connect URL builder
-internal/enroll/            enrolment codes, script rendering (sh / ps1), redeem
+internal/enroll/            enrollment codes, script rendering (sh / ps1), redeem
 internal/device/            device service: CRUD, services, credentials (sealed), probes
 internal/api/               HTTP handlers (/api/v1), middleware (request id, logging, authz, rate limit, CSRF)
 internal/web/               server assembly, security headers, static UI, Guacamole reverse proxy
@@ -152,7 +152,7 @@ All records carry `id` (opaque, prefixed), `created_at`, `updated_at` (RFC 3339 
 
 ## 6. Flows
 
-### 6.1 Enrolment (what the person at the device does)
+### 6.1 Enrollment (what the person at the device does)
 
 ```
 operator UI ── POST /api/v1/enrollments {name, group}  ──► code "k7q2mx" (shown once, 15 min, single use)
@@ -226,7 +226,7 @@ remotehound:20017, which opens a `forwarded-tcpip` channel to the device → loc
 `internal/auth` is a provider registry (Entra, Google, Apple, Facebook, GitHub, generic OIDC — any mix).
 OIDC providers are verified by ID token (pinned RS256/ES256, JWKS, iss/aud/azp/exp/nonce, PKCE); OAuth-only
 providers by their user API over TLS. Users may link several identities; matching is by
-`provider:subject`, and only a *verified* email binds a first sign-in to a pre-authorised user. Setup:
+`provider:subject`, and only a *verified* email binds a first sign-in to a pre-authorized user. Setup:
 [AUTH_PROVIDERS.md](AUTH_PROVIDERS.md).
 
 ## 7. Self-healing and recovery
@@ -270,8 +270,8 @@ providers by their user API over TLS. Users may link several identities; matchin
   (no Guacamole admin UI exists: JSON auth, no user database).
 - **Container control (optional, ADR-0004)**: `remotehound control` runs as a separate **rh-control**
   container holding the Docker socket, reachable only by remotehound with a shared token; it can
-  start/stop/restart and tail logs of **labelled** containers only, and never returns their environment.
-  RemoteHound authorises (admin), audits, and can only restart itself.
+  start/stop/restart and tail logs of **labeled** containers only, and never returns their environment.
+  RemoteHound authorizes (admin), audits, and can only restart itself.
 - **Metrics**: Prometheus text on the internal listener (`:9090/metrics`): request duration histogram,
   tunnels online, bytes, job `last_success_timestamp`, guac probe state. `pprof` only when
   `RH_DEBUG_PPROF=true`, internal listener only.
@@ -282,17 +282,17 @@ providers by their user API over TLS. Users may link several identities; matchin
   MFA is the IdP's job) or a **trusted authenticating proxy**. No local passwords exist.
 - Sessions are private to their owner; joining needs the owner's invitation; admins can end but not join.
 - Devices authenticate with an **ed25519 key generated on the device**; the server stores only the public key.
-- Enrolment codes: 6 chars from a 31-letter unambiguous alphabet (887 M), CSPRNG, stored hashed,
+- Enrollment codes: 6 chars from a 31-letter unambiguous alphabet (887 M), CSPRNG, stored hashed,
   single use, 15 min, rate-limited per IP.
 - The SSH server accepts **only** `tcpip-forward` for the device's declared services and a session
   channel for the `agent` command. No shell, no exec of anything else, no local forwards, no agent/X11 forwarding.
 - Tunnel listeners bind on the internal `guac` network only — a device's desktop is reachable only by guacd.
 - Connect tokens live 60 s, carry one connection, and are scoped to the requesting user.
-- Every connect, enrol, revoke, setting change and debug action is audited with actor + role + IP.
+- Every connect, enroll, revoke, setting change and debug action is audited with actor + role + IP.
 
 ## 11. Optional client (later)
 
 `transport: agent` devices will use a small signed binary (Go) that keeps one outbound TLS/WebSocket
 connection and can also stream its own screen (for Windows Home and Macs without Screen Sharing). It
-plugs in at `internal/tunnel` behind the same `PortAllocator` and presence API; enrolment, Guacamole
+plugs in at `internal/tunnel` behind the same `PortAllocator` and presence API; enrollment, Guacamole
 connect, sessions and the UI do not change.

@@ -35,8 +35,8 @@ const (
 )
 
 // Well-known service IDs. They double as the rh-control label names, so a
-// container labelled io.remotehound.control.service=guacamole merges into the
-// Guacamole card. Any other labelled container gets a card of its own.
+// container labeled io.remotehound.control.service=guacamole merges into the
+// Guacamole card. Any other labeled container gets a card of its own.
 const (
 	IDRemoteHound = "remotehound"
 	IDTunnel      = "tunnel"
@@ -284,11 +284,11 @@ func (src *Sources) Build(ctx context.Context) Report {
 	}
 
 	rep.Services = []Service{rh, tun, sto, gc, gd}
-	// Any other labelled container (e.g. the operator labelled caddy).
+	// Any other labeled container (e.g. the operator labeled caddy).
 	sort.Slice(containers, func(i, j int) bool { return containers[i].Service < containers[j].Service })
 	for i := range containers {
 		c := containers[i]
-		rep.Services = append(rep.Services, Service{ID: c.Service, Name: c.Service, Role: "Container labelled for RemoteHound control",
+		rep.Services = append(rep.Services, Service{ID: c.Service, Name: c.Service, Role: "Container labeled for RemoteHound control",
 			Status: containerStatus(&c), Detail: "Known only through rh-control.", Endpoints: []Endpoint{}, Container: &c, Problems: []Problem{}})
 	}
 
@@ -310,7 +310,7 @@ func (src *Sources) Build(ctx context.Context) Report {
 	}
 
 	// Recent problems from container output (Guacamole, guacd, any extra
-	// labelled container). RemoteHound's own come from its log ring above,
+	// labeled container). RemoteHound's own come from its log ring above,
 	// which is richer than its stdout, so its container log is not re-read.
 	if rep.Control.Reachable {
 		for i := range rep.Services {

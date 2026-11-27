@@ -6,7 +6,7 @@ rules:
   - id: std.dart.raw-color
     languages: [generic]
     severity: ERROR
-    message: "Raw colour literal — use a semantic token: context.colors.<token> (THEME-8, CORE-13)."
+    message: "Raw color literal — use a semantic token: context.colors.<token> (THEME-8, CORE-13)."
     metadata: { standard: [THEME-8, UX-2] }
     paths:
       include: ["*.dart"]

@@ -1,5 +1,5 @@
 /**
- * Settings (/settings) — runtime behaviour stored in the database (public address, enrolment,
+ * Settings (/settings) — runtime behavior stored in the database (public address, enrollment,
  * sessions, recording, logging, retention, role mapping). Infrastructure settings (listeners,
  * secrets, identity provider) are environment config and are not shown here.
  *
@@ -20,8 +20,8 @@ export const SECTIONS = [
     { k: 'ssh_public_host', label: 'SSH tunnel host', mono: true, placeholder: 'rh.example.com' },
     { k: 'ssh_public_port', label: 'SSH tunnel port', type: 'number', min: 1, max: 65535, mono: true },
   ]],
-  ['Enrolment and connections', 'Defaults for new devices and for opening sessions.', [
-    { k: 'enrollment_ttl_minutes', label: 'Enrolment code lifetime', type: 'number', min: 5, max: 1440, suffix: 'minutes' },
+  ['Enrollment and connections', 'Defaults for new devices and for opening sessions.', [
+    { k: 'enrollment_ttl_minutes', label: 'Enrollment code lifetime', type: 'number', min: 5, max: 1440, suffix: 'minutes' },
     { k: 'connect_token_ttl_seconds', label: 'Connect link lifetime', type: 'number', min: 15, max: 600, suffix: 'seconds' },
     { k: 'default_group_id', label: 'Default group', type: 'group' },
     { k: 'vnc_enabled', label: 'Allow VNC connections', type: 'checkbox' },
@@ -44,7 +44,7 @@ export const SECTIONS = [
 
 export default function render(ctx) {
   const writable = can('settings.write')
-  const p = page({ title: 'Settings', subtitle: 'Behaviour you can change without restarting the server.', helpKey: 'settings' })
+  const p = page({ title: 'Settings', subtitle: 'Behavior you can change without restarting the server.', helpKey: 'settings' })
   const body = h('div', { class: 'settings' }, skeleton('detail', 4))
   append(p.body, body)
   let current = null

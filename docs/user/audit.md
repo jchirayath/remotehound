@@ -1,6 +1,6 @@
 # Audit log
 
-The audit log records every change and every privileged read: sign-ins, enrolments, connections, edits, deletions, setting changes and debug actions. Each record is chained to the previous one with a hash, so records cannot be altered or removed without detection. The `audit-verify` job checks the chain every day.
+The audit log records every change and every privileged read: sign-ins, enrollments, connections, edits, deletions, setting changes and debug actions. Each record is chained to the previous one with a hash, so records cannot be altered or removed without detection. The `audit-verify` job checks the chain every day.
 
 ## Reading a record
 

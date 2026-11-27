@@ -144,7 +144,7 @@ func (s *Service) Connected(deviceID, remoteIP string, f tunnel.Facts) {
 			d.Hostname = f.Hostname
 		}
 		// Services the device reports but the registry lacks are added
-		// (e.g. Screen Sharing turned on after enrolment). Existing ones keep
+		// (e.g. Screen Sharing turned on after enrollment). Existing ones keep
 		// their settings. Nothing is removed automatically.
 		for _, rs := range f.Services {
 			if d.Service(rs.Kind) == nil && d.ServiceByRemotePort(rs.RemotePort) == nil {
@@ -863,7 +863,7 @@ func (s *Service) Connect(ctx context.Context, a *authz.Actor, id, kind string) 
 	}
 	internal, ok := s.Tunnel.Forwarded(id)[svc.RemotePort]
 	if !ok {
-		return ConnectResult{}, apierr.Conflict(apierr.CodeServiceNotFwd, "The device is online but is not forwarding "+strings.ToUpper(kind)+". Re-run the enrolment command or check the service on the device.")
+		return ConnectResult{}, apierr.Conflict(apierr.CodeServiceNotFwd, "The device is online but is not forwarding "+strings.ToUpper(kind)+". Re-run the enrollment command or check the service on the device.")
 	}
 
 	params := map[string]string{"hostname": s.TunnelHost, "port": fmt.Sprint(internal)}

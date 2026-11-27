@@ -1,12 +1,12 @@
 # Signing in
 
-RemoteHound has no passwords of its own. You sign in with an account your organisation already uses — for example Microsoft Entra ID, Google, Apple, Facebook, GitHub or another OpenID Connect provider. RemoteHound never sees your provider password.
+RemoteHound has no passwords of its own. You sign in with an account your organization already uses — for example Microsoft Entra ID, Google, Apple, Facebook, GitHub or another OpenID Connect provider. RemoteHound never sees your provider password.
 
 ## Choosing a sign-in method
 
 When more than one method is enabled, the sign-in page shows one button per provider. Select the one for the account you use at work. After signing in at the provider you return to the page you were trying to open.
 
-When only one method is enabled, RemoteHound sends you straight to it. Organisations that put RemoteHound behind their own sign-in proxy skip this page entirely.
+When only one method is enabled, RemoteHound sends you straight to it. Organizations that put RemoteHound behind their own sign-in proxy skip this page entirely.
 
 ## What is recorded
 

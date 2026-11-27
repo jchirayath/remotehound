@@ -51,7 +51,7 @@ the OS already ships, writes a key and a service entry, and keeps an outbound tu
 <tr>
 <td width="33%" valign="top">
 
-### 🔌 Zero-install enrolment
+### 🔌 Zero-install enrollment
 A one-time, 15-minute, single-use code and one typed command. The key is generated **on the device**;
 a tiny watchdog keeps the tunnel up under systemd, launchd or Task Scheduler.
 
@@ -147,7 +147,7 @@ device protocol: [docs/specs/CLIENT_PROTOCOL.md](docs/specs/CLIENT_PROTOCOL.md)
 | Reaches machines behind NAT without port forwarding | ✅ | ❌ needs a route to each host | ✅ |
 | Nothing to install or update on the device | ✅ | ✅ | ❌ full agent |
 | Unattended access (no one clicks "Allow") | ✅ | ✅ | varies |
-| One-line enrolment, device inventory, health | ✅ | ❌ | ✅ |
+| One-line enrollment, device inventory, health | ✅ | ❌ | ✅ |
 | Full desktop in any browser, phone included | ✅ | ✅ | varies |
 | Self-hosted, open source, one Go binary + compose bundle | ✅ | ✅ | varies |
 
@@ -235,10 +235,10 @@ Threats and mitigations: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md). Found som
 <details>
 <summary><b>What is verified, and what isn't yet</b></summary>
 
-- **In-process:** enrolment → tunnel → connect token → the exact TCP path guacd uses → session attribution →
+- **In-process:** enrollment → tunnel → connect token → the exact TCP path guacd uses → session attribution →
   probe → redacted client logs → ETag/CSRF → cross-group and role denials → revocation → audit (`internal/integration`).
 - **Live bundle:** Guacamole 1.6.0 starts with JSON auth only and accepts RemoteHound's tokens; every
-  Integration check passes; the real `bootstrap.sh` enrols an Alpine Linux container and its OpenSSH is
+  Integration check passes; the real `bootstrap.sh` enrolls an Alpine Linux container and its OpenSSH is
   reached through the tunnel.
 - **Multi-user (in-process):** personal credentials used by Connect and unreadable by others; invite-only
   join with read-only view tokens; admin sees and ends but cannot join or share others' sessions.

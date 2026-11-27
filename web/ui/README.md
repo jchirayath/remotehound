@@ -47,8 +47,8 @@ tests/*.test.mjs      node:test unit tests, no dependencies
   PATCH takes the record's `etag`; handle `412` with a "someone else changed this" banner and a Reload.
 - **DOM**: build with `h()`. Never assign `innerHTML`/`outerHTML` and never set `style=` — the CSP
   (`style-src 'self'`, `script-src 'self'`) forbids inline styles and scripts. Use classes and tokens.
-- **Colours, spacing, type, radius, motion**: tokens only (`var(--color-…)`, `var(--space-…)`, …). Domain
-  colours (group colours, presence, code blocks) are `color.domain.*` tokens. Change the palette in
+- **Colors, spacing, type, radius, motion**: tokens only (`var(--color-…)`, `var(--space-…)`, …). Domain
+  colors (group colors, presence, code blocks) are `color.domain.*` tokens. Change the palette in
   `design/tokens/*.json`, then run `node tools/standard/design-tokens/scripts/validate.mjs && node
   tools/standard/design-tokens/scripts/build.mjs` from the repo root (validates WCAG AA in both modes).
 - **Icons**: `icon('action.delete')` from `lib/icons.js` — never inline SVG in a screen. To add one, add a
@@ -63,7 +63,7 @@ tests/*.test.mjs      node:test unit tests, no dependencies
   (request ID + retry) and data. The grid and `load()` helper do this for you.
 - **Accessibility**: icon-only buttons need `label`; targets are at least 44 px (`--touch`); keyboard
   works everywhere (tabs use arrow keys, dialogs trap focus, `?` opens help, Ctrl/Cmd+K the palette);
-  `prefers-reduced-motion` and forced colours are respected.
+  `prefers-reduced-motion` and forced colors are respected.
 - **Documentation**: every module starts with a comment stating its contract.
 
 ## Adding a screen
@@ -100,4 +100,4 @@ RemoteHound's UI embeds no third-party code except icon path data:
 - **Lucide** icons, version 0.460.0 (`lucide-static`), ISC License. Copyright (c) for portions of Lucide
   are held by Cole Bemis 2013-2022 as part of Feather (MIT); all other copyright (c) for Lucide are held
   by Lucide Contributors 2022. Only the SVG path data of the glyphs listed in `lib/icons.js` is included.
-  Full licence text: [`lib/LICENSE-lucide.txt`](lib/LICENSE-lucide.txt). https://lucide.dev
+  Full license text: [`lib/LICENSE-lucide.txt`](lib/LICENSE-lucide.txt). https://lucide.dev

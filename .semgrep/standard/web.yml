@@ -5,7 +5,7 @@ rules:
   - id: std.web.raw-color
     languages: [generic]
     severity: ERROR
-    message: "Raw colour literal — use a semantic token (Tailwind class from the token preset, or var(--color-…)) (THEME-8)."
+    message: "Raw color literal — use a semantic token (Tailwind class from the token preset, or var(--color-…)) (THEME-8)."
     metadata: { standard: [THEME-8, UX-2] }
     paths:
       include: ["*.ts", "*.tsx", "*.js", "*.jsx", "*.vue", "*.svelte", "*.css", "*.scss"]
@@ -22,7 +22,7 @@ rules:
   - id: std.web.tailwind-palette
     languages: [generic]
     severity: ERROR
-    message: "Tailwind default-palette or arbitrary colour class — use the semantic classes from the token preset (bg-surface-base, text-status-danger …) (THEME-8)."
+    message: "Tailwind default-palette or arbitrary color class — use the semantic classes from the token preset (bg-surface-base, text-status-danger …) (THEME-8)."
     metadata: { standard: [THEME-8] }
     paths:
       include: ["*.tsx", "*.jsx", "*.ts", "*.js", "*.vue", "*.svelte", "*.html", "*.css"]

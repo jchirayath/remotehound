@@ -67,7 +67,7 @@ func toSessionView(a *authz.Actor, ss *model.Session, st *model.State, now time.
 		v.DeviceName = d.Name
 	} else {
 		v.DeviceDeleted = true
-		// Keep the name people knew it by: the enrolment that created it remembers it.
+		// Keep the name people knew it by: the enrollment that created it remembers it.
 		for _, e := range st.Enrollments {
 			if e.DeviceID == ss.DeviceID && e.Name != "" {
 				v.DeviceName = e.Name + " (deleted device)"

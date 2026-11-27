@@ -24,7 +24,7 @@ RemoteHound lets you open SSH, Remote Desktop (RDP) and VNC sessions to Linux, m
 ## Roles at a glance
 
 - **Admin**: everything, including users, settings, logs and debugging.
-- **Operator**: connect to, enrol and manage devices in their groups.
+- **Operator**: connect to, enroll and manage devices in their groups.
 - **Viewer**: see devices and sessions in their groups, read-only.
 
 ## If you cannot sign in

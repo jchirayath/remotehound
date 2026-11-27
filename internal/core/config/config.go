@@ -5,8 +5,8 @@
 // fast at boot). Keys documents itself: `remotehound config-doc` prints the
 // table and a unit test checks deploy/.env.example lists every key.
 //
-// Infrastructure settings live here and need a restart. Behaviour settings
-// (enrolment TTL, recording, role mapping, …) are runtime settings in the
+// Infrastructure settings live here and need a restart. Behavior settings
+// (enrollment TTL, recording, role mapping, …) are runtime settings in the
 // store, edited from the UI — see docs/ARCHITECTURE.md §3.6.
 package config
 

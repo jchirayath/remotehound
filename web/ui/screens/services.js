@@ -1,6 +1,6 @@
 /**
  * Services (/services, admin) — is every part of the bundle running? One card per component
- * (RemoteHound, tunnel server, data store, Guacamole, guacd, plus any other container labelled for
+ * (RemoteHound, tunnel server, data store, Guacamole, guacd, plus any other container labeled for
  * control) with status, version, ports, recent problems and — when the rh-control helper is set
  * up — container state, Start / Stop / Restart and a log viewer. Below: the read-only Guacamole
  * configuration (there is no Guacamole admin UI: it runs with JSON auth and no user database).

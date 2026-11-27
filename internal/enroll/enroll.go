@@ -1,4 +1,4 @@
-// Package enroll owns enrolment codes and the bootstrap scripts
+// Package enroll owns enrollment codes and the bootstrap scripts
 // (docs/specs/CLIENT_PROTOCOL.md §1–2).
 //
 // Codes are 6 characters from an unambiguous alphabet, made with crypto/rand,
@@ -35,7 +35,7 @@ import (
 	"github.com/jchirayath/remotehound/internal/tunnel"
 )
 
-// Service implements enrolment.
+// Service implements enrollment.
 type Service struct {
 	Store   store.Store
 	Audit   *audit.Log
@@ -55,7 +55,7 @@ func (s *Service) hash(code string) string {
 	return hex.EncodeToString(m.Sum(nil))
 }
 
-// View is the API shape of an enrolment (the code is never included after creation).
+// View is the API shape of an enrollment (the code is never included after creation).
 type View struct {
 	ID        string     `json:"id"`
 	Name      string     `json:"name"`
@@ -146,7 +146,7 @@ func Commands(publicURL, code string, allowHTTP bool) (unix, windows string) {
 // errPublicURL: settings.public_url fails the allow-list (e.g. stored by an
 // older release); nothing that embeds it may be produced until it is fixed.
 var errPublicURL = apierr.Conflict(apierr.CodePublicURLInvalid,
-	"The public address in Settings is not valid, so no enrolment command can be made. An admin fixes it under Settings → Public URL.")
+	"The public address in Settings is not valid, so no enrollment command can be made. An admin fixes it under Settings → Public URL.")
 
 // errSSHHost: settings.ssh_public_host/port cannot go into an ssh command.
 var errSSHHost = apierr.Conflict(apierr.CodePublicURLInvalid,
@@ -184,7 +184,7 @@ func (s *Service) Create(ctx context.Context, a *authz.Actor, name, groupID, exp
 			}
 		}
 		if !authz.Can(a, authz.EnrollmentCreate, authz.Resource{GroupID: groupID, Global: a.IsAdmin()}) {
-			return apierr.Forbidden("You can only enrol devices into your own groups. Pick one of your groups.")
+			return apierr.Forbidden("You can only enroll devices into your own groups. Pick one of your groups.")
 		}
 		if ttlMinutes == 0 {
 			ttlMinutes = st.EnrollmentTTLMinutes
@@ -210,7 +210,7 @@ func (s *Service) Create(ctx context.Context, a *authz.Actor, name, groupID, exp
 	return res, nil
 }
 
-// List returns enrolments visible to the actor, newest first.
+// List returns enrollments visible to the actor, newest first.
 func (s *Service) List(a *authz.Actor, state string, pageSize int, token string) ([]View, string) {
 	now := time.Now().UTC()
 	var all []*model.Enrollment
@@ -249,7 +249,7 @@ func (s *Service) List(a *authz.Actor, state string, pageSize int, token string)
 	return out, next
 }
 
-// Get returns one enrolment the actor may see.
+// Get returns one enrollment the actor may see.
 func (s *Service) Get(a *authz.Actor, id string) (View, error) {
 	var out *View
 	s.Store.View(func(x *model.State) {
@@ -260,7 +260,7 @@ func (s *Service) Get(a *authz.Actor, id string) (View, error) {
 		}
 	})
 	if out == nil {
-		return View{}, apierr.NotFound(apierr.CodeNotFound, "No enrolment code with that ID.")
+		return View{}, apierr.NotFound(apierr.CodeNotFound, "No enrollment code with that ID.")
 	}
 	return *out, nil
 }
@@ -277,7 +277,7 @@ func (s *Service) Revoke(ctx context.Context, a *authz.Actor, id string) error {
 	err := s.Store.Update(func(x *model.State) error {
 		e, ok := x.Enrollments[id]
 		if !ok || !canDelete(a, e) {
-			return apierr.NotFound(apierr.CodeNotFound, "No enrolment code with that ID.")
+			return apierr.NotFound(apierr.CodeNotFound, "No enrollment code with that ID.")
 		}
 		state = e.State(time.Now().UTC())
 		delete(x.Enrollments, id)
@@ -317,7 +317,7 @@ func (s *Service) Update(ctx context.Context, a *authz.Actor, id string, name, g
 	err := s.Store.Update(func(x *model.State) error {
 		e, ok := x.Enrollments[id]
 		if !ok || !(authz.SeesGroup(a, e.GroupID) || e.CreatedBy == a.UserID) {
-			return apierr.NotFound(apierr.CodeNotFound, "No enrolment code with that ID.")
+			return apierr.NotFound(apierr.CodeNotFound, "No enrollment code with that ID.")
 		}
 		if !canDelete(a, e) {
 			return apierr.Forbidden("You cannot change this code.")
@@ -336,7 +336,7 @@ func (s *Service) Update(ctx context.Context, a *authz.Actor, id string, name, g
 				}
 			}
 			if !authz.Can(a, authz.EnrollmentCreate, authz.Resource{GroupID: g, Global: a.IsAdmin()}) {
-				return apierr.Forbidden("You can only enrol devices into your own groups. Pick one of your groups.")
+				return apierr.Forbidden("You can only enroll devices into your own groups. Pick one of your groups.")
 			}
 			e.GroupID = g
 		}
@@ -391,7 +391,7 @@ func (m *missLimiter) rollLocked() {
 
 // reserve atomically checks the limits for ip and, if not paused, counts a
 // miss in advance (so concurrent wrong codes cannot overshoot the limit). The
-// caller refunds it when the code matches an enrolment.
+// caller refunds it when the code matches an enrollment.
 func (m *missLimiter) reserve(ip string) (missToken, bool) {
 	key := ids.ClientKey(ip)
 	m.mu.Lock()
@@ -409,7 +409,7 @@ func (m *missLimiter) reserve(ip string) (missToken, bool) {
 	tok := missToken{key: key, window: m.window}
 	m.mu.Unlock()
 	if scope != "" {
-		metrics.Default.Inc("remotehound_enroll_throttled_total", "Enrolment lookups and redeems paused by the wrong-code limits.", "scope", scope)
+		metrics.Default.Inc("remotehound_enroll_throttled_total", "Enrollment lookups and redeems paused by the wrong-code limits.", "scope", scope)
 		return missToken{}, false
 	}
 	return tok, true
@@ -433,7 +433,7 @@ const attendedDetail = "RemoteHound: this code is for a one-time session without
 
 const busyDetail = "RemoteHound is busy: too many wrong codes were tried recently. Your code was not checked; try again in a minute."
 
-// Lookup finds the enrolment for code (for script rendering) on behalf of the
+// Lookup finds the enrollment for code (for script rendering) on behalf of the
 // client at ip, counting a miss against it. It does not consume the code.
 // The state is open | used | expired | invalid | throttled.
 func (s *Service) Lookup(code, ip string) (*model.Enrollment, string) {
@@ -543,7 +543,7 @@ func (s *Service) Redeem(ctx context.Context, ip string, req RedeemRequest) (Red
 	}
 	code := strings.ToLower(strings.TrimSpace(req.Code))
 	if !ids.ValidCode(code) {
-		return RedeemResult{}, apierr.NotFound(apierr.CodeEnrollInvalid, "This enrolment code is not valid. Ask for a new one.")
+		return RedeemResult{}, apierr.NotFound(apierr.CodeEnrollInvalid, "This enrollment code is not valid. Ask for a new one.")
 	}
 	if !hostRe.MatchString(req.Hostname) {
 		req.Hostname = "device"
@@ -598,7 +598,7 @@ func (s *Service) Redeem(ctx context.Context, ip string, req RedeemRequest) (Red
 			}
 		}
 		if e == nil {
-			return apierr.NotFound(apierr.CodeEnrollInvalid, "This enrolment code is not valid. Ask for a new one.")
+			return apierr.NotFound(apierr.CodeEnrollInvalid, "This enrollment code is not valid. Ask for a new one.")
 		}
 		hit = true
 		switch e.State(now) {

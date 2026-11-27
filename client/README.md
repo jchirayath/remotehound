@@ -53,7 +53,7 @@ it. Every stage is commented inline.
    clear message.
 2. **Key.** `ssh-keygen -t ed25519` writes `id_ed25519.new` in the RemoteHound folder. The private key
    is never printed, logged or sent. It replaces the current key only after the server accepts it, so
-   a failed or refused enrolment leaves a working install untouched.
+   a failed or refused enrollment leaves a working install untouched.
 3. **Register.** `POST /api/v1/enroll` with the code, public key, hostname, OS, OS version and
    services. Every field of the answer is validated before it is used in a file or a command:
    - `device_id` must match `^dev_[a-z0-9]{6,40}$`
@@ -102,7 +102,7 @@ SYSTEM + Administrators, or you + SYSTEM, have access):
 | `state` | Contains `revoked` after the server revoked the device. |
 | `uninstall.sh` / `uninstall.ps1` | Removes everything listed here. |
 | `ssh_config` (Windows only) | Empty file passed as `-F`, so your own ssh settings cannot change the tunnel. The Unix watchdog uses `-F /dev/null`. |
-| `tunnel.pid` (Unix) | PID of the running watchdog. Used by re-enrolment and uninstall when no service manager exists. |
+| `tunnel.pid` (Unix) | PID of the running watchdog. Used by re-enrollment and uninstall when no service manager exists. |
 
 ### The watchdog
 
@@ -146,10 +146,10 @@ the tunnel (it is revoked), but the files stay until you run the uninstaller.
 Start with the log: `tunnel.log` in the folder above.
 
 - **"Permission denied (publickey)"** in the log: the device was deleted, or its key changed on the
-  server. Run the enrol command again with a new code.
-- **"Host key verification failed"**: the server's host key changed. Re-enrol to pin the new key.
+  server. Run the enroll command again with a new code.
+- **"Host key verification failed"**: the server's host key changed. Re-enroll to pin the new key.
 - **"remote port forwarding failed"**: the server refused a forward that is not one of the device's
-  services. The watchdog retries with backoff. Add the service in the UI, or re-enrol.
+  services. The watchdog retries with backoff. Add the service in the UI, or re-enroll.
 - **macOS: "requires Full Disk Access"** when turning on Remote Login: open System Settings → Privacy &
   Security → Full Disk Access and turn on your terminal app. Or switch on System Settings → General →
   Sharing → Remote Login by hand.
@@ -189,8 +189,8 @@ Start with the log: `tunnel.log` in the folder above.
   created with its protected DACL in a single step. Every file is deleted and recreated, so it can
   only inherit that DACL. The key gets its own protected DACL. If the ACLs read back show any
   unexpected owner or SID, the install stops before the Scheduled Task is registered.
-- The server's host key is pinned from the enrolment answer (`StrictHostKeyChecking=yes`, our own
-  `known_hosts`, `-F /dev/null` so user and system ssh config cannot change behaviour).
+- The server's host key is pinned from the enrollment answer (`StrictHostKeyChecking=yes`, our own
+  `known_hosts`, `-F /dev/null` so user and system ssh config cannot change behavior).
 - Server answers are validated with strict patterns before use. JSON is parsed by a small awk parser
   (no `eval`, no `source`). On macOS, `python3` can be just a stub that pops up an installer, so it
   isn't used. Text from the server that is shown or logged has control characters removed, which

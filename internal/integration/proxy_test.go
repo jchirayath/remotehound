@@ -130,7 +130,7 @@ func TestProxyRequestsDoNotWriteTheStore(t *testing.T) {
 }
 
 // S3: identity headers on public routes are never acted on: no user is created
-// or modified by a request to /ui/*, /e/*, /healthz, enrolment, etc.
+// or modified by a request to /ui/*, /e/*, /healthz, enrollment, etc.
 func TestProxyIdentityIgnoredOnPublicRoutes(t *testing.T) {
 	a, srv := proxyApp(t, nil)
 	before := stateFile(t, a)

@@ -25,7 +25,7 @@ const KINDS = ['ssh', 'rdp', 'vnc']
 export const SERVICE_OPTIONS = {
   security: { kinds: ['rdp'], type: 'select', label: 'RDP security mode', choices: ['any', 'nla', 'nla-ext', 'tls', 'rdp', 'vmconnect'] },
   'ignore-cert': { kinds: ['rdp'], type: 'checkbox', label: 'Ignore the RDP server certificate' },
-  'color-depth': { kinds: ['rdp', 'vnc'], type: 'select', label: 'Colour depth', choices: ['8', '16', '24', '32'] },
+  'color-depth': { kinds: ['rdp', 'vnc'], type: 'select', label: 'Color depth', choices: ['8', '16', '24', '32'] },
   'enable-sftp': { kinds: ['ssh', 'rdp', 'vnc'], type: 'checkbox', label: 'Enable file transfer (SFTP)' },
   'read-only': { kinds: ['ssh', 'rdp', 'vnc'], type: 'checkbox', label: 'View only (no keyboard or mouse input)' },
 }
@@ -171,7 +171,7 @@ export default function render(ctx) {
       'Nothing was installed on the machine, so it cannot reconnect by itself. For another session, create a new one-time code. You can delete this entry.',
       can('enrollment.create') ? linkButton({ href: `/enroll?name=${encodeURIComponent(device.name)}`, label: 'Create a new code', icon: 'domain.nav.enroll', size: 'sm' }) : null))
     else if (!device.online && device.transport === 'ssh-manual') append(p.body, banner('info', 'This device is not connected',
-      'Its tunnel was typed by hand, so it reconnects only when someone at the machine runs the reconnect command it showed when it joined (or a new enrolment command).',
+      'Its tunnel was typed by hand, so it reconnects only when someone at the machine runs the reconnect command it showed when it joined (or a new enrollment command).',
       can('enrollment.create') ? linkButton({ href: `/enroll?name=${encodeURIComponent(device.name)}`, label: 'Get a new command', icon: 'domain.nav.enroll', size: 'sm' }) : null))
     else if (!device.online) append(p.body, banner('info', 'This device is not connected',
       'If the machine is on, RemoteHound may have been removed from it or reinstalled. Register it again: create a code and run the command it shows on the machine. That adds a new entry, so delete this one afterwards.',
@@ -294,7 +294,7 @@ export default function render(ctx) {
         button({
           label: 'Delete', icon: 'action.delete', variant: 'danger',
           onClick: async () => {
-            const ok = await confirmDialog({ title: `Delete ${device.name}?`, body: 'Its key is revoked, its tunnel closes and its history stays in the audit log. The person at the device must enrol again to come back.', confirmLabel: 'Delete device', tone: 'danger', typed: device.name })
+            const ok = await confirmDialog({ title: `Delete ${device.name}?`, body: 'Its key is revoked, its tunnel closes and its history stays in the audit log. The person at the device must enroll again to come back.', confirmLabel: 'Delete device', tone: 'danger', typed: device.name })
             if (!ok) return
             try {
               await api.del(path)
