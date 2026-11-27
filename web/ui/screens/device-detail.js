@@ -198,7 +198,7 @@ export default function render(ctx) {
   /* ── overview tab ── */
 
   function overviewTab(panel) {
-    const facts = h('section', { class: 'card', 'aria-labeledby': 'facts-h' },
+    const facts = h('section', { class: 'card', 'aria-labelledby': 'facts-h' },
       h('h2', { id: 'facts-h', class: 'card__title' }, 'Facts'),
       kv([
         ['Device ID', h('span', { class: 'mono copyable' }, device.id, copyButton(device.id, { compact: true, variant: 'ghost', label: 'Copy device ID' }))],
@@ -234,7 +234,7 @@ export default function render(ctx) {
       f.group_id.set(device.group_id || '')
     }).catch(() => f.group_id.setError('Groups could not be loaded; the current group is kept.'))
     const msg = h('div', { class: 'form__msg' })
-    const form = h('form', { class: 'form card', 'aria-labeledby': 'edit-h', novalidate: true },
+    const form = h('form', { class: 'form card', 'aria-labelledby': 'edit-h', novalidate: true },
       h('h2', { id: 'edit-h', class: 'card__title' }, 'Details'),
       msg, f.name.el, f.group_id.el, f.tags.el, f.notes.el,
       editable ? h('div', { class: 'form__actions' }, button({ label: 'Save changes', icon: 'action.save', variant: 'primary', type: 'submit' })) : h('p', { class: 'muted' }, 'Your role can view this device but not edit it.'))
@@ -304,7 +304,7 @@ export default function render(ctx) {
           },
         })))
     }
-    return items.length ? h('section', { class: 'danger', 'aria-labeledby': 'dz-h' }, h('h2', { id: 'dz-h', class: 'card__title' }, 'Danger zone'), items) : null
+    return items.length ? h('section', { class: 'danger', 'aria-labelledby': 'dz-h' }, h('h2', { id: 'dz-h', class: 'card__title' }, 'Danger zone'), items) : null
   }
 
   /* ── services tab ── */

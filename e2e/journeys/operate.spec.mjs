@@ -434,7 +434,7 @@ test('@feature:enroll edit an open code, clear used and expired codes, revoke th
   await page.getByLabel('Device name (optional)').first().fill('typo-nmae')
   await page.getByRole('button', { name: 'Create code' }).click()
   await expect(page.getByText('Waiting for the device…')).toBeVisible()
-  const codes = page.getByRole('region', { name: 'Enrollment codes' }).or(page.locator('section[aria-labeledby=codes-h]'))
+  const codes = page.getByRole('region', { name: 'Enrollment codes' }).or(page.locator('section[aria-labelledby=codes-h]'))
   const row = codes.getByRole('row').filter({ hasText: 'typo-nmae' }).first()
   await row.getByRole('button', { name: 'Edit' }).click()
   const drawer = page.getByRole('dialog', { name: 'Edit enrollment code' })

@@ -177,7 +177,7 @@ export function tabs(o) {
       b.setAttribute('aria-selected', String(on))
       b.tabIndex = on ? 0 : -1
     })
-    panel.setAttribute('aria-labeledby', `${base}-${t.id}`)
+    panel.setAttribute('aria-labelledby', `${base}-${t.id}`)
     if (typeof cleanup === 'function') cleanup()
     replace(panel)
     cleanup = t.render(panel) || null

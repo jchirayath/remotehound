@@ -19,7 +19,7 @@ export function drawer(opts) {
   const title = h('h2', { id: titleId, class: 'drawer__title' }, opts.title)
   const body = h('div', { class: 'drawer__body' }, opts.content)
   const closeBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--icon', 'aria-label': 'Close', onClick: () => close() }, icon('action.close'))
-  const el = h('dialog', { class: ['drawer', opts.size === 'lg' && 'drawer--lg', opts.className], 'aria-labeledby': titleId },
+  const el = h('dialog', { class: ['drawer', opts.size === 'lg' && 'drawer--lg', opts.className], 'aria-labelledby': titleId },
     h('div', { class: 'drawer__panel' },
       h('header', { class: 'drawer__header' }, title, opts.headerExtra || null, closeBtn),
       body,
@@ -71,7 +71,7 @@ export function confirmDialog(opts) {
       h('div', { class: 'confirm__actions' },
         h('button', { type: 'submit', class: 'btn btn--secondary', value: 'cancel', formnovalidate: true }, opts.cancelLabel || 'Cancel'),
         okBtn))
-    const el = h('dialog', { class: 'confirm', 'aria-labeledby': titleId, 'aria-describedby': opts.body ? descId : null, role: 'alertdialog' }, form)
+    const el = h('dialog', { class: 'confirm', 'aria-labelledby': titleId, 'aria-describedby': opts.body ? descId : null, role: 'alertdialog' }, form)
     el.addEventListener('close', () => {
       const ok = el.returnValue === 'ok'
       el.remove()

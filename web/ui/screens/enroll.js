@@ -53,7 +53,7 @@ export default function render(ctx) {
     subtitle: 'Create a one-time code, then type one short command on the machine you want to reach.',
     helpKey: 'enroll',
   })
-  const wizard = h('section', { class: 'card enroll', 'aria-live': 'polite', 'aria-labeledby': 'enroll-h' })
+  const wizard = h('section', { class: 'card enroll', 'aria-live': 'polite', 'aria-labelledby': 'enroll-h' })
   let listGrid = null
   let stopWaiting = () => {}
   ctx.onCleanup(() => stopWaiting())
@@ -350,7 +350,7 @@ export default function render(ctx) {
 
   stepCreate()
   append(p.body, wizard,
-    h('section', { class: 'section', 'aria-labeledby': 'codes-h' },
+    h('section', { class: 'section', 'aria-labelledby': 'codes-h' },
       h('h2', { id: 'codes-h', class: 'section__title' }, 'Enrollment codes'),
       listGrid ? listGrid.el : emptyState('enroll.codes')))
   return p.el

@@ -22,7 +22,7 @@ export default function render(ctx) {
   const p = page({ title: 'Profile', subtitle: me.display_name ? `${me.display_name} · ${me.email}` : me.email, helpKey: 'profile' })
 
   /* theme */
-  const themeCard = h('section', { class: 'card', 'aria-labeledby': 'pf-theme' },
+  const themeCard = h('section', { class: 'card', 'aria-labelledby': 'pf-theme' },
     h('h2', { id: 'pf-theme', class: 'card__title' }, 'Appearance'),
     h('p', { class: 'muted' }, fieldHelp('profile.theme')),
     segmented({
@@ -38,7 +38,7 @@ export default function render(ctx) {
 
   /* sign-in methods */
   const methodsBody = h('div', { class: 'methods' })
-  const methodsCard = h('section', { class: 'card', 'aria-labeledby': 'pf-methods' },
+  const methodsCard = h('section', { class: 'card', 'aria-labelledby': 'pf-methods' },
     h('h2', { id: 'pf-methods', class: 'card__title' }, 'Sign-in methods'),
     h('p', { class: 'muted' }, fieldHelp('profile.identities')),
     methodsBody)
@@ -84,7 +84,7 @@ export default function render(ctx) {
   }
 
   /* personal logins */
-  const credsCard = h('section', { class: 'section', 'aria-labeledby': 'pf-creds' },
+  const credsCard = h('section', { class: 'section', 'aria-labelledby': 'pf-creds' },
     h('div', { class: 'section-head' },
       h('div', null, h('h2', { id: 'pf-creds', class: 'section__title' }, 'My saved logins'), h('p', { class: 'muted' }, fieldHelp('profile.credentials'))),
       can('device.connect') ? button({ label: 'Save a login', icon: 'action.add', variant: 'primary', onClick: () => openCredentialForm({ onSaved: () => creds.reload() }) }) : null))

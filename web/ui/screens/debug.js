@@ -110,10 +110,10 @@ export default function render(ctx) {
 
   append(p.body, 
     h('div', { class: 'split' },
-      h('section', { class: 'card', 'aria-labeledby': 'rt-h' }, h('h2', { id: 'rt-h', class: 'card__title' }, 'Runtime'), runtimeBox),
+      h('section', { class: 'card', 'aria-labelledby': 'rt-h' }, h('h2', { id: 'rt-h', class: 'card__title' }, 'Runtime'), runtimeBox),
       h('section', { class: 'card', 'aria-label': 'Log level' }, levelBox)),
-    h('section', { class: 'section', 'aria-labeledby': 'tun-h' }, h('h2', { id: 'tun-h', class: 'section__title' }, 'Live tunnels'), tunnels.el),
-    h('section', { class: 'section', 'aria-labeledby': 'job-h' }, h('h2', { id: 'job-h', class: 'section__title' }, 'Background jobs'), jobs.el))
+    h('section', { class: 'section', 'aria-labelledby': 'tun-h' }, h('h2', { id: 'tun-h', class: 'section__title' }, 'Live tunnels'), tunnels.el),
+    h('section', { class: 'section', 'aria-labelledby': 'job-h' }, h('h2', { id: 'job-h', class: 'section__title' }, 'Background jobs'), jobs.el))
   load(runtimeBox, { load: () => api.get('/api/v1/debug/runtime', null, { signal: ctx.signal }).then(r => r.data), render: runtime })
   return p.el
 }

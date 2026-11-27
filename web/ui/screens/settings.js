@@ -119,7 +119,7 @@ export default function render(ctx) {
   function paint() {
     fields = {}
     const msg = h('div', { class: 'form__msg' })
-    const sections = SECTIONS.map(([title, desc, specs]) => h('section', { class: 'card settings__section', 'aria-labeledby': `s-${specs[0].k}` },
+    const sections = SECTIONS.map(([title, desc, specs]) => h('section', { class: 'card settings__section', 'aria-labelledby': `s-${specs[0].k}` },
       h('div', { class: 'settings__intro' }, h('h2', { id: `s-${specs[0].k}`, class: 'card__title' }, title), h('p', { class: 'muted' }, desc)),
       h('div', { class: 'settings__fields' }, specs.map(s => {
         const f = field({
@@ -137,7 +137,7 @@ export default function render(ctx) {
     const rf = field({ id: 'settings.roles_claim', label: 'Role claim', value: current.roles_claim || '', mono: true, placeholder: 'groups', disabled: !writable, onInput: sync })
     fields.roles_claim = rf
     roles = rolesEditor(current.roles_map)
-    sections.push(h('section', { class: 'card settings__section', 'aria-labeledby': 's-roles' },
+    sections.push(h('section', { class: 'card settings__section', 'aria-labelledby': 's-roles' },
       h('div', { class: 'settings__intro' }, h('h2', { id: 's-roles', class: 'card__title' }, 'Sign-in roles'), h('p', { class: 'muted' }, 'Give people a role automatically from a claim your identity provider sends.')),
       h('div', { class: 'settings__fields' }, rf.el, roles.el)))
 

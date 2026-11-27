@@ -796,7 +796,7 @@ type deviceConn struct {
 
 	// Script-free tunnels (ADR-0005). id is written once, under mu, when a
 	// code login becomes a device; read it with devID() where that can race.
-	enroll  *codeLogin // nil for a device login
+	enroll *codeLogin // nil for a device login
 	manual bool       // typed by a person: plain-language status lines, stdin unread
 	code   string     // connection code shown to the person and on the device page
 	// releaseCode frees this login's code-login slot (once; nil for device logins).

@@ -28,7 +28,7 @@ const PROJECT_URL = 'https://github.com/jchirayath/remotehound'
 function about() {
   const learnMore = h('a', { class: 'link about__link', href: PROJECT_URL, target: '_blank', rel: 'noopener' }, 'Learn more about RemoteHound', icon('domain.action.open', { size: 'sm' }), h('span', { class: 'sr-only' }, ' (opens in a new tab)'))
   api.get('/auth/providers').then(r => { const u = r?.data?.project_url; if (/^https?:\/\//.test(u || '')) learnMore.href = u }).catch(err => log.debug('overview.project_url_unavailable', { message: String(err?.message || err) }))
-  return h('section', { class: 'about', 'aria-labeledby': 'about-h' },
+  return h('section', { class: 'about', 'aria-labelledby': 'about-h' },
     h('div', { class: 'about__art', 'aria-hidden': 'true' }, mascot('idle')),
     h('div', { class: 'about__text' },
       h('h2', { id: 'about-h', class: 'about__title' }, 'Reach your machines from a browser'),
@@ -84,7 +84,7 @@ export default function render(ctx) {
   function view(o) {
     const g = GUAC[o.guacamole] || GUAC.unknown
     const offline = Math.max(0, (o.devices_total || 0) - (o.devices_online || 0) - (o.devices_pending || 0))
-    const fleet = h('section', { class: 'fleet card', 'aria-labeledby': 'fleet-h' },
+    const fleet = h('section', { class: 'fleet card', 'aria-labelledby': 'fleet-h' },
       h('div', { class: 'fleet__head' },
         h('h2', { id: 'fleet-h', class: 'card__title' }, 'Fleet'),
         h('a', { href: '/devices', class: 'link' }, 'All devices')),
@@ -103,7 +103,7 @@ export default function render(ctx) {
       statCard({ label: 'Guacamole', value: badge(g.label, g.tone, g.icon), icon: 'domain.nav.integration', href: can('integration.read') ? '/integration' : null, helpScreen: 'overview', helpKey: 'guacamole', tone: g.tone === 'success' ? 'brand' : g.tone }),
       statCard({ label: 'Failing jobs', value: number(o.jobs_failing || 0), icon: 'domain.nav.debug', href: can('debug.read') ? '/debug' : null, helpScreen: 'overview', helpKey: 'jobs_failing', tone: o.jobs_failing ? 'danger' : 'brand' }))
 
-    const activity = h('section', { class: 'card activity', 'aria-labeledby': 'act-h' },
+    const activity = h('section', { class: 'card activity', 'aria-labelledby': 'act-h' },
       h('div', { class: 'card__head' }, h('h2', { id: 'act-h', class: 'card__title' }, 'Recent activity'),
         can('audit.read') ? h('a', { href: '/audit', class: 'link' }, 'Audit log') : null),
       (o.recent_activity || []).length
@@ -128,7 +128,7 @@ export default function render(ctx) {
       enroll: (o.devices_total || 0) > 0 || (o.enrollments_open || 0) > 0,
       connect: (o.sessions_24h || 0) > 0,
     }
-    return h('section', { class: 'card checklist', 'aria-labeledby': 'gs-h' },
+    return h('section', { class: 'card checklist', 'aria-labelledby': 'gs-h' },
       h('div', { class: 'checklist__art checklist__art--mascot', 'aria-hidden': 'true' }, mascot('waiting')),
       h('div', null,
         h('h2', { id: 'gs-h', class: 'card__title' }, e.title),
