@@ -153,7 +153,7 @@ func (e *Engine) serve(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Bundle returns the three standard containers labelled like deploy/compose.yml,
+// Bundle returns the three standard containers labeled like deploy/compose.yml,
 // plus one UNLABELLED container that must never be visible or controllable.
 func Bundle() []*Container {
 	return []*Container{

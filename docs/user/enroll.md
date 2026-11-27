@@ -1,12 +1,12 @@
 # Enroll a device
 
-Enrolment adds a machine to RemoteHound with one short command typed on that machine. The usual command downloads a script that uses the operating system's own `ssh`, creates a key on the device, and sets up a background service that keeps the tunnel open. Where scripts are blocked, a command that runs no script is offered too (see below).
+Enrollment adds a machine to RemoteHound with one short command typed on that machine. The usual command downloads a script that uses the operating system's own `ssh`, creates a key on the device, and sets up a background service that keeps the tunnel open. Where scripts are blocked, a command that runs no script is offered too (see below).
 
 ## Create a code
 
 1. Optionally type a **Device name**. If you leave it empty, the hostname the device reports is used.
 2. Pick a **Group**. Only groups that exist can be picked; create one on the [Groups](/docs/groups) screen first if you need it.
-3. Optionally pick the **Machine type** (macOS, Linux or Windows). A machine reporting a different OS is refused and the code stays usable, so a command pasted on the wrong machine cannot enrol it.
+3. Optionally pick the **Machine type** (macOS, Linux or Windows). A machine reporting a different OS is refused and the code stays usable, so a command pasted on the wrong machine cannot enroll it.
 4. Pick the **Connection type**: **Install: stays connected** (the default) or **One-time: nothing installed** (see [No script: type an ssh command](#no-script-type-an-ssh-command)).
 5. Choose how long the **Code valid for** (15 minutes by default).
 6. Select **Create code**.
@@ -62,7 +62,7 @@ Keep the Enroll page open. It shows **Waiting for the device…** and checks eve
 The list under the wizard shows every code: *Open* (still usable), *Used* (a device enrolled with it) or *Expired*, and who created it.
 
 - **Edit** an open code to fix the device name, group or machine type before it is used. The code itself stays the same.
-- **Revoke** an open code you no longer need: nobody can enrol with it after that.
+- **Revoke** an open code you no longer need: nobody can enroll with it after that.
 - **Delete** a used or expired code to remove it from the list. A device it enrolled stays.
 - **Clear used & expired** removes every used and expired code you can manage in one go. Open codes stay.
 

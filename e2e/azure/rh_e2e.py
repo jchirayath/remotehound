@@ -128,7 +128,7 @@ def main(a):
                 say(e["device_id"])
                 return
             time.sleep(2)
-        fail(f"enrolment {a[1]} not used within {a[2]} s")
+        fail(f"enrollment {a[1]} not used within {a[2]} s")
     elif cmd == "device":
         d, f = data(f"/api/v1/devices/{a[1]}"), flags(a[2:])
         problems = []
@@ -179,7 +179,7 @@ def main(a):
         ok(f"Guacamole accepted the {a[2]} connection (json data source)")
     elif cmd == "enr-state":
         st = data(f"/api/v1/enrollments/{a[1]}")["state"]
-        ok(f"enrolment {a[1]} is {st}") if st == a[2] else fail(f"enrolment {a[1]} is {st}, want {a[2]}")
+        ok(f"enrollment {a[1]} is {st}") if st == a[2] else fail(f"enrollment {a[1]} is {st}, want {a[2]}")
     elif cmd == "no-dup-with":
         ws = [w for w in data(f"/api/v1/devices/{a[1]}")["identity_warnings"] if w.get("other_device_id") == a[2]]
         ok("ended one-time session not flagged as a duplicate") if not ws else fail(f"duplicate warning: {ws}")

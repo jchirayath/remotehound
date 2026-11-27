@@ -47,7 +47,7 @@ for (const [id, kind] of [[rdpDev, 'RDP'], [sshDev, 'SSH']]) {
     await page.goto(`${base}/devices/${id}`)
     const [tab] = await Promise.all([ctx.waitForEvent('page'), page.getByRole('button', { name: new RegExp(`Connect ${kind}`) }).first().click()])
     try {
-      // Guacamole has drawn: a large canvas with opaque pixels. Opacity, not colour: an SSH
+      // Guacamole has drawn: a large canvas with opaque pixels. Opacity, not color: an SSH
       // terminal is almost all black, while a canvas nothing was drawn on is transparent.
       await tab.waitForFunction(() => [...document.querySelectorAll('canvas')].some((c) => {
         if (c.width < 200 || c.height < 200) return false

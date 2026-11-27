@@ -23,13 +23,13 @@ import (
 	"github.com/jchirayath/remotehound/internal/model"
 )
 
-// enrolOnline enrols a device into group and brings its SSH forward online.
+// enrolOnline enrolls a device into group and brings its SSH forward online.
 func enrolOnline(t *testing.T, h *harness, groupID string) string {
 	t.Helper()
 	return enrolOnlineAs(t, h, groupID, "shared-box", "linux", "ssh", 22)
 }
 
-// enrolOnlineAs enrols a device reporting os with one service forwarded.
+// enrolOnlineAs enrolls a device reporting os with one service forwarded.
 func enrolOnlineAs(t *testing.T, h *harness, groupID, name, osName, kind string, port int) string {
 	t.Helper()
 	var settings struct {
@@ -246,7 +246,7 @@ func TestProvidersEndpointIsPublic(t *testing.T) {
 }
 
 // Regressions from the security review: operators cannot read the
-// cross-device log ring, and viewers do not see enrolment code hints.
+// cross-device log ring, and viewers do not see enrollment code hints.
 func TestOperatorsCannotReadOtherGroupsLogsOrCodeHints(t *testing.T) {
 	h := start(t)
 	var grp struct{ Data struct{ ID string } }
@@ -318,7 +318,7 @@ func TestControlShareDowngradedForViewer(t *testing.T) {
 	// shares they held (S1); sign in again as them: no rejoin.
 	v := h.asGen(u.Data.ID, 1)
 	v.do("POST", "/api/v1/sessions/"+sid+"/join", nil, 404, nil)
-	// Defence in depth: even a control share held by a viewer joins read-only.
+	// Defense in depth: even a control share held by a viewer joins read-only.
 	h.app.Store.Update(func(st *model.State) error { //nolint:errcheck
 		st.Sessions[sid].Shares = []model.Share{{UserID: u.Data.ID, Mode: model.ShareControl, CreatedAt: time.Now(), ExpiresAt: time.Now().Add(time.Hour)}}
 		return nil
@@ -367,7 +367,7 @@ func TestSSHKeyLogin(t *testing.T) {
 	}
 }
 
-// After a device is deleted, its used enrolment code says so (device_deleted), so
+// After a device is deleted, its used enrollment code says so (device_deleted), so
 // the UI shows "removed" instead of a link that 404s. (Sessions: device package test.)
 func TestDeletedDeviceIsFlaggedNotLinked(t *testing.T) {
 	h := start(t)
@@ -403,14 +403,14 @@ func TestDeletedDeviceIsFlaggedNotLinked(t *testing.T) {
 		}
 	}
 	if n < 1 {
-		t.Fatalf("expected the used enrolment code to remain, got %d rows", n)
+		t.Fatalf("expected the used enrollment code to remain, got %d rows", n)
 	}
 }
 
 // A code made for one OS refuses a machine reporting another (and stays usable);
 // a name that contradicts the reported OS, and one machine enrolled twice, are
 // flagged on the device.
-func TestEnrolmentIdentityChecks(t *testing.T) {
+func TestEnrollmentIdentityChecks(t *testing.T) {
 	h := start(t)
 	key := func() string {
 		pub, _, _ := ed25519.GenerateKey(rand.Reader)
@@ -476,7 +476,7 @@ func TestEnrolmentIdentityChecks(t *testing.T) {
 	}
 	h.do("GET", "/api/v1/devices/"+ok.Data.DeviceID, nil, 200, &d)
 	if len(d.Data.IdentityWarnings) != 0 {
-		t.Fatalf("correct enrolment flagged: %+v", d.Data.IdentityWarnings)
+		t.Fatalf("correct enrollment flagged: %+v", d.Data.IdentityWarnings)
 	}
 	// The list carries the same warnings.
 	var list struct {
@@ -530,7 +530,7 @@ func TestConnectNeedsLoginWhereGuacamoleCannotAsk(t *testing.T) {
 	h.do("POST", "/api/v1/devices/"+pc+"/connect", map[string]any{"service": "rdp"}, 200, nil)
 }
 
-// The enrolment script says how it installed (sudo/Administrator or one user's
+// The enrollment script says how it installed (sudo/Administrator or one user's
 // logins); the device view carries it for the dashboard. Junk is dropped.
 func TestInstallScopeIsReported(t *testing.T) {
 	h := start(t)
@@ -539,7 +539,7 @@ func TestInstallScopeIsReported(t *testing.T) {
 		sp, _ := ssh.NewPublicKey(pub)
 		return string(ssh.MarshalAuthorizedKey(sp))
 	}
-	enrol := func(name string, extra map[string]any) string {
+	enroll := func(name string, extra map[string]any) string {
 		var c struct {
 			Data struct {
 				Code string `json:"code"`
@@ -575,7 +575,7 @@ func TestInstallScopeIsReported(t *testing.T) {
 		{"old1", nil, "", ""},
 		{"junk1", map[string]any{"install_scope": "root", "install_user": "alice"}, "", ""},
 	} {
-		id := enrol(tc.name, tc.extra)
+		id := enroll(tc.name, tc.extra)
 		var v view
 		h.do("GET", "/api/v1/devices/"+id, nil, 200, &v)
 		if v.Data.InstallScope != tc.scope || v.Data.InstallUser != tc.user {
@@ -584,10 +584,10 @@ func TestInstallScopeIsReported(t *testing.T) {
 	}
 }
 
-// Enrolment codes can be tidied: an open code can be edited, a used one
+// Enrollment codes can be tidied: an open code can be edited, a used one
 // cannot, removing a used code leaves its device alone, and cleanup removes
 // used and expired codes but keeps open ones.
-func TestEnrolmentCodesEditAndCleanup(t *testing.T) {
+func TestEnrollmentCodesEditAndCleanup(t *testing.T) {
 	h := start(t)
 	key := func() string {
 		pub, _, _ := ed25519.GenerateKey(rand.Reader)
@@ -639,7 +639,7 @@ func TestEnrolmentCodesEditAndCleanup(t *testing.T) {
 
 // created_by_name follows the directory's rules: a viewer (no directory
 // access) must not learn who made a code; an operator in the group may.
-func TestEnrolmentCreatorNameIsNotLeaked(t *testing.T) {
+func TestEnrollmentCreatorNameIsNotLeaked(t *testing.T) {
 	h := start(t)
 	var grp struct{ Data struct{ ID string } }
 	h.do("POST", "/api/v1/groups", map[string]any{"name": "Lab"}, 201, &grp)

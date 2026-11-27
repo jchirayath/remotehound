@@ -1,7 +1,7 @@
 /* Device setup guide (device-setup.html): a printable document, light theme only.
-   Colours come from tokens.css like the rest of the UI (CORE-13). The drawn macOS
-   and Windows windows reuse the nearest tokens (status colours for the window
-   buttons, the code-block colours for terminals), so they are illustrations,
+   Colors come from tokens.css like the rest of the UI (CORE-13). The drawn macOS
+   and Windows windows reuse the nearest tokens (status colors for the window
+   buttons, the code-block colors for terminals), so they are illustrations,
    not pixel copies of either system. */
 @page { size: Letter; margin: 14mm 15mm 16mm; }
 

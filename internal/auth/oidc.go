@@ -215,7 +215,7 @@ func (o *OIDC) Finish(ctx context.Context, w http.ResponseWriter, r *http.Reques
 	if o.TrustEmail && id.Email != "" && !id.emailFromFallback {
 		id.EmailVerified = true
 	}
-	// Apple sends the user's name only on the first authorisation, as a form field.
+	// Apple sends the user's name only on the first authorization, as a form field.
 	if u := callbackParam(r, "user"); u != "" && id.Name == id.Email {
 		var au struct {
 			Name struct{ FirstName, LastName string } `json:"name"`

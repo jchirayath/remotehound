@@ -99,7 +99,7 @@ func (s *Sessions) verify(v string) ([]byte, error) {
 	return payload, nil
 }
 
-// Issue sets a fresh session for userID (new SID: session fixation defence).
+// Issue sets a fresh session for userID (new SID: session fixation defense).
 func (s *Sessions) Issue(w http.ResponseWriter, userID string, gen int) string {
 	now := s.now().Unix()
 	c := claims{UserID: userID, Gen: gen, IssuedAt: now, LastSeen: now, SID: ids.Hex(16)}

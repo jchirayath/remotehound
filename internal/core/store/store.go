@@ -46,7 +46,7 @@ type FileStore struct {
 	recovered string
 }
 
-// Open loads (or initialises) the store in dir. init seeds a fresh state.
+// Open loads (or initializes) the store in dir. init seeds a fresh state.
 func Open(dir string, init func(s *model.State)) (*FileStore, error) {
 	if err := os.MkdirAll(filepath.Join(dir, "snapshots"), 0o700); err != nil {
 		return nil, err

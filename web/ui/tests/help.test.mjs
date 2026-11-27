@@ -86,7 +86,7 @@ test('@feature:help required error codes map to fix text (HELP-3)', () => {
 })
 
 test('@feature:help help search finds screens and error fixes', () => {
-  assert.equal(searchHelp('enrol code')[0].key, 'enroll')
+  assert.equal(searchHelp('enroll code')[0].key, 'enroll')
   assert.ok(searchHelp('last admin').some(r => r.kind === 'error' && r.key === 'LAST_ADMIN'))
   assert.deepEqual(searchHelp(''), [])
 })
@@ -122,7 +122,7 @@ test('@feature:users @feature:sessions help explains personal logins, sharing an
   for (const p of ['login', 'profile']) assert.ok(existsSync(join(repo, 'docs', 'user', `${p}.md`)), p)
 })
 
-test('@feature:help provider glyphs have token colours with contrast-checked "on" pairs', () => {
+test('@feature:help provider glyphs have token colors with contrast-checked "on" pairs', () => {
   const css = readFileSync(join(ui, 'tokens.css'), 'utf8')
   for (const k of ['entra', 'google', 'apple', 'facebook', 'github', 'oidc']) {
     assert.match(css, new RegExp(`--color-domain-provider-${k}:`), k)

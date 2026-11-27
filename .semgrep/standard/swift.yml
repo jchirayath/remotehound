@@ -4,7 +4,7 @@ rules:
   - id: std.swift.raw-color
     languages: [generic]
     severity: ERROR
-    message: "Colour constructed in a view — use AppColors tokens (THEME-8)."
+    message: "Color constructed in a view — use AppColors tokens (THEME-8)."
     metadata: { standard: [THEME-8] }
     paths:
       include: ["*.swift"]

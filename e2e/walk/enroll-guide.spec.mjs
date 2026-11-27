@@ -10,7 +10,7 @@ async function createCode(page, os) {
   await page.getByLabel('Machine type').selectOption(os)
   await page.getByRole('button', { name: 'Create code' }).click()
   await expect(page.getByRole('heading', { name: /type this on the device/i })).toBeVisible()
-  return (await page.getByRole('img', { name: /Enrolment code/ }).getAttribute('aria-label')).replace(/^Enrolment code /, '').replace(/ /g, '')
+  return (await page.getByRole('img', { name: /Enrollment code/ }).getAttribute('aria-label')).replace(/^Enrollment code /, '').replace(/ /g, '')
 }
 
 for (const [os, shown, hidden] of [['macos', 'On a Mac', 'On a Windows PC'], ['windows', 'On a Windows PC', 'On a Mac']]) {

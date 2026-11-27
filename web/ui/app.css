@@ -1,6 +1,6 @@
 /*
  * RemoteHound app stylesheet. Uses ONLY design tokens from tokens.css (generated from design/tokens —
- * edit the tokens, not colours here). No hex/rgb literals, no raw font sizes or spacing (THEME-8).
+ * edit the tokens, not colors here). No hex/rgb literals, no raw font sizes or spacing (THEME-8).
  * Exceptions, by necessity: 1px hairlines, media-query widths (CSS cannot read var() in @media; the
  * values mirror --breakpoint-medium 600px / --breakpoint-expanded 840px / --breakpoint-large 1200px)
  * and easing curves (the token schema has durations only).
@@ -700,7 +700,7 @@ dialog::backdrop { background: color-mix(in srgb, var(--color-surface-inverse) 4
 .svc-logs__toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); }
 .svc-logs { flex: 1; min-height: calc(var(--space-xxxl) * 6); overflow: auto; padding: var(--space-sm); border-radius: var(--radius-md); background: var(--color-surface-sunken); font-family: var(--font-family-mono); font-size: var(--font-size-xs); }
 .svc-logs__line { display: grid; grid-template-columns: auto 1fr; gap: var(--space-sm); padding: var(--space-xxs) 0; border-bottom: var(--hairline); }
-/* severity as an edge marker, not text colour: status hues on the sunken surface fail contrast */
+/* severity as an edge marker, not text color: status hues on the sunken surface fail contrast */
 .svc-logs__line--warn, .svc-logs__line--error { padding-left: var(--space-sm); box-shadow: inset var(--space-xxs) 0 0 var(--line-mark); }
 .svc-logs__line--warn { --line-mark: var(--color-status-warning); }
 .svc-logs__line--error { --line-mark: var(--color-status-danger); font-weight: var(--font-weight-semibold); }

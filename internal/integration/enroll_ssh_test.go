@@ -1,6 +1,6 @@
 package integration
 
-// Script-free enrolment over SSH (ADR-0005), end to end through the real app:
+// Script-free enrollment over SSH (ADR-0005), end to end through the real app:
 // the code is the SSH username, attended codes make keyless one-session
 // devices, persistent codes bind the key the client proves.
 //
@@ -335,7 +335,7 @@ func TestSSHCodeLoginsShareTheWrongCodeLimit(t *testing.T) {
 	}
 }
 
-func TestEnrolmentModeIsValidated(t *testing.T) {
+func TestEnrollmentModeIsValidated(t *testing.T) {
 	h := start(t)
 	var prob struct{ Code string }
 	h.do("POST", "/api/v1/enrollments", map[string]any{"mode": "forever"}, 400, &prob)

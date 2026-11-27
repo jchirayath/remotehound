@@ -80,7 +80,7 @@ func (c *Client) Healthy(ctx context.Context) error {
 	return c.call(ctx, http.MethodGet, "/healthz", nil, &v)
 }
 
-// List returns every labelled container.
+// List returns every labeled container.
 func (c *Client) List(ctx context.Context) ([]Container, error) {
 	var out []Container
 	err := c.call(ctx, http.MethodGet, "/v1/services", nil, &out)

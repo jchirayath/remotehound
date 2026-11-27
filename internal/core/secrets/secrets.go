@@ -48,7 +48,7 @@ type Set struct {
 	ControlToken Secret
 	providers    map[string]providerSecret
 	SessionKey   Secret // HMAC key for session and OIDC state cookies
-	EnrollKey    Secret // HMAC key for enrolment code hashes
+	EnrollKey    Secret // HMAC key for enrollment code hashes
 	sealer       cipher.AEAD
 }
 

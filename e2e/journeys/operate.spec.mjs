@@ -9,7 +9,7 @@ test('@feature:overview overview shows live numbers and the Guacamole state', as
   await expect(page.getByText(/guacamole/i).first()).toBeVisible()
 })
 
-test('@feature:enroll create an enrolment code and see both one-liners', async ({ page }) => {
+test('@feature:enroll create an enrollment code and see both one-liners', async ({ page }) => {
   await open(page, '/enroll')
   await page.getByRole('button', { name: 'Create code' }).click()
   await page.getByRole('tab', { name: /macos/i }).click() // the default tab follows the browser's OS
@@ -94,7 +94,7 @@ test('@feature:groups create, edit and delete a group; each change audited once'
   await expect(page.getByRole('cell', { name, exact: true })).toBeVisible()
   const id = (await api(request, ADMIN, 'GET', '/api/v1/groups')).body.data.find(g => g.name === name).id
 
-  // Edit: rename, describe, recolour.
+  // Edit: rename, describe, recolor.
   await page.getByRole('button', { name: `Edit ${name}` }).click()
   const drawer = page.getByRole('dialog', { name: `Edit ${name}` })
   await drawer.getByLabel(/^name/i).fill(`${name} v2`)
@@ -279,7 +279,7 @@ test('@feature:settings change a setting and see it persist', async ({ page, req
   await open(page, '/settings')
   const current = (await api(request, ADMIN, 'GET', '/api/v1/settings')).body.data.enrollment_ttl_minutes
   const next = current === 20 ? 25 : 20 // always a real change, so Save is enabled
-  await page.getByLabel('Enrolment code lifetime').fill(String(next))
+  await page.getByLabel('Enrollment code lifetime').fill(String(next))
   await page.getByRole('button', { name: 'Save changes' }).click()
   await expect.poll(async () => (await api(request, ADMIN, 'GET', '/api/v1/settings')).body.data.enrollment_ttl_minutes).toBe(next)
 })
@@ -354,7 +354,7 @@ test('@feature:services sign out goes to the proxy logout and lands on the signe
 })
 
 test('@feature:devices a removed device explains how to register the machine', async ({ page, request }) => {
-  // Enrol a device by API (never connects, so it is offline), then delete it.
+  // Enroll a device by API (never connects, so it is offline), then delete it.
   const enr = (await api(request, ADMIN, 'POST', '/api/v1/enrollments', { name: 'gone-box' })).body.data
   const { publicKey } = await import('node:crypto').then(c => c.generateKeyPairSync('ed25519'))
   const raw = publicKey.export({ type: 'spki', format: 'der' }).subarray(12)
@@ -392,7 +392,7 @@ test('@feature:devices a removed device explains how to register the machine', a
   await expect(name).toHaveValue('gone-box')
 })
 
-test('@feature:enroll @feature:devices a wrong-machine enrolment is refused or flagged', async ({ page, request }) => {
+test('@feature:enroll @feature:devices a wrong-machine enrollment is refused or flagged', async ({ page, request }) => {
   const redeem = async (code, os, hostname) => request.post(ADMIN + '/api/v1/enroll', { ignoreHTTPSErrors: true, data: { code, public_key: await sshPublicKey(), hostname, os } })
   const stamp = Date.now().toString(36)
 
@@ -402,7 +402,7 @@ test('@feature:enroll @feature:devices a wrong-machine enrolment is refused or f
   await page.getByLabel('Machine type').selectOption('linux')
   await page.getByRole('button', { name: 'Create code' }).click()
   await expect(page.getByText('Only a Linux machine can use it.')).toBeVisible()
-  const code = (await page.locator('.keycaps').getAttribute('aria-label')).replace('Enrolment code ', '').replace(/ /g, '')
+  const code = (await page.locator('.keycaps').getAttribute('aria-label')).replace('Enrollment code ', '').replace(/ /g, '')
   const wrong = await redeem(code, 'macos', `mac-${stamp}`)
   expect(wrong.status()).toBe(400)
   expect((await wrong.json()).code).toBe('ENROLL_WRONG_OS')
@@ -434,10 +434,10 @@ test('@feature:enroll edit an open code, clear used and expired codes, revoke th
   await page.getByLabel('Device name (optional)').first().fill('typo-nmae')
   await page.getByRole('button', { name: 'Create code' }).click()
   await expect(page.getByText('Waiting for the device…')).toBeVisible()
-  const codes = page.getByRole('region', { name: 'Enrolment codes' }).or(page.locator('section[aria-labelledby=codes-h]'))
+  const codes = page.getByRole('region', { name: 'Enrollment codes' }).or(page.locator('section[aria-labeledby=codes-h]'))
   const row = codes.getByRole('row').filter({ hasText: 'typo-nmae' }).first()
   await row.getByRole('button', { name: 'Edit' }).click()
-  const drawer = page.getByRole('dialog', { name: 'Edit enrolment code' })
+  const drawer = page.getByRole('dialog', { name: 'Edit enrollment code' })
   await drawer.getByLabel('Device name (optional)').fill('fixed-name')
   await drawer.getByLabel('Machine type').selectOption('linux')
   await drawer.getByRole('button', { name: 'Save' }).click()

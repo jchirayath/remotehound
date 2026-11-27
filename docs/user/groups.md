@@ -1,17 +1,17 @@
 # Groups
 
-Groups organise devices and decide who can see them. Each device belongs to one group. Each operator or viewer can be given access to several groups. Admins always see every group.
+Groups organize devices and decide who can see them. Each device belongs to one group. Each operator or viewer can be given access to several groups. Admins always see every group.
 
 ## Create a group
 
 1. Select **New group**.
 2. Type a **Name** and an optional **Description**.
-3. Pick a **Colour**. The colour appears on the group's pill everywhere; the name is always shown next to it.
+3. Pick a **Color**. The color appears on the group's pill everywhere; the name is always shown next to it.
 4. Select **Create group**.
 
 ## Put devices in a group
 
-- When you create an enrolment code, pick the group the device should join.
+- When you create an enrollment code, pick the group the device should join.
 - For an existing device, open it and change **Group** in the Overview tab.
 - New devices without a group join the **Default group** set in [Settings](/docs/settings).
 

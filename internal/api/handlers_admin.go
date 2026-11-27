@@ -16,7 +16,7 @@ import (
 	"github.com/jchirayath/remotehound/internal/model"
 )
 
-// ---- enrolments ---------------------------------------------------------------
+// ---- enrollments ---------------------------------------------------------------
 
 func (s *Server) listEnrollments(w http.ResponseWriter, r *http.Request) {
 	if !s.can(w, r, authz.EnrollmentRead) {
@@ -144,7 +144,7 @@ func (s *Server) cleanupEnrollments(w http.ResponseWriter, r *http.Request) {
 
 // ---- groups ---------------------------------------------------------------------
 
-// Group colours are domain tokens (color.domain.group.*) defined in design/.
+// Group colors are domain tokens (color.domain.group.*) defined in design/.
 var groupColors = []string{"teal", "violet", "amber", "rose", "sky", "lime", "slate", "orange"}
 
 type groupView struct {

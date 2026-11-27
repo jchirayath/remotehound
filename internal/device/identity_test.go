@@ -54,7 +54,7 @@ func TestDuplicateHost(t *testing.T) {
 }
 
 // Each one-time session is a new device (ADR-0005): finished ones are a
-// history of sessions on that machine, not a duplicate enrolment.
+// history of sessions on that machine, not a duplicate enrollment.
 func TestEndedOneTimeSessionsAreNotDuplicates(t *testing.T) {
 	att := func(id string) *model.Device {
 		d := dev(id, "Ada laptop", "windows", "ADA-PC")

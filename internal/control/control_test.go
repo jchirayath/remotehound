@@ -28,18 +28,18 @@ func helper(t *testing.T) (*controltest.Engine, *httptest.Server, *control.Clien
 	return eng, srv, control.NewClient(u, []byte(token))
 }
 
-func TestListShowsOnlyLabelledContainersAndNoEnvironment(t *testing.T) {
+func TestListShowsOnlyLabeledContainersAndNoEnvironment(t *testing.T) {
 	_, srv, c := helper(t)
 	list, err := c.List(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(list) != 3 {
-		t.Fatalf("want the 3 labelled containers, got %d: %+v", len(list), list)
+		t.Fatalf("want the 3 labeled containers, got %d: %+v", len(list), list)
 	}
 	for _, x := range list {
 		if x.Name == "podcast-mariadb-1" {
-			t.Fatal("unlabelled container must never be listed")
+			t.Fatal("unlabeled container must never be listed")
 		}
 	}
 	// The raw wire answer must not carry the planted secret from Env/Cmd.
@@ -103,7 +103,7 @@ func TestActionsAreLimitedToTheLabel(t *testing.T) {
 		t.Fatalf("stop remotehound: want action_not_allowed, got %v", err)
 	}
 	if _, err := c.Act(ctx, "mariadb", "restart"); !control.IsRemote(err, "unknown_service") {
-		t.Fatalf("unlabelled container: want unknown_service, got %v", err)
+		t.Fatalf("unlabeled container: want unknown_service, got %v", err)
 	}
 	if _, err := c.Act(ctx, "guacamole", "exec"); err == nil {
 		t.Fatal("unknown action accepted")

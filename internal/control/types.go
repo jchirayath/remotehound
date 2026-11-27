@@ -4,20 +4,20 @@
 //
 // WHY A SEPARATE PROCESS. Docker control needs the Docker socket, and the
 // socket is root on the host. RemoteHound itself faces the internet (sign-in,
-// enrolment, the Guacamole proxy); giving it the socket would turn any bug in
+// enrollment, the Guacamole proxy); giving it the socket would turn any bug in
 // it into a takeover of every container on the machine. The helper instead:
 //
 //   - has no published port and sits on a network only remotehound can reach;
 //   - answers only requests carrying the shared RH_CONTROL_TOKEN;
-//   - acts ONLY on containers the operator labelled
+//   - acts ONLY on containers the operator labeled
 //     io.remotehound.control.service=<name>, with ONLY the actions listed in
 //     io.remotehound.control.actions (subset of start, stop, restart, logs);
 //   - returns a fixed, allowlisted view of each container — never its
 //     environment, mounts or command line, which is where secrets live.
 //
-// RemoteHound authorises the person (admin only), audits the action and calls
+// RemoteHound authorizes the person (admin only), audits the action and calls
 // the helper; the helper enforces the label allowlist again on its side, so a
-// compromised RemoteHound still cannot touch an unlabelled container.
+// compromised RemoteHound still cannot touch an unlabeled container.
 //
 // See docs/adr/0004-rh-control.md and docs/THREAT_MODEL.md (TB-6).
 package control

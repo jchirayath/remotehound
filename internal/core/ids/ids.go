@@ -14,7 +14,7 @@ import (
 // (IPv4-mapped IPv6 is unmapped, so both spellings are one client), an IPv6
 // address by its /64 (one customer allocation), so rotating addresses inside
 // a prefix does not multiply a budget. Used by the HTTP limiter, the tunnel's
-// pre-auth limiter and the enrolment miss limiter.
+// pre-auth limiter and the enrollment miss limiter.
 func ClientKey(ip string) string { return prefixKey(ip, 64, ip) }
 
 // ClientNetKey is the wider IPv6 network a client sits in (its /48, a typical
@@ -43,17 +43,17 @@ func prefixKey(ip string, bits int, fallback string) string {
 // idAlphabet is lower-case base32-ish without look-alikes; IDs are opaque (API-6).
 const idAlphabet = "abcdefghjkmnpqrstuvwxyz23456789"
 
-// CodeAlphabet is used for enrolment codes people type by hand: no i, l, o, 0, 1.
+// CodeAlphabet is used for enrollment codes people type by hand: no i, l, o, 0, 1.
 // 31 symbols ^ 6 = 887,503,681 combinations.
 const CodeAlphabet = "abcdefghjkmnpqrstuvwxyz23456789"
 
-// CodeLength is the length of an enrolment code.
+// CodeLength is the length of an enrollment code.
 const CodeLength = 6
 
 // New returns prefix + "_" + 16 random symbols, e.g. "dev_k7q2mxp4…".
 func New(prefix string) string { return prefix + "_" + randomString(idAlphabet, 16) }
 
-// Code returns a fresh enrolment code.
+// Code returns a fresh enrollment code.
 func Code() string { return randomString(CodeAlphabet, CodeLength) }
 
 // Hex returns n random bytes hex-encoded (used for keys and CSRF secrets).
@@ -78,7 +78,7 @@ func randomString(alphabet string, n int) string {
 	return string(out)
 }
 
-// ValidCode reports whether s has the shape of an enrolment code.
+// ValidCode reports whether s has the shape of an enrollment code.
 func ValidCode(s string) bool {
 	if len(s) != CodeLength {
 		return false

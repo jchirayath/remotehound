@@ -1,5 +1,5 @@
 /**
- * Settings (/settings) — runtime behaviour stored in the database (public address, enrolment,
+ * Settings (/settings) — runtime behavior stored in the database (public address, enrollment,
  * sessions, recording, logging, retention, role mapping). Infrastructure settings (listeners,
  * secrets, identity provider) are environment config and are not shown here.
  *
@@ -20,8 +20,8 @@ export const SECTIONS = [
     { k: 'ssh_public_host', label: 'SSH tunnel host', mono: true, placeholder: 'rh.example.com' },
     { k: 'ssh_public_port', label: 'SSH tunnel port', type: 'number', min: 1, max: 65535, mono: true },
   ]],
-  ['Enrolment and connections', 'Defaults for new devices and for opening sessions.', [
-    { k: 'enrollment_ttl_minutes', label: 'Enrolment code lifetime', type: 'number', min: 5, max: 1440, suffix: 'minutes' },
+  ['Enrollment and connections', 'Defaults for new devices and for opening sessions.', [
+    { k: 'enrollment_ttl_minutes', label: 'Enrollment code lifetime', type: 'number', min: 5, max: 1440, suffix: 'minutes' },
     { k: 'connect_token_ttl_seconds', label: 'Connect link lifetime', type: 'number', min: 15, max: 600, suffix: 'seconds' },
     { k: 'default_group_id', label: 'Default group', type: 'group' },
     { k: 'vnc_enabled', label: 'Allow VNC connections', type: 'checkbox' },
@@ -44,7 +44,7 @@ export const SECTIONS = [
 
 export default function render(ctx) {
   const writable = can('settings.write')
-  const p = page({ title: 'Settings', subtitle: 'Behaviour you can change without restarting the server.', helpKey: 'settings' })
+  const p = page({ title: 'Settings', subtitle: 'Behavior you can change without restarting the server.', helpKey: 'settings' })
   const body = h('div', { class: 'settings' }, skeleton('detail', 4))
   append(p.body, body)
   let current = null
@@ -119,7 +119,7 @@ export default function render(ctx) {
   function paint() {
     fields = {}
     const msg = h('div', { class: 'form__msg' })
-    const sections = SECTIONS.map(([title, desc, specs]) => h('section', { class: 'card settings__section', 'aria-labelledby': `s-${specs[0].k}` },
+    const sections = SECTIONS.map(([title, desc, specs]) => h('section', { class: 'card settings__section', 'aria-labeledby': `s-${specs[0].k}` },
       h('div', { class: 'settings__intro' }, h('h2', { id: `s-${specs[0].k}`, class: 'card__title' }, title), h('p', { class: 'muted' }, desc)),
       h('div', { class: 'settings__fields' }, specs.map(s => {
         const f = field({
@@ -137,7 +137,7 @@ export default function render(ctx) {
     const rf = field({ id: 'settings.roles_claim', label: 'Role claim', value: current.roles_claim || '', mono: true, placeholder: 'groups', disabled: !writable, onInput: sync })
     fields.roles_claim = rf
     roles = rolesEditor(current.roles_map)
-    sections.push(h('section', { class: 'card settings__section', 'aria-labelledby': 's-roles' },
+    sections.push(h('section', { class: 'card settings__section', 'aria-labeledby': 's-roles' },
       h('div', { class: 'settings__intro' }, h('h2', { id: 's-roles', class: 'card__title' }, 'Sign-in roles'), h('p', { class: 'muted' }, 'Give people a role automatically from a claim your identity provider sends.')),
       h('div', { class: 'settings__fields' }, rf.el, roles.el)))
 

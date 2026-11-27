@@ -1,6 +1,6 @@
 /**
  * Services (/services, admin) — is every part of the bundle running? One card per component
- * (RemoteHound, tunnel server, data store, Guacamole, guacd, plus any other container labelled for
+ * (RemoteHound, tunnel server, data store, Guacamole, guacd, plus any other container labeled for
  * control) with status, version, ports, recent problems and — when the rh-control helper is set
  * up — container state, Start / Stop / Restart and a log viewer. Below: the read-only Guacamole
  * configuration (there is no Guacamole admin UI: it runs with JSON auth and no user database).
@@ -75,7 +75,7 @@ export default function render(ctx) {
     const [title, text] = HERO[overall] || HERO.degraded
     const counts = ['ok', 'degraded', 'down', 'unknown'].map(s => [s, rep.services.filter(x => x.status === s).length]).filter(([, n]) => n)
     replace(body,
-      h('section', { class: `hero hero--${STATUS[overall].tone}`, 'aria-labelledby': 'svc-hero' },
+      h('section', { class: `hero hero--${STATUS[overall].tone}`, 'aria-labeledby': 'svc-hero' },
         h('span', { class: 'hero__icon', 'aria-hidden': 'true' }, icon(STATUS[overall].icon, { size: 'xl' })),
         h('div', { class: 'hero__text' },
           h('h2', { id: 'svc-hero', class: 'hero__title' }, title),
@@ -120,7 +120,7 @@ export default function render(ctx) {
       append(actions, focusKey(linkButton({ href: '/logs', label: 'Open logs', icon: 'domain.nav.logs', size: 'sm', variant: 'ghost' }), `${s.id}:logs`))
     }
     const problems = s.problems || []
-    return h('li', { class: `check-card check-card--${st.tone} svc-card`, 'aria-labelledby': `svc-${s.id}` },
+    return h('li', { class: `check-card check-card--${st.tone} svc-card`, 'aria-labeledby': `svc-${s.id}` },
       h('div', { class: 'check-card__head' },
         h('span', { class: 'check-card__icon', 'aria-hidden': 'true' }, icon(st.icon)),
         h('h3', { id: `svc-${s.id}`, class: 'check-card__title' }, s.name, columnHelp('services', s.id) ? infoTip(columnHelp('services', s.id), s.name) : null),
@@ -279,7 +279,7 @@ export default function render(ctx) {
   function guacCard(g) {
     const match = { pass: ['Matches Guacamole', 'success'], fail: ['DOES NOT match Guacamole', 'danger'], unknown: ['Not checked yet', 'neutral'] }[g.secret_matches] || ['Not checked yet', 'neutral']
     const help = (k) => columnHelp('services', `guac.${k}`)
-    return h('section', { class: 'card svc-guac', 'aria-labelledby': 'svc-guac-h' },
+    return h('section', { class: 'card svc-guac', 'aria-labeledby': 'svc-guac-h' },
       h('div', { class: 'card__head' },
         h('h2', { id: 'svc-guac-h', class: 'card__title' }, 'Guacamole configuration'),
         linkButton({ href: '/integration', label: 'Run integration checks', icon: 'domain.nav.integration', size: 'sm' })),

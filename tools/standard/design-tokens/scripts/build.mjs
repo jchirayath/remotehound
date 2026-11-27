@@ -24,7 +24,7 @@ const errors = []
 const t = loadTokens(join(designDir, 'tokens'), ['light', 'dark'])
 if (t.missing.length) { console.error(`✗ missing ${t.missing.join(', ')}`); process.exit(1) }
 
-// themes: light, dark, and each preset → { 'color.surface.base': '#FFFFFF', ... } (semantic colours only)
+// themes: light, dark, and each preset → { 'color.surface.base': '#FFFFFF', ... } (semantic colors only)
 const resolveTheme = (sem, label) => {
   const r = resolveAll({ ...t.primitive, ...t.base, ...sem }, label, (e) => errors.push(e))
   return Object.fromEntries(Object.keys(sem).sort().map(k => [k, r[k]]))
@@ -67,7 +67,7 @@ function tailwind4() {
   if (!platforms.includes('css')) console.warn('  ! tailwind4 reads the css platform\'s variables — add "css" to platforms')
   write('tailwind4', 'theme.css', `/* ${HEADER}\n   Tailwind v4. Import in your main stylesheet AFTER the framework, alongside css/tokens.css (paths relative to it):\n` +
     `     @import "tailwindcss";\n     @import "<design>/build/css/tokens.css";\n     @import "<design>/build/tailwind/theme.css";\n` +
-    `   Replaces (not extends) colours/spacing/radius/fonts/text/weights/breakpoints, so bg-red-500, p-4 and the sm:/md: variants don't exist. */\n` +
+    `   Replaces (not extends) colors/spacing/radius/fonts/text/weights/breakpoints, so bg-red-500, p-4 and the sm:/md: variants don't exist. */\n` +
     `@theme inline reference {\n` +
     `  --color-*: initial;\n  --spacing-*: initial;\n  --radius-*: initial;\n  --font-*: initial;\n  --text-*: initial;\n  --font-weight-*: initial;\n  --breakpoint-*: initial;\n` +
     [...map('color', colorKeys, 1), ...map('spacing', pick('space.'), 1), ...map('radius', pick('radius.'), 1),
@@ -85,7 +85,7 @@ function tailwind() {
   const pick = (prefix) => baseKeys.filter(k => k.startsWith(prefix))
   const preset = {
     theme: {
-      // Replace (not extend) colours/spacing/radius/fontSize so default palette classes like bg-red-500 don't exist.
+      // Replace (not extend) colors/spacing/radius/fontSize so default palette classes like bg-red-500 don't exist.
       colors: { transparent: 'transparent', current: 'currentColor', ...nest(colorKeys, 1, k => `var(${cssVar(k)})`) },
       spacing: nest(pick('space.'), 1, k => `var(${cssVar(k)})`),
       borderRadius: nest(pick('radius.'), 1, k => `var(${cssVar(k)})`),
@@ -114,7 +114,7 @@ function ts() {
     `  const C = icons[name]\n  return <C width={sizes[size]} height={sizes[size]} aria-hidden={label ? undefined : true} aria-label={label} role={label ? 'img' : undefined} {...rest} />\n}\n`)
 }
 
-// ── Flutter: ThemeExtension with every semantic colour + const scales + icon registry ──
+// ── Flutter: ThemeExtension with every semantic color + const scales + icon registry ──
 function dart() {
   const argb = (hex) => { const c = rgba(hex); return `Color(0x${c.alphaHex}${c.hex6})` }
   const fields = colorKeys.map(field)
@@ -125,8 +125,8 @@ function dart() {
   }
   const leaf = (k, strip) => camel(k.split('.').slice(strip))
   const dartStr = (s) => `'${String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
-  write('dart', 'app_tokens.dart', `// ${HEADER}\n// The ONLY Dart file allowed to write colour literals (lint: std.dart.raw-color).\n// ignore_for_file: lines_longer_than_80_chars\nimport 'package:flutter/material.dart';\n\n` +
-    `/// Semantic colours. Screens read \`context.colors.statusDanger\`, never a literal.\n@immutable\nclass AppColors extends ThemeExtension<AppColors> {\n` +
+  write('dart', 'app_tokens.dart', `// ${HEADER}\n// The ONLY Dart file allowed to write color literals (lint: std.dart.raw-color).\n// ignore_for_file: lines_longer_than_80_chars\nimport 'package:flutter/material.dart';\n\n` +
+    `/// Semantic colors. Screens read \`context.colors.statusDanger\`, never a literal.\n@immutable\nclass AppColors extends ThemeExtension<AppColors> {\n` +
     `  const AppColors({\n${fields.map(f => `    required this.${f},`).join('\n')}\n  });\n\n${fields.map(f => `  final Color ${f};`).join('\n')}\n\n` +
     Object.entries(themes).map(([n, th]) => `  static const ${camel(n.split(/[-_]/))} = ${inst(th)};`).join('\n\n') + '\n\n' +
     `  static const Map<String, AppColors> all = {${Object.keys(themes).map(n => `'${n}': ${camel(n.split(/[-_]/))}`).join(', ')}};\n\n` +
@@ -158,7 +158,7 @@ function swift() {
     const ks = baseKeys.filter(k => k.startsWith(prefix)); if (!ks.length) return ''
     return `public enum ${name} {\n${ks.map(k => `    public static let ${leaf(k, strip)}: ${type} = ${fmt(base[k])}`).join('\n')}\n}\n\n`
   }
-  write('swift', 'AppTokens.swift', `// ${HEADER}\n// The ONLY Swift file allowed to construct colours (lint: std.swift.raw-color).\nimport SwiftUI\n\n` +
+  write('swift', 'AppTokens.swift', `// ${HEADER}\n// The ONLY Swift file allowed to construct colors (lint: std.swift.raw-color).\nimport SwiftUI\n\n` +
     `public struct AppColors: Sendable {\n${fields.map(f => `    public let ${f}: Color`).join('\n')}\n\n` +
     Object.entries(themes).map(([n, th]) => `    public static let ${camel(n.split(/[-_]/))} = AppColors(\n${colorKeys.map((k, i) => `        ${field(k)}: ${col(th[k])}${i < colorKeys.length - 1 ? ',' : ''}`).join('\n')}\n    )`).join('\n\n') +
     `\n\n    public static func forScheme(_ scheme: ColorScheme) -> AppColors { scheme == .dark ? dark : light }\n}\n\n` +

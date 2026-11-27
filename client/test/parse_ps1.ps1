@@ -58,7 +58,7 @@ $newItemDir = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Lang
     $p = $_.Parent; while ($p -and $p -isnot [System.Management.Automation.Language.FunctionDefinitionAst]) { $p = $p.Parent }; -not $p -or $p.Name -ne 'New-RhSecureDirectory' }
 if (@($newItemDir).Count -eq 0) { Write-Output 'OK acl-hardening: folders are only created by New-RhSecureDirectory' }
 else { Write-Output 'ERR acl-hardening: New-Item -ItemType Directory outside New-RhSecureDirectory'; $bad = 1 }
-# Behaviour of the ACL helpers that can run on any OS: the descriptor is protected and has only the given SIDs.
+# Behavior of the ACL helpers that can run on any OS: the descriptor is protected and has only the given SIDs.
 $helper = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'New-RhProtectedSecurity' }, $true)
 if ($helper) {
     try {
@@ -100,7 +100,7 @@ foreach ($a in $assigns) {
     }
 }
 
-# The enrol request body: a one-element services list must stay a JSON array.
+# The enroll request body: a one-element services list must stay a JSON array.
 $svcList = @(); $svcList += [ordered]@{ kind = 'ssh'; remote_port = 22 }
 $json = ConvertTo-Json -InputObject ([ordered]@{ code = 'k7q2mx'; services = $svcList }) -Depth 4 -Compress
 if ($json -ceq '{"code":"k7q2mx","services":[{"kind":"ssh","remote_port":22}]}') { Write-Output 'OK request JSON keeps services as an array' }

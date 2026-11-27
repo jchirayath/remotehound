@@ -6,8 +6,8 @@ Thanks for helping. RemoteHound is remote-access software: correctness and secur
 - Read [CLAUDE.md](CLAUDE.md) (it applies to humans too) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - Each cross-cutting concern has one module in `internal/core/` — use it; `ci/guards.sh` enforces this.
 - No new Go dependencies without an ADR (`go.mod` holds exactly `golang.org/x/crypto`).
-- The UI has no build step and no npm dependencies. Colours/sizes come from `design/` tokens; icons from `web/ui/lib/icons.js`; help text from `web/ui/help/registry.json`.
-- Every change ships with tests in the same PR, including the denied path for anything authorised.
+- The UI has no build step and no npm dependencies. Colors/sizes come from `design/` tokens; icons from `web/ui/lib/icons.js`; help text from `web/ui/help/registry.json`.
+- Every change ships with tests in the same PR, including the denied path for anything authorized.
   Tag tests with `@feature:<key>`.
 - Security issues: report privately (SECURITY.md), not as issues.
 

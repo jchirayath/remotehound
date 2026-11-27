@@ -9,7 +9,7 @@ const C = {
   blue: '#24478A', blueDark: '#4A74BD', screen: '#EEF3FB', screenDark: '#15203A', tan: '#DDA45F', outline: '#F5F7FA',
 }
 
-// beagle head + ears, drawn on the 120-wide grid, centred on x=60, chin at y≈101
+// beagle head + ears, drawn on the 120-wide grid, centerd on x=60, chin at y≈101
 function head({ simple = false } = {}) {
   const ear = 'M41 58C30 58 24 70 25 85C26 96 31 102 37 101C44 100 46 92 46 83C46 72 45 62 41 58Z'
   const earR = 'M79 58C90 58 96 70 95 85C94 96 89 102 83 101C76 100 74 92 74 83C74 72 75 62 79 58Z'
@@ -36,13 +36,13 @@ function head({ simple = false } = {}) {
   return s
 }
 
-// signal arcs (the "remote" part), centred on (cx, cy), opening upward
-function arcs(cx, cy, colour, w = 3.2, radii = [7, 13]) {
+// signal arcs (the "remote" part), centerd on (cx, cy), opening upward
+function arcs(cx, cy, color, w = 3.2, radii = [7, 13]) {
   const a = radii.map(rr => {
     const dx = (rr * Math.SQRT1_2).toFixed(2), dy = (rr * Math.SQRT1_2).toFixed(2)
     return `M${(cx - dx).toFixed(2)} ${(cy - dy).toFixed(2)}A${rr} ${rr} 0 0 1 ${(cx + +dx).toFixed(2)} ${(cy - dy).toFixed(2)}`
   }).join('')
-  return `<path fill="none" stroke="${colour}" stroke-width="${w}" stroke-linecap="round" d="${a}"/><circle fill="${colour}" cx="${cx}" cy="${cy}" r="${(w * 0.85).toFixed(2)}"/>`
+  return `<path fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" d="${a}"/><circle fill="${color}" cx="${cx}" cy="${cy}" r="${(w * 0.85).toFixed(2)}"/>`
 }
 
 // full mascot: the beagle looking out of a browser window, signal arcs above it
@@ -77,7 +77,7 @@ function svg(vb, label, body) {
 }
 const files = {
   'web/ui/brand/mascot.svg': mascot(false), 'web/ui/brand/mascot-dark.svg': mascot(true),
-  // the mark's colours read on both surfaces; the -dark file is kept so app.css's theme switch is unchanged
+  // the mark's colors read on both surfaces; the -dark file is kept so app.css's theme switch is unchanged
   'web/ui/brand/mark.svg': mark(), 'web/ui/brand/mark-dark.svg': mark(),
   'web/ui/favicon.svg': favicon(),
   'docs/img/logo-light.svg': logo(false), 'docs/img/logo-dark.svg': logo(true),

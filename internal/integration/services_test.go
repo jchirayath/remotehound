@@ -68,7 +68,7 @@ func TestServicesReportWithControl(t *testing.T) {
 		}
 	}
 	if _, ok := ids["mariadb"]; ok {
-		t.Fatal("an unlabelled container got a card")
+		t.Fatal("an unlabeled container got a card")
 	}
 	g := rep.Data.Services[ids["guacamole"]]
 	if g.Container == nil || g.Container.Name != "rh-guacamole-1" {
@@ -126,7 +126,7 @@ func TestServiceActionsAuditedAndLimited(t *testing.T) {
 
 	// RemoteHound may only restart itself — refused even before rh-control's label check.
 	h.do("POST", "/api/v1/services/remotehound/actions/stop", nil, 403, nil)
-	// Unknown action / unlabelled target.
+	// Unknown action / unlabeled target.
 	h.do("POST", "/api/v1/services/guacamole/actions/exec", nil, 400, nil)
 	h.do("POST", "/api/v1/services/mariadb/actions/restart", nil, 404, nil)
 	for _, call := range eng.Calls {

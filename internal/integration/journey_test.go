@@ -183,7 +183,7 @@ func TestFullJourney(t *testing.T) {
 		"ssh_public_port": h.app.Tunnel.Addr().(*net.TCPAddr).Port}, 200, nil, "If-Match", settings.Data.ETag)
 	h.do("PATCH", "/api/v1/settings", map[string]any{"log_level": "DEBUG"}, 412, nil, "If-Match", settings.Data.ETag)
 
-	// --- enrolment code ----------------------------------------------------------
+	// --- enrollment code ----------------------------------------------------------
 	var enr struct {
 		Data struct {
 			ID             string `json:"id"`

@@ -11,7 +11,7 @@ The Devices screen lists every machine you can see. Open one to connect to it, c
 
 Filters are stored in the address bar, so you can bookmark or share a filtered view. Presence refreshes every 20 seconds. **CSV** and **JSON** export the rows currently loaded.
 
-- The **Install** column shows how the enrolment script installed the tunnel: **Permanent** (starts at boot), **Temporary · *user*** (runs only while that user is logged in) or **Not reported** (older script). See [Enroll](enroll.md).
+- The **Install** column shows how the enrollment script installed the tunnel: **Permanent** (starts at boot), **Temporary · *user*** (runs only while that user is logged in) or **Not reported** (older script). See [Enroll](enroll.md).
 
 ## Connecting
 
@@ -43,7 +43,7 @@ For each service you can set the **Port on the device**, a shared **Username**, 
 
 - **RDP security mode**: `any` works for most machines; try `nla` for modern Windows.
 - **Ignore the RDP server certificate**: needed for self-signed certificates (the connection is still encrypted inside the tunnel).
-- **Colour depth**: fewer colours for slow connections.
+- **Color depth**: fewer colors for slow connections.
 - **Enable file transfer (SFTP)**: drag files in and out of the session.
 - **View only**: watch without sending keyboard or mouse input.
 
@@ -63,15 +63,15 @@ After adding a service, use **Diagnostics → Ask device to reconnect** so the d
 ## Danger zone
 
 - **Disable** closes the tunnel immediately and refuses new logins until you **Enable** it again.
-- **Delete** revokes the device's key. You must type the device name to confirm. To bring the machine back, enrol it again.
+- **Delete** revokes the device's key. You must type the device name to confirm. To bring the machine back, enroll it again.
 
 ## Troubleshooting
 
 - **Connect is disabled: service not forwarded.** Add the service, then ask the device to reconnect.
 - **RDP connects then drops.** Try a different security mode and enable *Ignore the RDP server certificate*. Windows Home editions cannot accept RDP.
-- **"This device isn't registered".** The device was deleted, or its enrolment never finished. Select **Register a machine**, create a code, and run the command it shows on the machine: `curl -fsSL https://<your RemoteHound>/e/<code> | sh` on macOS or Linux, `irm https://<your RemoteHound>/e/<code> | iex` in Windows PowerShell. In session history and on the Enroll page, a deleted device shows as "<name> (removed) · register again"; select it to open Enroll with the name filled in.
+- **"This device isn't registered".** The device was deleted, or its enrollment never finished. Select **Register a machine**, create a code, and run the command it shows on the machine: `curl -fsSL https://<your RemoteHound>/e/<code> | sh` on macOS or Linux, `irm https://<your RemoteHound>/e/<code> | iex` in Windows PowerShell. In session history and on the Enroll page, a deleted device shows as "<name> (removed) · register again"; select it to open Enroll with the name filled in.
 - **The device is offline and RemoteHound was removed from it.** Open the device and select **Get the install command**. Enroll opens with the name filled in; run the new command on the machine, then delete the old entry.
-- **"Check identity" / "This may not be the machine its name says".** The machine reports a different OS than its name says (for example a code named *office-linux* run on a Mac). Select **Rename to <hostname>** to name it after the machine it really is, then enrol the intended machine with a new code. Pick a **Machine type** on Enroll to stop this happening.
+- **"Check identity" / "This may not be the machine its name says".** The machine reports a different OS than its name says (for example a code named *office-linux* run on a Mac). Select **Rename to <hostname>** to name it after the machine it really is, then enroll the intended machine with a new code. Pick a **Machine type** on Enroll to stop this happening.
 - **"This machine may be enrolled twice".** Two devices in the group report the same hostname and OS. Open the other entry and delete the one you no longer use.
 - **Screen Sharing to a Mac asks for a login first.** macOS only accepts Apple's own sign-in for screen sharing, so RemoteHound needs your macOS username (the short account name) and password. Connect opens the login form when none is saved; after saving, select **Connect** again. The account must be allowed under **System Settings → General → Sharing → Screen Sharing** (or *All users*). A wrong password or a user who is not allowed ends with "The remote desktop server is currently unreachable".
 - **Remote Desktop asks for a login first.** Windows uses Network Level Authentication by default, which needs the username and password before the desktop starts. Save them with **Use my own login** (or ask an admin for a shared device login).

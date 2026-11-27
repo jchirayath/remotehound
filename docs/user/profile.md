@@ -13,7 +13,7 @@ This lists every provider linked to your account, with the email it reported and
 - **Link** adds another provider. You are sent to that provider to sign in, then come back here.
 - **Unlink** removes one. You must always keep at least one method; if you try to remove the last one, RemoteHound refuses and says so.
 
-If your organisation signs you in through its own proxy, there is nothing to link here.
+If your organization signs you in through its own proxy, there is nothing to link here.
 
 ## My saved logins
 

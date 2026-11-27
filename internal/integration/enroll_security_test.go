@@ -1,6 +1,6 @@
 package integration
 
-// Enrolment hardening: public_url is a strict ASCII allow-list everywhere it
+// Enrollment hardening: public_url is a strict ASCII allow-list everywhere it
 // can enter a bootstrap script or a one-liner, and wrong-code limiting is per
 // client with a distinct "busy" answer.
 //
@@ -190,7 +190,7 @@ func TestEnrolBrakeIsPerClientWithDistinctBusyMessage(t *testing.T) {
 		!strings.Contains(err.Error(), "try again in a minute") {
 		t.Fatalf("throttled redeem: %v", err)
 	}
-	// …while everyone else still enrols.
+	// …while everyone else still enrolls.
 	if _, st := h.app.Enroll.Script(code, "2001:db8:8::1", false); st != "open" {
 		t.Fatalf("another client: %q", st)
 	}

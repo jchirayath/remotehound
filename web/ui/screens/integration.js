@@ -41,7 +41,7 @@ function pathDiagram(checks) {
     ['Tunnel listener', 'Port per device + service', st(['tunnel.listener']), 'domain.object.tunnel'],
     ['Device', 'ssh -R from the machine', 'unknown', 'domain.nav.devices'],
   ]
-  return h('figure', { class: 'flow card', 'aria-labelledby': 'flow-cap' },
+  return h('figure', { class: 'flow card', 'aria-labeledby': 'flow-cap' },
     h('figcaption', { id: 'flow-cap', class: 'card__title' }, 'How a session travels'),
     h('ol', { class: 'flow__list', role: 'list' }, nodes.map(([title, sub, s, ic], i) => h('li', { class: `flow__node flow__node--${s}` },
       h('span', { class: 'flow__icon', 'aria-hidden': 'true' }, icon(ic)),
@@ -76,7 +76,7 @@ export default function render(ctx) {
     const checks = rep.checks || []
     const counts = ['pass', 'warn', 'fail', 'skip'].map(s => [s, checks.filter(c => c.status === s).length]).filter(([, n]) => n)
     replace(body,
-      h('section', { class: `hero hero--${STATUS[overall].tone}`, 'aria-labelledby': 'hero-h' },
+      h('section', { class: `hero hero--${STATUS[overall].tone}`, 'aria-labeledby': 'hero-h' },
         h('span', { class: 'hero__icon', 'aria-hidden': 'true' }, icon(STATUS[overall].icon, { size: 'xl' })),
         h('div', { class: 'hero__text' },
           h('h2', { id: 'hero-h', class: 'hero__title' }, title),

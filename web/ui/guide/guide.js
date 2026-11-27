@@ -1,5 +1,5 @@
 /**
- * Device setup guide (device-setup.html): fills the printable guide in for one enrolment code.
+ * Device setup guide (device-setup.html): fills the printable guide in for one enrollment code.
  *
  * Where the values come from, most trusted first:
  *  - The Enroll screen that opened this tab sends {type: 'remotehound-guide', code, base, os, name,

@@ -46,4 +46,4 @@ Control needs the Docker socket, and the Docker socket gives full control of the
 2. Start the bundle with the control profile: `docker compose --profile control up -d`.
 3. Set `RH_CONTROL_URL=http://rh-control:9091` for RemoteHound (the bundle does this when the profile is on).
 
-The helper acts **only** on containers labelled `io.remotehound.control.service=<name>`, and only with the actions listed in `io.remotehound.control.actions` (any of `start,stop,restart,logs`). It never returns a container's environment, so secrets stay put. It has no published port and refuses any request without the token. See the architecture decision `docs/adr/0004-rh-control.md`.
+The helper acts **only** on containers labeled `io.remotehound.control.service=<name>`, and only with the actions listed in `io.remotehound.control.actions` (any of `start,stop,restart,logs`). It never returns a container's environment, so secrets stay put. It has no published port and refuses any request without the token. See the architecture decision `docs/adr/0004-rh-control.md`.

@@ -84,7 +84,7 @@ OpenSSH refuses keys readable by others), `known_hosts` (the pinned line), `devi
 - Exec of anything other than `agent v1 …`, shell, pty, X11, agent forwarding and `direct-tcpip`
   (local forwards) are rejected. (Typed tunnels use `hello v1` instead: §9.)
 
-## 5. Watchdog behaviour (self-healing)
+## 5. Watchdog behavior (self-healing)
 
 ```
 backoff = 2
@@ -127,10 +127,10 @@ last 10 lines of `tunnel.log` and where to find it.
 `uninstall.sh|ps1` in the directory: stop + remove the supervisor entry, delete the directory. It does
 not disable sshd/RDP (the person may rely on them) but says so.
 
-## 9. Script-free enrolment over SSH (ADR-0005)
+## 9. Script-free enrollment over SSH (ADR-0005)
 
 No script is downloaded or run: the person types one command that uses the system's own OpenSSH client
-(Windows 10 1809+ / 11 / Server 2019+, macOS, Linux). The enrolment code is the SSH username.
+(Windows 10 1809+ / 11 / Server 2019+, macOS, Linux). The enrollment code is the SSH username.
 
 **Code modes** (`POST /api/v1/enrollments` → `mode`):
 - `persistent` (default): the scripts (§1–8), **or** ssh with an ed25519 key → device transport `ssh-manual`.
