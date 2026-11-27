@@ -166,7 +166,7 @@ services:
   # that turns socket access into root) are refused, whatever rh-control is
   # tricked into sending. No network at all: it speaks only over unix sockets.
   # Add an endpoint to docker.go and it must be added to the allowlist here.
-  # Running on betty since 2026-11-25: allowed calls answer 200, create, exec,
+  # Verified on a production host 2026-11-25: allowed calls answer 200, create, exec,
   # images and /info answer 403.
   rh-docker-proxy:
     profiles: [control]
